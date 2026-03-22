@@ -1,36 +1,105 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# RE:Agent — Back Office Operations
 
-## Getting Started
+AI asistent pro správu realitní kanceláře. Odpovídá na dotazy v přirozeném jazyce, generuje grafy, navrhuje emaily a vytváří reporty nad daty z vaší kanceláře.
 
-First, run the development server:
+---
+
+## Screenshot
+
+> _Přidejte screenshot po prvním spuštění._
+
+---
+
+## Technologie
+
+| Vrstva | Technologie |
+|--------|-------------|
+| Framework | Next.js 14 (App Router) |
+| AI model | Claude Haiku 4.5 (`claude-haiku-4-5-20251001`) |
+| Grafy | Recharts |
+| Stylování | Tailwind CSS v3 + shadcn/ui |
+| Stav | Zustand |
+| Jazyk | TypeScript (strict) |
+
+---
+
+## Spuštění lokálně
 
 ```bash
+# 1. Klonování repozitáře
+git clone https://github.com/your-username/backoffice-agent.git
+cd backoffice-agent
+
+# 2. Instalace závislostí
+npm install
+
+# 3. Nastavení prostředí
+cp .env.example .env.local
+# Otevřete .env.local a doplňte váš Anthropic API klíč:
+# ANTHROPIC_API_KEY=sk-ant-...
+
+# 4. Spuštění vývojového serveru
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Aplikace bude dostupná na [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Nasazení na Vercel
 
-## Learn More
+1. Pushněte repozitář na GitHub
+2. Importujte projekt na [vercel.com](https://vercel.com)
+3. V nastavení projektu přidejte proměnnou prostředí:
+   - **Name:** `ANTHROPIC_API_KEY`
+   - **Value:** váš klíč z [console.anthropic.com](https://console.anthropic.com)
+4. Klikněte na **Deploy**
 
-To learn more about Next.js, take a look at the following resources:
+Soubor `vercel.json` je předkonfigurován — chat API route má `maxDuration: 60` sekund pro delší AI odpovědi.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Co agent umí
 
-## Deploy on Vercel
+- **Dotazy na data** — klienti, leady, nemovitosti, transakce s filtrováním a agregacemi
+- **Grafy** — sloupcové, čárové, plošné a koláčové grafy přímo v chatu
+- **Reporty** — týdenní/měsíční přehledy pro vedení s klíčovými metrikami
+- **Emailové návrhy** — agent napíše email zájemci nebo klientovi, vy ho jen zkopírujete
+- **Správa úkolů** — vytvoření úkolu s termínem a prioritou přes přirozený jazyk
+- **Monitoring trhu** — nastavení upozornění na nové nabídky v zadané lokalitě a cenové relaci
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Architektura
+
+```
+src/
+├── app/
+│   ├── api/              # Next.js API Routes (chat, dashboard, properties, clients, tasks)
+│   ├── chat/             # Chat stránka s AI asistentem
+│   ├── clients/          # Přehled klientů
+│   ├── monitoring/       # Nastavení monitoringu trhu
+│   ├── properties/       # Přehled nemovitostí
+│   └── tasks/            # Kanban board úkolů
+├── components/
+│   ├── chat/             # ChatMessages, MessageBubble, InlineChart, InlineTable, …
+│   ├── dashboard/        # KPICards, ChartsRow, RecentActivity, QuickActions
+│   └── layout/           # Sidebar, Header, MainWrapper
+├── data/                 # In-memory seed data (agenti, klienti, nemovitosti, …)
+├── lib/
+│   ├── agent/            # Orchestrátor, nástroje (tools), handlery
+│   ├── database.ts       # Singleton s 20 dotazovacími metodami nad seed daty
+│   ├── chat-store.ts     # Zustand store pro chat zprávy
+│   └── store.ts          # Zustand store pro sidebar a téma
+└── types/                # Sdílené TypeScript typy
+```
+
+Agent (`src/lib/agent/orchestrator.ts`) přijme zprávu, v cyklu volá až 14 nástrojů (paralelně přes `Promise.all`), sestaví odpověď a vrátí ji jako `AgentResponse` s textem, grafy, tabulkami a dalšími strukturovanými daty.
+
+---
+
+## Prostředí
+
+| Proměnná | Popis |
+|----------|-------|
+| `ANTHROPIC_API_KEY` | API klíč z [console.anthropic.com](https://console.anthropic.com) |

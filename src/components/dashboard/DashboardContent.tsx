@@ -34,7 +34,7 @@ export default function DashboardContent() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 p-4 md:p-6">
       {/* KPI row */}
       {data ? <KPICards stats={data.stats} /> : <KPICards.Skeleton />}
 

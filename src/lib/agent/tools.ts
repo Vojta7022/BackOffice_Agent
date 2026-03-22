@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk'
+import type { FunctionDeclaration } from '@google/genai'
 
 export type ToolName =
   | 'query_clients'
@@ -16,11 +16,11 @@ export type ToolName =
   | 'generate_presentation'
   | 'setup_monitoring'
 
-export const agentTools: Anthropic.Tool[] = [
+export const agentTools: FunctionDeclaration[] = [
   {
     name: 'query_clients',
     description: 'Search and filter clients. Use for questions about clients, sources, acquisition trends. User queries are typically in Czech.',
-    input_schema: {
+    parametersJsonSchema: {
       type: 'object',
       properties: {
         date_from: { type: 'string', description: 'ISO date, e.g. "2026-01-01"' },
@@ -34,13 +34,12 @@ export const agentTools: Anthropic.Tool[] = [
         quarter: { type: 'string', description: 'e.g. "Q1 2026" — returns clients grouped by source for that quarter' },
         group_by: { type: 'string', enum: ['source', 'type', 'month'] },
       },
-      required: [],
     },
   },
   {
     name: 'query_leads',
     description: 'Search and filter leads. Use for funnel analysis, conversion rates, lead volume trends.',
-    input_schema: {
+    parametersJsonSchema: {
       type: 'object',
       properties: {
         date_from: { type: 'string' },
@@ -53,13 +52,12 @@ export const agentTools: Anthropic.Tool[] = [
         months_back: { type: 'number', description: 'Return monthly counts for last N months' },
         group_by: { type: 'string', enum: ['month', 'status', 'type'] },
       },
-      required: [],
     },
   },
   {
     name: 'query_properties',
     description: 'Search and filter property listings. Use for portfolio questions, availability, pricing, location queries.',
-    input_schema: {
+    parametersJsonSchema: {
       type: 'object',
       properties: {
         city: { type: 'string', description: 'e.g. "Praha", "Brno"' },
@@ -70,13 +68,12 @@ export const agentTools: Anthropic.Tool[] = [
         price_max: { type: 'number', description: 'CZK' },
         search_query: { type: 'string', description: 'Full-text search across name, address, description' },
       },
-      required: [],
     },
   },
   {
     name: 'find_missing_data',
     description: 'Find properties with incomplete records (null renovation_status or construction_notes). Use when asked about data gaps.',
-    input_schema: {
+    parametersJsonSchema: {
       type: 'object',
       properties: {
         field: {
@@ -91,7 +88,7 @@ export const agentTools: Anthropic.Tool[] = [
   {
     name: 'query_transactions',
     description: 'Get sales and rental transaction data. Use for revenue, commission, deal volume questions.',
-    input_schema: {
+    parametersJsonSchema: {
       type: 'object',
       properties: {
         date_from: { type: 'string' },
@@ -101,31 +98,28 @@ export const agentTools: Anthropic.Tool[] = [
         months_back: { type: 'number', description: 'Return monthly summary for last N months' },
         group_by: { type: 'string', enum: ['month', 'type'] },
       },
-      required: [],
     },
   },
   {
     name: 'get_dashboard_metrics',
     description: 'Returns current KPIs: property counts, client totals, lead volume, revenue, month-over-month changes.',
-    input_schema: {
+    parametersJsonSchema: {
       type: 'object',
       properties: {},
-      required: [],
     },
   },
   {
     name: 'get_weekly_summary',
     description: 'Returns last 7 days summary: new leads, new clients, viewings, closed deals, revenue.',
-    input_schema: {
+    parametersJsonSchema: {
       type: 'object',
       properties: {},
-      required: [],
     },
   },
   {
     name: 'generate_chart',
     description: 'Renders a chart in the UI. Call this after querying data when a visual would help. Always provide meaningful title.',
-    input_schema: {
+    parametersJsonSchema: {
       type: 'object',
       properties: {
         chart_type: { type: 'string', enum: ['bar', 'line', 'pie', 'area'] },
@@ -152,7 +146,7 @@ export const agentTools: Anthropic.Tool[] = [
   {
     name: 'draft_email',
     description: 'Compose a professional email. Use when asked to write, send, or prepare an email to a client or partner.',
-    input_schema: {
+    parametersJsonSchema: {
       type: 'object',
       properties: {
         to: { type: 'string', description: 'Recipient name or email' },
@@ -166,12 +160,12 @@ export const agentTools: Anthropic.Tool[] = [
   {
     name: 'check_calendar',
     description: 'Check calendar availability for scheduling viewings, meetings, or calls.',
-    input_schema: {
+    parametersJsonSchema: {
       type: 'object',
       properties: {
         date_from: { type: 'string', description: 'ISO date, start of range' },
         date_to: { type: 'string', description: 'ISO date, end of range' },
-        duration_minutes: { type: 'number', default: 60, description: 'Duration of the event in minutes' },
+        duration_minutes: { type: 'number', description: 'Duration of the event in minutes' },
       },
       required: ['date_from', 'date_to'],
     },
@@ -179,7 +173,7 @@ export const agentTools: Anthropic.Tool[] = [
   {
     name: 'create_task',
     description: 'Create a new task for the team. Use when asked to add a to-do, reminder, or assign work.',
-    input_schema: {
+    parametersJsonSchema: {
       type: 'object',
       properties: {
         title: { type: 'string' },
@@ -196,11 +190,11 @@ export const agentTools: Anthropic.Tool[] = [
   {
     name: 'generate_report',
     description: 'Generate a structured summary report for a time period. Use when asked for weekly/monthly/quarterly overview.',
-    input_schema: {
+    parametersJsonSchema: {
       type: 'object',
       properties: {
         period: { type: 'string', enum: ['week', 'month', 'quarter'] },
-        format: { type: 'string', enum: ['text', 'structured'], default: 'structured' },
+        format: { type: 'string', enum: ['text', 'structured'] },
       },
       required: ['period'],
     },
@@ -208,7 +202,7 @@ export const agentTools: Anthropic.Tool[] = [
   {
     name: 'generate_presentation',
     description: 'Create a PowerPoint presentation. Use when asked to prepare a deck, slides, or presentation.',
-    input_schema: {
+    parametersJsonSchema: {
       type: 'object',
       properties: {
         topic: { type: 'string', description: 'Presentation subject' },
@@ -225,14 +219,14 @@ export const agentTools: Anthropic.Tool[] = [
   {
     name: 'setup_monitoring',
     description: 'Set up automated alerts for new listings matching criteria. Use when asked to monitor or watch for new properties.',
-    input_schema: {
+    parametersJsonSchema: {
       type: 'object',
       properties: {
         location: { type: 'string', description: 'City or district to monitor, e.g. "Praha 2"' },
         property_type: { type: 'string', enum: ['apartment', 'house', 'land', 'commercial', 'office'] },
         price_min: { type: 'number', description: 'CZK' },
         price_max: { type: 'number', description: 'CZK' },
-        frequency: { type: 'string', enum: ['daily', 'weekly'], default: 'daily' },
+        frequency: { type: 'string', enum: ['daily', 'weekly'] },
       },
       required: ['location'],
     },

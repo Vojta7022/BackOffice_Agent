@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk'
+import { GoogleGenAI } from '@google/genai'
 import { agentTools, ToolName } from './tools'
 import { handleToolCall, ToolResult } from './tool-handlers'
 
@@ -31,7 +31,7 @@ export interface AgentResponse {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const MODEL = 'claude-haiku-4-5-20251001'
+const MODEL = 'gemini-2.5-flash'
 const MAX_TOKENS = 2048
 const MAX_ITERATIONS = 5
 
@@ -87,90 +87,111 @@ function emptyResponse(message: string): AgentResponse {
   }
 }
 
+// ─── Gemini content helpers ───────────────────────────────────────────────────
+
+// We use loose types here because the Gemini Part type is a large union and
+// we only need a small subset. The API accepts these shapes correctly at runtime.
+type GeminiPart = Record<string, unknown>
+type GeminiContent = { role: 'user' | 'model'; parts: GeminiPart[] }
+
+function historyToGemini(history: HistoryMessage[]): GeminiContent[] {
+  return history.map(m => ({
+    role: m.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: m.content }],
+  }))
+}
+
 // ─── Main export ──────────────────────────────────────────────────────────────
 
 export async function processMessage(
   userMessage: string,
   conversationHistory: HistoryMessage[]
 ): Promise<AgentResponse> {
-  if (!process.env.ANTHROPIC_API_KEY) {
+  if (!process.env.GEMINI_API_KEY) {
     return emptyResponse(
-      'API klíč není nakonfigurován. Nastavte prosím proměnnou prostředí `ANTHROPIC_API_KEY`.'
+      'API klíč není nakonfigurován. Nastavte prosím proměnnou prostředí `GEMINI_API_KEY`.'
     )
   }
 
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
 
-  // Build message chain
-  const messages: Anthropic.MessageParam[] = [
-    ...trimHistory(conversationHistory),
-    { role: 'user', content: userMessage },
+  const contents: GeminiContent[] = [
+    ...historyToGemini(trimHistory(conversationHistory)),
+    { role: 'user', parts: [{ text: userMessage }] },
   ]
+
+  const geminiConfig = {
+    systemInstruction: SYSTEM_PROMPT,
+    tools: [{ functionDeclarations: agentTools }],
+    maxOutputTokens: MAX_TOKENS,
+  }
 
   // Accumulate all tool results for post-processing
   const allToolResults: ToolResult[] = []
-
-  let response: Anthropic.Message
   let iterations = 0
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let response: any
+
   try {
-    response = await client.messages.create({
+    response = await ai.models.generateContent({
       model: MODEL,
-      max_tokens: MAX_TOKENS,
-      system: SYSTEM_PROMPT,
-      tools: agentTools,
-      messages,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      contents: contents as any,
+      config: geminiConfig,
     })
 
     // ── Tool-use loop ───────────────────────────────────────────────────────
-    while (response.stop_reason === 'tool_use' && iterations < MAX_ITERATIONS) {
+    while (iterations < MAX_ITERATIONS) {
+      const parts: GeminiPart[] = response?.candidates?.[0]?.content?.parts ?? []
+      const fnCallParts = parts.filter(p => p.functionCall != null)
+
+      if (fnCallParts.length === 0) break
       iterations++
 
-      const toolUseBlocks = response.content.filter(
-        (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use'
-      )
-
-      console.log(`[Agent] Iteration ${iterations}/${MAX_ITERATIONS} — ${toolUseBlocks.length} tool(s)`)
+      console.log(`[Agent] Iteration ${iterations}/${MAX_ITERATIONS} — ${fnCallParts.length} tool(s)`)
 
       // Execute tools in parallel
-      const toolResultContents = await Promise.all(
-        toolUseBlocks.map(async (tool): Promise<Anthropic.ToolResultBlockParam> => {
-          console.log(`[Agent]  → ${tool.name}`, JSON.stringify(tool.input))
+      const fnResponseParts = await Promise.all(
+        fnCallParts.map(async (part): Promise<GeminiPart> => {
+          const fc = part.functionCall as { name?: string; args?: Record<string, unknown> }
+          const name = fc?.name ?? ''
+          const args = fc?.args ?? {}
+
+          console.log(`[Agent]  → ${name}`, JSON.stringify(args))
+
           try {
-            const result = await handleToolCall(
-              tool.name as ToolName,
-              tool.input as Record<string, unknown>
-            )
-            console.log(`[Agent]  ✓ ${tool.name}: ${result.summary}`)
+            const result = await handleToolCall(name as ToolName, args)
+            console.log(`[Agent]  ✓ ${name}: ${result.summary}`)
             allToolResults.push(result)
             return {
-              type: 'tool_result',
-              tool_use_id: tool.id,
-              content: JSON.stringify({ summary: result.summary, data: result.data }),
+              functionResponse: {
+                name,
+                response: { summary: result.summary, data: result.data },
+              },
             }
           } catch (err) {
             const msg = err instanceof Error ? err.message : String(err)
-            console.error(`[Agent]  ✗ ${tool.name}: ${msg}`)
+            console.error(`[Agent]  ✗ ${name}: ${msg}`)
             return {
-              type: 'tool_result',
-              tool_use_id: tool.id,
-              content: `Chyba nástroje: ${msg}`,
-              is_error: true,
+              functionResponse: {
+                name,
+                response: { error: `Chyba nástroje: ${msg}` },
+              },
             }
           }
         })
       )
 
-      // Append assistant turn + tool results and continue
-      messages.push({ role: 'assistant', content: response.content })
-      messages.push({ role: 'user', content: toolResultContents })
+      // Append model turn (with function call parts) and user turn (with results)
+      contents.push({ role: 'model', parts })
+      contents.push({ role: 'user', parts: fnResponseParts })
 
-      response = await client.messages.create({
+      response = await ai.models.generateContent({
         model: MODEL,
-        max_tokens: MAX_TOKENS,
-        system: SYSTEM_PROMPT,
-        tools: agentTools,
-        messages,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        contents: contents as any,
+        config: geminiConfig,
       })
     }
   } catch (err) {
@@ -180,9 +201,10 @@ export async function processMessage(
   }
 
   // ── Extract final text ──────────────────────────────────────────────────
-  const message = response.content
-    .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-    .map(b => b.text)
+  const finalParts: GeminiPart[] = response?.candidates?.[0]?.content?.parts ?? []
+  const message = finalParts
+    .filter(p => typeof p.text === 'string' && p.text)
+    .map(p => p.text as string)
     .join('\n')
     .trim()
 
@@ -205,7 +227,6 @@ export async function processMessage(
         break
 
       case 'table': {
-        // Detect structured report before generic table conversion
         if (isReportData(result.data)) {
           agentResponse.reportData = result.data
           break
