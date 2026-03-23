@@ -46,8 +46,13 @@ function TypeBadge({ type }: { type: PropertyType }) {
   )
 }
 
+function isRental(p: Property): boolean {
+  return p.status === 'rented' || p.price < 200_000
+}
+
 function PropertyCard({ property: p }: { property: Property }) {
   const missingData = p.type !== 'land' && (p.renovation_status === null || p.construction_notes === null)
+  const rental = isRental(p)
 
   return (
     <div className="group flex flex-col rounded-xl border border-border bg-card p-4 transition-all duration-150 hover:border-emerald-500/30 hover:bg-card/80">
@@ -65,10 +70,17 @@ function PropertyCard({ property: p }: { property: Property }) {
       <div className="flex flex-wrap gap-1.5 mb-3">
         <TypeBadge type={p.type} />
         <StatusBadge status={p.status} />
+        {rental && (
+          <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[11px] font-medium text-blue-400">
+            Pronájem
+          </span>
+        )}
       </div>
 
       <div className="mt-auto space-y-1">
-        <p className="text-base font-semibold text-foreground">{formatCZK(p.price)}</p>
+        <p className="text-base font-semibold text-foreground">
+          {formatCZK(p.price)}{rental ? <span className="text-xs font-normal text-muted-foreground"> / měsíc</span> : null}
+        </p>
         <div className="flex gap-3 text-xs text-muted-foreground">
           <span>{p.area_sqm} m²</span>
           {p.rooms !== null && <span>{p.rooms} pokoje</span>}

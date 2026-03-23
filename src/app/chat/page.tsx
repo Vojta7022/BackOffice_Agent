@@ -47,6 +47,7 @@ function ChatPageInner() {
         monitoringSet: null,
         presentationData: null,
         reportData: null,
+        toolCallLog: [],
       })
     } finally {
       setLoading(false)

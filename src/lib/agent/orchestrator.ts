@@ -18,6 +18,11 @@ export interface TableData {
   rows: string[][]
 }
 
+export interface ToolCallLogEntry {
+  name: string
+  timestamp: number
+}
+
 export interface AgentResponse {
   message: string
   charts: ChartConfig[]
@@ -27,6 +32,7 @@ export interface AgentResponse {
   monitoringSet: unknown | null
   presentationData: unknown | null
   reportData: unknown | null
+  toolCallLog: ToolCallLogEntry[]
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -36,11 +42,12 @@ const MAX_TOKENS = 2048
 const MAX_ITERATIONS = 5
 
 const SYSTEM_PROMPT =
-  'Jsi back-office asistent české realitní firmy. Odpovídej česky. ' +
-  'Používej nástroje pro získání dat — nehádej. ' +
-  'Formátuj čísla v CZK. Datumy ve formátu DD.MM.YYYY. ' +
-  'Navrhuj další kroky. ' +
-  'Pokud uživatel chce graf, použij generate_chart s daty z jiného nástroje.'
+  'Jsi back-office asistent české realitní firmy RE:Agent. Odpovídej česky. ' +
+  'Vždy používej nástroje pro získání dat — nehádej. ' +
+  'Když uživatel chce graf, VŽDY nejdřív zavolej datový nástroj (query_clients, query_leads, query_transactions) ' +
+  'a pak IHNED zavolej generate_chart s konkrétními čísly z výsledku. ' +
+  'Formátuj částky v CZK (např. 8,5 mil. CZK). Datumy ve formátu DD.MM.YYYY. ' +
+  'Po každé odpovědi navrhni 1-2 další kroky.'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -84,6 +91,7 @@ function emptyResponse(message: string): AgentResponse {
     monitoringSet: null,
     presentationData: null,
     reportData: null,
+    toolCallLog: [],
   }
 }
 
@@ -126,8 +134,9 @@ export async function processMessage(
     maxOutputTokens: MAX_TOKENS,
   }
 
-  // Accumulate all tool results for post-processing
+  // Accumulate all tool results and call log for post-processing
   const allToolResults: ToolResult[] = []
+  const toolCallLog: ToolCallLogEntry[] = []
   let iterations = 0
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -164,6 +173,7 @@ export async function processMessage(
             const result = await handleToolCall(name as ToolName, args)
             console.log(`[Agent]  ✓ ${name}: ${result.summary}`)
             allToolResults.push(result)
+            toolCallLog.push({ name, timestamp: Date.now() })
             return {
               functionResponse: {
                 name,
@@ -218,6 +228,7 @@ export async function processMessage(
     monitoringSet: null,
     presentationData: null,
     reportData: null,
+    toolCallLog,
   }
 
   for (const result of allToolResults) {

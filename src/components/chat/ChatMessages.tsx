@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { Building2 } from 'lucide-react'
+import { Building2, Plus } from 'lucide-react'
 import { useChatStore } from '@/lib/chat-store'
 import MessageBubble from './MessageBubble'
 import TypingIndicator from './TypingIndicator'
@@ -51,7 +51,7 @@ function WelcomeScreen({ onSend }: { onSend: (msg: string) => void }) {
 }
 
 export default function ChatMessages({ onSend }: ChatMessagesProps) {
-  const { messages, isLoading } = useChatStore()
+  const { messages, isLoading, clearMessages } = useChatStore()
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -63,8 +63,17 @@ export default function ChatMessages({ onSend }: ChatMessagesProps) {
   }
 
   return (
-    <div className="flex flex-1 flex-col overflow-y-auto px-4 py-4">
-      <div className="mx-auto w-full max-w-3xl space-y-4">
+    <div className="relative flex flex-1 flex-col overflow-y-auto px-4 py-4">
+      {/* New chat button — top-right corner */}
+      <button
+        onClick={clearMessages}
+        className="absolute right-4 top-3 z-10 flex items-center gap-1.5 rounded-lg border border-border bg-card/80 px-2.5 py-1.5 text-xs text-muted-foreground backdrop-blur-sm transition-all hover:border-emerald-500/40 hover:text-emerald-400"
+      >
+        <Plus className="h-3.5 w-3.5" />
+        Nový chat
+      </button>
+
+      <div className="mx-auto w-full max-w-3xl space-y-4 pt-8">
         {messages.map((msg) => (
           <MessageBubble key={msg.id} message={msg} />
         ))}

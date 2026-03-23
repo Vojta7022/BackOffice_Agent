@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 import {
   Building2,
@@ -13,9 +13,11 @@ import {
   Bell,
   ChevronLeft,
   ChevronRight,
+  Plus,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/lib/store'
+import { useChatStore } from '@/lib/chat-store'
 
 const navItems = [
   { href: '/',            label: 'Dashboard',       icon: LayoutDashboard },
@@ -28,7 +30,14 @@ const navItems = [
 
 export default function Sidebar() {
   const pathname = usePathname()
+  const router = useRouter()
   const { sidebarOpen, toggleSidebar, setSidebarOpen } = useAppStore()
+  const clearMessages = useChatStore(s => s.clearMessages)
+
+  const handleNewChat = () => {
+    clearMessages()
+    router.push('/chat')
+  }
 
   // Collapse by default on mobile
   useEffect(() => {
@@ -76,6 +85,22 @@ export default function Sidebar() {
               </span>
             </div>
           )}
+        </div>
+
+        {/* New chat button */}
+        <div className="px-2 pt-3 pb-1">
+          <button
+            onClick={handleNewChat}
+            className={cn(
+              'flex w-full items-center gap-2.5 rounded-lg border border-emerald-500/40 px-3 py-2',
+              'text-emerald-400 transition-all duration-150',
+              'hover:bg-emerald-500/10 hover:border-emerald-500/60',
+              !sidebarOpen && 'justify-center px-0',
+            )}
+          >
+            <Plus className="h-4 w-4 shrink-0" />
+            {sidebarOpen && <span className="text-sm font-medium">Nový chat</span>}
+          </button>
         </div>
 
         {/* Navigation */}

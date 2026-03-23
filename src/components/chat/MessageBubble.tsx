@@ -1,16 +1,57 @@
 'use client'
 
 import ReactMarkdown from 'react-markdown'
-import { CheckCircle2, Bell, FileText, Presentation } from 'lucide-react'
+import { CheckCircle2, Bell, FileText, Presentation, Wrench, Download } from 'lucide-react'
 import InlineChart from './InlineChart'
 import InlineTable from './InlineTable'
 import EmailDraftCard from './EmailDraftCard'
 import type { ChatMessage } from '@/lib/chat-store'
-import type { ChartConfig } from '@/lib/agent/orchestrator'
+import type { ChartConfig, ToolCallLogEntry } from '@/lib/agent/orchestrator'
+import { generatePPTX } from '@/lib/exports/generate-pptx'
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })
 }
+
+// ─── Czech tool labels ─────────────────────────────────────────────────────
+
+const TOOL_LABELS: Record<string, string> = {
+  query_clients: 'Vyhledávání klientů',
+  query_leads: 'Analýza leadů',
+  query_properties: 'Prohledávání nemovitostí',
+  query_transactions: 'Analýza transakcí',
+  find_missing_data: 'Hledání chybějících dat',
+  generate_chart: 'Tvorba grafu',
+  draft_email: 'Příprava emailu',
+  check_calendar: 'Kontrola kalendáře',
+  create_task: 'Vytváření úkolu',
+  generate_report: 'Generování reportu',
+  generate_presentation: 'Příprava prezentace',
+  setup_monitoring: 'Nastavení monitoringu',
+  get_dashboard_metrics: 'Načítání metrik',
+  get_weekly_summary: 'Týdenní přehled',
+}
+
+// ─── ThinkingSteps ────────────────────────────────────────────────────────
+
+function ThinkingSteps({ steps }: { steps: ToolCallLogEntry[] }) {
+  if (!steps.length) return null
+  return (
+    <div className="mb-3 flex flex-wrap gap-1.5">
+      {steps.map((step, i) => (
+        <span
+          key={i}
+          className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/5 px-2.5 py-1 text-[11px] text-emerald-400/80"
+        >
+          <Wrench className="h-2.5 w-2.5" />
+          {TOOL_LABELS[step.name] ?? step.name}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+// ─── Rich content cards ────────────────────────────────────────────────────
 
 function TaskCreatedCard({ task }: { task: Record<string, unknown> }) {
   return (
@@ -103,6 +144,17 @@ function ReportCard({ report }: { report: Record<string, unknown> }) {
 
 function PresentationCard({ data }: { data: Record<string, unknown> }) {
   const slides = (data.slides as { title: string; content: string[] }[]) ?? []
+
+  async function handleDownload() {
+    const blob = await generatePPTX({ topic: String(data.topic ?? ''), slides })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${String(data.topic ?? 'prezentace')}.pptx`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <div className="mt-3 rounded-xl border border-border bg-muted/30 overflow-hidden">
       <div className="border-b border-border px-4 py-2.5 flex items-center gap-2">
@@ -127,14 +179,19 @@ function PresentationCard({ data }: { data: Record<string, unknown> }) {
         )}
       </div>
       <div className="border-t border-border/50 px-4 py-2">
-        <button className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors">
-          <FileText className="h-3.5 w-3.5" />
+        <button
+          onClick={handleDownload}
+          className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors"
+        >
+          <Download className="h-3.5 w-3.5" />
           Stáhnout PPTX
         </button>
       </div>
     </div>
   )
 }
+
+// ─── Main component ────────────────────────────────────────────────────────
 
 export default function MessageBubble({ message }: { message: ChatMessage }) {
   const isUser = message.role === 'user'
@@ -158,6 +215,11 @@ export default function MessageBubble({ message }: { message: ChatMessage }) {
     <div className="flex justify-start">
       <div className="max-w-[85%]">
         <div className="rounded-2xl rounded-tl-sm border border-border bg-card px-4 py-3">
+          {/* Thinking steps */}
+          {message.toolCallLog && message.toolCallLog.length > 0 && (
+            <ThinkingSteps steps={message.toolCallLog} />
+          )}
+
           {/* Markdown text */}
           <div className="prose prose-sm prose-invert max-w-none text-foreground/90
             [&_p]:leading-relaxed [&_p]:mb-2 last:[&_p]:mb-0
