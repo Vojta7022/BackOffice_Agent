@@ -27,9 +27,9 @@ const SOURCE_LABELS: Record<ClientSource, string> = {
 }
 
 const STATUS_COLORS: Record<ClientStatus, string> = {
-  active: 'bg-emerald-500/15 text-emerald-400',
-  inactive: 'bg-amber-500/15 text-amber-400',
-  closed: 'bg-slate-500/15 text-slate-400',
+  active: 'bg-primary/10 text-primary',
+  inactive: 'bg-amber-500/15 text-amber-500',
+  closed: 'bg-muted text-muted-foreground',
 }
 
 const STATUS_LABELS: Record<ClientStatus, string> = {
@@ -39,10 +39,10 @@ const STATUS_LABELS: Record<ClientStatus, string> = {
 }
 
 const TYPE_COLORS: Record<ClientType, string> = {
-  buyer: 'bg-blue-500/15 text-blue-400',
-  seller: 'bg-purple-500/15 text-purple-400',
-  investor: 'bg-emerald-500/15 text-emerald-400',
-  tenant: 'bg-orange-500/15 text-orange-400',
+  buyer: 'bg-primary/10 text-primary',
+  seller: 'bg-violet-500/15 text-violet-500',
+  investor: 'bg-primary/10 text-primary',
+  tenant: 'bg-amber-500/15 text-amber-500',
 }
 
 function initials(name: string) {
@@ -53,10 +53,10 @@ function initials(name: string) {
 
 function ClientRow({ client: c }: { client: Client }) {
   return (
-    <tr className="group border-b border-border/50 transition-colors hover:bg-white/[0.02]">
+    <tr className="group border-b border-border/60 transition-colors even:bg-muted/15 hover:bg-muted/30">
       <td className="py-3 px-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400/20 to-teal-600/20 text-[11px] font-semibold text-emerald-400">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500/15 to-violet-500/20 text-[11px] font-semibold text-primary">
             {initials(c.name)}
           </div>
           <div className="min-w-0">
@@ -71,7 +71,7 @@ function ClientRow({ client: c }: { client: Client }) {
         </span>
       </td>
       <td className="py-3 px-4 hidden md:table-cell">
-        <span className="rounded-full bg-white/5 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+        <span className="rounded-full bg-muted/70 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
           {SOURCE_LABELS[c.source]}
         </span>
       </td>
@@ -151,22 +151,20 @@ export default function ClientsPage() {
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6">
-      {/* Stats bar */}
       <div className="flex flex-wrap items-center gap-4">
-        <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5">
-          <Users className="h-4 w-4 text-emerald-400" />
+        <div className="surface-card flex items-center gap-2 px-4 py-2.5">
+          <Users className="h-4 w-4 text-primary" />
           <span className="text-sm font-semibold text-foreground">{total}</span>
           <span className="text-xs text-muted-foreground">klientů celkem</span>
         </div>
         {!loading && (
-          <div className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-4 py-2.5">
-            <span className="text-sm font-semibold text-emerald-400">{activeCount}</span>
-            <span className="text-xs text-emerald-400/70">aktivních</span>
+          <div className="flex items-center gap-2 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-2.5 shadow-sm dark:shadow-none">
+            <span className="text-sm font-semibold text-primary">{activeCount}</span>
+            <span className="text-xs text-primary/70">aktivních</span>
           </div>
         )}
       </div>
 
-      {/* Search + filters */}
       <div className="flex flex-wrap gap-3">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -175,14 +173,13 @@ export default function ClientsPage() {
             onChange={e => setSearch(e.target.value)}
             placeholder="Hledat klienty…"
             className={cn(
-              'w-full rounded-xl border border-border bg-card pl-9 pr-4 py-2 text-sm',
+              'control-focus w-full rounded-2xl border border-border bg-card pl-9 pr-4 py-2.5 text-sm shadow-sm dark:shadow-none',
               'text-foreground placeholder:text-muted-foreground/50',
-              'outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 transition-colors',
             )}
           />
         </div>
 
-        <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2">
+        <div className="flex items-center gap-2 rounded-2xl border border-border bg-card px-3 py-2 shadow-sm dark:shadow-none">
           <SlidersHorizontal className="h-4 w-4 text-muted-foreground shrink-0" />
           <select
             value={status}
@@ -199,7 +196,7 @@ export default function ClientsPage() {
         <select
           value={type}
           onChange={e => setType(e.target.value as ClientType | '')}
-          className="rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-emerald-500/50 transition-colors"
+          className="control-focus rounded-2xl border border-border bg-card px-3 py-2 text-sm text-foreground shadow-sm dark:shadow-none"
         >
           <option value="">Všechny typy</option>
           <option value="buyer">Kupující</option>
@@ -209,12 +206,11 @@ export default function ClientsPage() {
         </select>
       </div>
 
-      {/* Table */}
-      <div className="rounded-xl border border-border bg-card overflow-hidden">
+      <div className="surface-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-border bg-muted/20">
+              <tr className="border-b border-border bg-muted/40">
                 <th className="py-3 px-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Klient</th>
                 <th className="py-3 px-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden sm:table-cell">Typ</th>
                 <th className="py-3 px-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden md:table-cell">Zdroj</th>
@@ -233,7 +229,7 @@ export default function ClientsPage() {
                   <td colSpan={6} className="py-20 text-center">
                     <Users className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
                     <p className="text-sm font-medium text-muted-foreground">Žádní klienti nenalezeni</p>
-                    <p className="text-xs text-muted-foreground/60 mt-1">Zkuste upravit filtry</p>
+                    <p className="mt-1 text-xs text-muted-foreground/60">Zkuste upravit filtry</p>
                   </td>
                 </tr>
               )}

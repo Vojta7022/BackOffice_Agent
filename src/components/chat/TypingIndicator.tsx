@@ -15,7 +15,7 @@ export default function TypingIndicator() {
           width: 6px;
           height: 6px;
           border-radius: 50%;
-          background: #10b981;
+          background: var(--primary);
           animation: typing-bounce 1s ease-in-out infinite;
         }
         @keyframes typing-bounce {

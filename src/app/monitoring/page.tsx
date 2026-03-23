@@ -59,7 +59,7 @@ function FilterPills({ filters }: { filters: MonitoringRule['filters'] }) {
   return (
     <div className="flex flex-wrap gap-1.5 mt-2">
       {pills.map(p => (
-        <span key={p} className="rounded-full bg-white/5 px-2 py-0.5 text-[11px] text-muted-foreground">{p}</span>
+        <span key={p} className="rounded-full bg-muted/70 px-2 py-0.5 text-[11px] text-muted-foreground">{p}</span>
       ))}
     </div>
   )
@@ -68,13 +68,13 @@ function FilterPills({ filters }: { filters: MonitoringRule['filters'] }) {
 function RuleCard({ rule }: { rule: typeof EXAMPLE_RULES[0] }) {
   return (
     <div className={cn(
-      'rounded-xl border bg-card p-4 transition-all duration-150',
-      rule.active ? 'border-emerald-500/30' : 'border-border opacity-60',
+      'surface-card p-4 transition-all duration-200',
+      rule.active ? 'border-primary/20' : 'opacity-70',
     )}>
       <div className="flex items-start gap-3">
         <div className={cn(
-          'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
-          rule.active ? 'bg-emerald-500/10 text-emerald-400' : 'bg-muted/40 text-muted-foreground',
+          'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl',
+          rule.active ? 'bg-primary/10 text-primary' : 'bg-muted/60 text-muted-foreground',
         )}>
           <Bell className="h-4 w-4" />
         </div>
@@ -83,7 +83,7 @@ function RuleCard({ rule }: { rule: typeof EXAMPLE_RULES[0] }) {
             <p className="text-sm font-semibold text-foreground truncate">{rule.location}</p>
             <span className={cn(
               'rounded-full px-2 py-0.5 text-[11px] font-medium shrink-0',
-              rule.active ? 'bg-emerald-500/15 text-emerald-400' : 'bg-slate-500/15 text-slate-400',
+              rule.active ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground',
             )}>
               {rule.active ? 'Aktivní' : 'Pozastaveno'}
             </span>
@@ -104,7 +104,6 @@ function RuleCard({ rule }: { rule: typeof EXAMPLE_RULES[0] }) {
 export default function MonitoringPage() {
   return (
     <div className="flex flex-col gap-8 p-4 md:p-6 max-w-4xl">
-      {/* Header section */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div className="flex-1">
           <p className="text-sm text-muted-foreground">
@@ -114,9 +113,7 @@ export default function MonitoringPage() {
         <Link
           href="/chat"
           className={cn(
-            'inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium',
-            'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20',
-            'hover:bg-emerald-600 transition-colors',
+            'button-smooth inline-flex items-center gap-2 rounded-2xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90 dark:shadow-none',
           )}
         >
           <Plus className="h-4 w-4" />
@@ -124,11 +121,10 @@ export default function MonitoringPage() {
         </Link>
       </div>
 
-      {/* Info banner */}
-      <div className="flex items-start gap-3 rounded-xl border border-blue-500/20 bg-blue-500/5 p-4">
-        <Zap className="h-5 w-5 text-blue-400 shrink-0 mt-0.5" />
+      <div className="flex items-start gap-3 rounded-2xl border border-violet-500/20 bg-violet-500/5 p-4 shadow-sm dark:shadow-none">
+        <Zap className="mt-0.5 h-5 w-5 shrink-0 text-violet-500" />
         <div>
-          <p className="text-sm font-semibold text-blue-400 mb-1">Jak to funguje</p>
+          <p className="mb-1 text-sm font-semibold text-violet-500">Jak to funguje</p>
           <p className="text-sm text-muted-foreground leading-relaxed">
             Popište agentovi, co chcete sledovat — lokalitu, typ nemovitosti, cenové rozmezí, počet pokojů.
             Agent nastaví monitoring a bude vás informovat o nových nabídkách odpovídajících vašim kritériím.
@@ -136,7 +132,6 @@ export default function MonitoringPage() {
         </div>
       </div>
 
-      {/* Quick prompts */}
       <div>
         <p className="mb-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Rychlé akce</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -145,18 +140,16 @@ export default function MonitoringPage() {
               key={prompt}
               href={`/chat?prompt=${encodeURIComponent(prompt)}`}
               className={cn(
-                'flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3',
-                'hover:border-emerald-500/40 hover:bg-card/80 transition-all duration-150 group',
+                'group flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/20 dark:shadow-none',
               )}
             >
-              <MessageSquare className="h-4 w-4 text-muted-foreground group-hover:text-emerald-400 transition-colors shrink-0" />
-              <span className="text-sm text-foreground/80 group-hover:text-foreground transition-colors">{prompt}</span>
+              <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" />
+              <span className="text-sm text-foreground/85 transition-colors group-hover:text-foreground">{prompt}</span>
             </Link>
           ))}
         </div>
       </div>
 
-      {/* Example rules */}
       <div>
         <div className="flex items-center justify-between mb-3">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Příklad pravidel</p>
@@ -169,20 +162,19 @@ export default function MonitoringPage() {
         </div>
       </div>
 
-      {/* CTA block */}
-      <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-6 text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-500 mx-auto mb-4">
+      <div className="rounded-2xl border border-primary/20 bg-primary/5 p-6 text-center shadow-sm dark:shadow-none">
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
           <MapPin className="h-6 w-6" />
         </div>
-        <h3 className="text-base font-semibold text-foreground mb-2">
+        <h3 className="mb-2 text-base font-semibold text-foreground">
           Nastavte svůj první monitoring
         </h3>
-        <p className="text-sm text-muted-foreground mb-4 max-w-sm mx-auto">
+        <p className="mx-auto mb-4 max-w-sm text-sm text-muted-foreground">
           Řekněte agentovi, jaký trh chcete sledovat, a my se postaráme o zbytek.
         </p>
         <Link
           href="/chat?prompt=Nastav%20monitoring%20nov%C3%BDch%20nab%C3%ADdek%20v%20Praze"
-          className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-colors"
+          className="button-smooth inline-flex items-center gap-2 rounded-2xl bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90 dark:shadow-none"
         >
           <Bell className="h-4 w-4" />
           Spustit chat

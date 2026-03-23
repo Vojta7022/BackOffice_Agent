@@ -27,7 +27,7 @@ export default function DashboardContent() {
 
   if (error) {
     return (
-      <div className="flex h-48 items-center justify-center rounded-xl border border-red-500/30 bg-red-500/5 text-sm text-red-400">
+      <div className="mx-4 mt-4 flex h-48 items-center justify-center rounded-2xl border border-red-500/30 bg-red-500/5 text-sm text-red-500 md:mx-6">
         Chyba při načítání dat: {error}
       </div>
     )

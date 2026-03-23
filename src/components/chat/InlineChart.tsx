@@ -10,14 +10,20 @@ import {
 } from 'recharts'
 import type { ChartConfig } from '@/lib/agent/orchestrator'
 
-const TICK = { fill: '#94a3b8', fontSize: 11 }
+const TICK = { fill: 'var(--muted-foreground)', fontSize: 11 }
 const TOOLTIP_STYLE = {
-  contentStyle: { background: '#111827', border: '1px solid #1e293b', borderRadius: 8, fontSize: 12 },
-  labelStyle: { color: '#94a3b8' },
-  itemStyle: { color: '#e2e8f0' },
-  cursor: { fill: 'rgba(255,255,255,0.04)' },
+  contentStyle: {
+    backgroundColor: 'var(--popover)',
+    border: '1px solid var(--border)',
+    borderRadius: 16,
+    fontSize: 12,
+    boxShadow: '0 10px 24px rgba(15, 23, 42, 0.08)',
+  },
+  labelStyle: { color: 'var(--muted-foreground)' },
+  itemStyle: { color: 'var(--foreground)' },
+  cursor: { fill: 'rgb(var(--muted-rgb) / 0.35)' },
 }
-const PIE_COLORS = ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#06b6d4', '#84cc16']
+const PIE_COLORS = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)', 'var(--chart-5)', '#06b6d4', '#14b8a6']
 
 function hasSecondary(data: ChartConfig['data']) {
   return data.some(d => d.secondary_value !== undefined)
@@ -44,7 +50,7 @@ function ChartBody({ config }: { config: ChartConfig }) {
             ))}
           </Pie>
           <Tooltip {...TOOLTIP_STYLE} />
-          <Legend formatter={(v) => <span style={{ color: '#94a3b8', fontSize: 11 }}>{v}</span>} />
+          <Legend formatter={(v) => <span style={{ color: 'var(--muted-foreground)', fontSize: 11 }}>{v}</span>} />
         </PieChart>
       </ResponsiveContainer>
     )
@@ -57,9 +63,9 @@ function ChartBody({ config }: { config: ChartConfig }) {
           <XAxis dataKey="label" tick={TICK} axisLine={false} tickLine={false} />
           <YAxis tick={TICK} axisLine={false} tickLine={false} />
           <Tooltip {...TOOLTIP_STYLE} />
-          <Line type="monotone" dataKey="value" stroke="#10b981" strokeWidth={2}
+          <Line type="monotone" dataKey="value" stroke="var(--chart-1)" strokeWidth={2}
             dot={false} activeDot={{ r: 4 }} isAnimationActive />
-          {dual && <Line type="monotone" dataKey="secondary" stroke="#3b82f6" strokeWidth={2}
+          {dual && <Line type="monotone" dataKey="secondary" stroke="var(--chart-2)" strokeWidth={2}
             dot={false} activeDot={{ r: 4 }} isAnimationActive />}
         </LineChart>
       </ResponsiveContainer>
@@ -72,22 +78,22 @@ function ChartBody({ config }: { config: ChartConfig }) {
         <AreaChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
           <defs>
             <linearGradient id="areaFill1" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#10b981" stopOpacity={0.25} />
-              <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
+              <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.3} />
+              <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={0} />
             </linearGradient>
             {dual && (
               <linearGradient id="areaFill2" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.2} />
-                <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
+                <stop offset="0%" stopColor="var(--chart-2)" stopOpacity={0.25} />
+                <stop offset="100%" stopColor="var(--chart-2)" stopOpacity={0} />
               </linearGradient>
             )}
           </defs>
           <XAxis dataKey="label" tick={TICK} axisLine={false} tickLine={false} />
           <YAxis tick={TICK} axisLine={false} tickLine={false} />
           <Tooltip {...TOOLTIP_STYLE} />
-          <Area type="monotone" dataKey="value" stroke="#10b981" strokeWidth={2}
+          <Area type="monotone" dataKey="value" stroke="var(--chart-1)" strokeWidth={2}
             fill="url(#areaFill1)" dot={false} isAnimationActive />
-          {dual && <Area type="monotone" dataKey="secondary" stroke="#3b82f6" strokeWidth={2}
+          {dual && <Area type="monotone" dataKey="secondary" stroke="var(--chart-2)" strokeWidth={2}
             fill="url(#areaFill2)" dot={false} isAnimationActive />}
         </AreaChart>
       </ResponsiveContainer>
@@ -101,8 +107,8 @@ function ChartBody({ config }: { config: ChartConfig }) {
         <XAxis dataKey="label" tick={TICK} axisLine={false} tickLine={false} />
         <YAxis tick={TICK} axisLine={false} tickLine={false} />
         <Tooltip {...TOOLTIP_STYLE} />
-        <Bar dataKey="value" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={48} isAnimationActive />
-        {dual && <Bar dataKey="secondary" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={48} isAnimationActive />}
+        <Bar dataKey="value" fill="var(--chart-1)" radius={[8, 8, 0, 0]} maxBarSize={48} isAnimationActive />
+        {dual && <Bar dataKey="secondary" fill="var(--chart-2)" radius={[8, 8, 0, 0]} maxBarSize={48} isAnimationActive />}
       </BarChart>
     </ResponsiveContainer>
   )
@@ -110,7 +116,7 @@ function ChartBody({ config }: { config: ChartConfig }) {
 
 export default function InlineChart({ config }: { config: ChartConfig }) {
   return (
-    <div className="mt-3 rounded-xl border border-border bg-muted/30 p-4">
+    <div className="surface-muted mt-3 p-4">
       <p className="mb-3 text-sm font-semibold text-foreground">{config.title}</p>
       <ChartBody config={config} />
     </div>

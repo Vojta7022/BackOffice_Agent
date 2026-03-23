@@ -17,16 +17,16 @@ function downloadCsv(table: TableData) {
 
 export default function InlineTable({ table }: { table: TableData }) {
   return (
-    <div className="mt-3 overflow-hidden rounded-xl border border-border bg-muted/30">
-      <div className="border-b border-border px-4 py-2.5 flex items-center gap-2">
+    <div className="surface-muted mt-3 overflow-hidden">
+      <div className="flex items-center gap-2 border-b border-border bg-primary/5 px-4 py-2.5">
         {table.title && (
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex-1">
+          <p className="flex-1 text-xs font-semibold uppercase tracking-wide text-primary">
             {table.title}
           </p>
         )}
         <button
           onClick={() => downloadCsv(table)}
-          className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-medium bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground transition-colors"
+          className="button-smooth flex items-center gap-1 rounded-xl border border-primary/20 bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary hover:bg-primary/15"
         >
           <Download className="h-3 w-3" />
           Stáhnout CSV
@@ -35,9 +35,9 @@ export default function InlineTable({ table }: { table: TableData }) {
       <ScrollArea className="max-h-[360px]">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-border">
+            <tr className="border-b border-border bg-card/50">
               {table.headers.map((h) => (
-                <th key={h} className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground">
+                <th key={h} className="px-4 py-2 text-left text-xs font-semibold text-primary">
                   {h}
                 </th>
               ))}
@@ -45,9 +45,9 @@ export default function InlineTable({ table }: { table: TableData }) {
           </thead>
           <tbody>
             {table.rows.map((row, ri) => (
-              <tr key={ri} className="border-b border-border/50 last:border-0 hover:bg-white/5 transition-colors">
+              <tr key={ri} className="border-b border-border/60 transition-colors even:bg-muted/20 hover:bg-muted/40 last:border-0">
                 {row.map((cell, ci) => (
-                  <td key={ci} className="px-4 py-2 text-xs text-foreground/90 max-w-[200px] truncate">
+                  <td key={ci} className="max-w-[200px] truncate px-4 py-2 text-xs text-foreground/90">
                     {cell}
                   </td>
                 ))}
@@ -56,7 +56,7 @@ export default function InlineTable({ table }: { table: TableData }) {
           </tbody>
         </table>
       </ScrollArea>
-      <div className="border-t border-border/50 px-4 py-1.5">
+      <div className="border-t border-border px-4 py-1.5">
         <p className="text-[11px] text-muted-foreground">{table.rows.length} záznamů</p>
       </div>
     </div>

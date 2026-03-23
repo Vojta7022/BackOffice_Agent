@@ -30,14 +30,14 @@ export default function QuickActions() {
           key={label}
           href={href}
           className={cn(
-            'group flex flex-col items-center gap-2 rounded-xl border px-4 py-4',
-            'text-sm font-medium transition-all duration-150',
+            'group flex flex-col items-center gap-2 rounded-2xl border px-4 py-4 text-sm font-medium',
+            'button-smooth shadow-sm dark:shadow-none',
             highlight
-              ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20'
-              : 'border-border bg-card text-muted-foreground hover:border-emerald-500/30 hover:bg-muted hover:text-foreground',
+              ? 'border-primary bg-primary text-primary-foreground hover:bg-primary/90'
+              : 'border-border bg-card text-muted-foreground hover:-translate-y-0.5 hover:border-primary/20 hover:bg-card hover:text-foreground',
           )}
         >
-          <Icon className={cn('h-5 w-5 transition-transform duration-150 group-hover:scale-110', highlight && 'text-emerald-400')} />
+          <Icon className={cn('h-5 w-5 transition-transform duration-200 group-hover:scale-110', highlight ? 'text-primary-foreground' : 'group-hover:text-primary')} />
           {label}
         </Link>
       ))}

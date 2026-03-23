@@ -24,10 +24,10 @@ const STATUS_LABELS: Record<PropertyStatus, string> = {
 }
 
 const STATUS_COLORS: Record<PropertyStatus, string> = {
-  available: 'bg-emerald-500/15 text-emerald-400',
-  reserved: 'bg-amber-500/15 text-amber-400',
-  sold: 'bg-slate-500/15 text-slate-400',
-  rented: 'bg-blue-500/15 text-blue-400',
+  available: 'bg-primary/10 text-primary',
+  reserved: 'bg-amber-500/15 text-amber-500',
+  sold: 'bg-muted text-muted-foreground',
+  rented: 'bg-violet-500/15 text-violet-500',
 }
 
 function StatusBadge({ status }: { status: PropertyStatus }) {
@@ -40,7 +40,7 @@ function StatusBadge({ status }: { status: PropertyStatus }) {
 
 function TypeBadge({ type }: { type: PropertyType }) {
   return (
-    <span className="rounded-full bg-white/5 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+    <span className="rounded-full bg-muted/70 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
       {TYPE_LABELS[type]}
     </span>
   )
@@ -55,11 +55,11 @@ function PropertyCard({ property: p }: { property: Property }) {
   const rental = isRental(p)
 
   return (
-    <div className="group flex flex-col rounded-xl border border-border bg-card p-4 transition-all duration-150 hover:border-emerald-500/30 hover:bg-card/80">
+    <div className="surface-card group flex flex-col p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/20">
       <div className="flex items-start justify-between gap-2 mb-3">
         <h3 className="text-sm font-semibold text-foreground leading-tight line-clamp-2">{p.name}</h3>
         {missingData && (
-          <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400" aria-label="Chybějící data" />
+          <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" aria-label="Chybějící data" />
         )}
       </div>
 
@@ -71,7 +71,7 @@ function PropertyCard({ property: p }: { property: Property }) {
         <TypeBadge type={p.type} />
         <StatusBadge status={p.status} />
         {rental && (
-          <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[11px] font-medium text-blue-400">
+          <span className="rounded-full bg-violet-500/15 px-2 py-0.5 text-[11px] font-medium text-violet-500">
             Pronájem
           </span>
         )}
@@ -95,7 +95,7 @@ function PropertyCard({ property: p }: { property: Property }) {
 
 function PropertyCardSkeleton() {
   return (
-    <div className="flex flex-col rounded-xl border border-border bg-card p-4 animate-pulse">
+    <div className="surface-card flex flex-col animate-pulse p-4">
       <div className="h-4 bg-muted rounded w-3/4 mb-3" />
       <div className="h-3 bg-muted/60 rounded w-1/2 mb-3" />
       <div className="flex gap-1.5 mb-3">
@@ -148,23 +148,21 @@ export default function PropertiesPage() {
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6">
-      {/* Stats bar */}
       <div className="flex flex-wrap items-center gap-4">
-        <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5">
-          <Home className="h-4 w-4 text-emerald-400" />
+        <div className="surface-card flex items-center gap-2 px-4 py-2.5">
+          <Home className="h-4 w-4 text-primary" />
           <span className="text-sm font-semibold text-foreground">{total}</span>
           <span className="text-xs text-muted-foreground">nemovitostí</span>
         </div>
         {missingDataCount > 0 && (
-          <div className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-2.5">
-            <AlertTriangle className="h-4 w-4 text-amber-400" />
-            <span className="text-sm font-semibold text-amber-400">{missingDataCount}</span>
-            <span className="text-xs text-amber-400/70">s chybějícími daty</span>
+          <div className="flex items-center gap-2 rounded-2xl border border-amber-500/30 bg-amber-500/5 px-4 py-2.5 shadow-sm dark:shadow-none">
+            <AlertTriangle className="h-4 w-4 text-amber-500" />
+            <span className="text-sm font-semibold text-amber-500">{missingDataCount}</span>
+            <span className="text-xs text-amber-500/70">s chybějícími daty</span>
           </div>
         )}
       </div>
 
-      {/* Search + filters */}
       <div className="flex flex-wrap gap-3">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -173,14 +171,13 @@ export default function PropertiesPage() {
             onChange={e => setSearch(e.target.value)}
             placeholder="Hledat nemovitosti…"
             className={cn(
-              'w-full rounded-xl border border-border bg-card pl-9 pr-4 py-2 text-sm',
+              'control-focus w-full rounded-2xl border border-border bg-card pl-9 pr-4 py-2.5 text-sm shadow-sm dark:shadow-none',
               'text-foreground placeholder:text-muted-foreground/50',
-              'outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 transition-colors',
             )}
           />
         </div>
 
-        <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2">
+        <div className="flex items-center gap-2 rounded-2xl border border-border bg-card px-3 py-2 shadow-sm dark:shadow-none">
           <SlidersHorizontal className="h-4 w-4 text-muted-foreground shrink-0" />
           <select
             value={status}
@@ -198,7 +195,7 @@ export default function PropertiesPage() {
         <select
           value={type}
           onChange={e => setType(e.target.value as PropertyType | '')}
-          className="rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-emerald-500/50 transition-colors"
+          className="control-focus rounded-2xl border border-border bg-card px-3 py-2 text-sm text-foreground shadow-sm dark:shadow-none"
         >
           <option value="">Všechny typy</option>
           <option value="apartment">Byt</option>
@@ -211,7 +208,7 @@ export default function PropertiesPage() {
         <select
           value={city}
           onChange={e => setCity(e.target.value)}
-          className="rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-emerald-500/50 transition-colors"
+          className="control-focus rounded-2xl border border-border bg-card px-3 py-2 text-sm text-foreground shadow-sm dark:shadow-none"
         >
           <option value="">Všechna města</option>
           <option value="Praha">Praha</option>
@@ -221,7 +218,6 @@ export default function PropertiesPage() {
         </select>
       </div>
 
-      {/* Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {loading
           ? Array.from({ length: 12 }).map((_, i) => <PropertyCardSkeleton key={i} />)
@@ -231,7 +227,7 @@ export default function PropertiesPage() {
               <div className="col-span-full flex flex-col items-center justify-center py-20 text-center">
                 <Home className="h-12 w-12 text-muted-foreground/30 mb-3" />
                 <p className="text-sm font-medium text-muted-foreground">Žádné nemovitosti nenalezeny</p>
-                <p className="text-xs text-muted-foreground/60 mt-1">Zkuste upravit filtry nebo vyhledávací dotaz</p>
+                <p className="mt-1 text-xs text-muted-foreground/60">Zkuste upravit filtry nebo vyhledávací dotaz</p>
               </div>
             )
         }

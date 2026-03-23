@@ -97,8 +97,7 @@ export default function ChatInput({ onSend, disabled, showSuggestions }: ChatInp
   }, [isListening])
 
   return (
-    <div className="border-t border-border bg-background/80 backdrop-blur-sm px-4 py-3">
-      {/* Contextual suggestion chips */}
+    <div className="border-t border-border bg-background/95 px-4 py-3 backdrop-blur-sm">
       {showSuggestions && (
         <div className="mb-2 flex gap-2 overflow-x-auto pb-1">
           {SUGGESTIONS.map((s) => (
@@ -106,8 +105,7 @@ export default function ChatInput({ onSend, disabled, showSuggestions }: ChatInp
               key={s}
               onClick={() => onSend(s)}
               disabled={disabled}
-              className="shrink-0 rounded-full border border-border bg-card px-3 py-1 text-xs text-muted-foreground
-                hover:border-emerald-500/40 hover:text-emerald-400 transition-colors disabled:opacity-40"
+              className="button-smooth shrink-0 rounded-full border border-border bg-card px-3 py-1 text-xs text-muted-foreground hover:border-primary/30 hover:text-primary disabled:opacity-40"
             >
               {s}
             </button>
@@ -116,23 +114,22 @@ export default function ChatInput({ onSend, disabled, showSuggestions }: ChatInp
       )}
 
       <div className="flex items-end gap-2">
-        {/* Mic button */}
         {isSupported && (
           <button
             onClick={toggleMic}
             disabled={disabled}
             aria-label={isListening ? 'Zastavit nahrávání' : 'Nahrát hlasem'}
             className={cn(
-              'relative flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl border transition-all',
+              'button-smooth relative flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-2xl border shadow-sm dark:shadow-none',
               'disabled:opacity-40 disabled:cursor-not-allowed',
               isListening
-                ? 'border-red-500/50 bg-red-500/10 text-red-400'
-                : 'border-border bg-card text-muted-foreground hover:border-border hover:text-foreground',
+                ? 'border-red-500/50 bg-red-500/10 text-red-500'
+                : 'border-border bg-card text-muted-foreground hover:border-primary/20 hover:text-primary',
             )}
           >
             {isListening && (
               <span
-                className="absolute inset-0 rounded-xl border border-red-500/60"
+                className="absolute inset-0 rounded-2xl border border-red-500/60"
                 style={{ animation: 'pulse-recording 1.2s ease-in-out infinite' }}
               />
             )}
@@ -149,10 +146,9 @@ export default function ChatInput({ onSend, disabled, showSuggestions }: ChatInp
           placeholder={isListening ? 'Poslouchám…' : 'Napište zprávu…'}
           rows={1}
           className={cn(
-            'flex-1 resize-none rounded-xl border border-border bg-card px-4 py-2.5',
+            'control-focus flex-1 resize-none rounded-2xl border border-border bg-card px-4 py-2.5 shadow-sm dark:shadow-none',
             'text-sm text-foreground placeholder:text-muted-foreground/50',
-            'outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20',
-            'transition-colors disabled:opacity-50',
+            'disabled:opacity-50',
             'min-h-[42px] max-h-[120px] leading-relaxed',
             isListening && 'border-red-500/30 focus:border-red-500/50 focus:ring-red-500/20',
           )}
@@ -162,9 +158,8 @@ export default function ChatInput({ onSend, disabled, showSuggestions }: ChatInp
           onClick={send}
           disabled={disabled || !value.trim()}
           className={cn(
-            'flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl',
-            'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20',
-            'transition-all hover:bg-emerald-600 active:scale-95',
+            'button-smooth flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-2xl',
+            'bg-primary text-white shadow-sm hover:bg-primary/90 dark:shadow-none active:scale-95',
             'disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none',
           )}
         >

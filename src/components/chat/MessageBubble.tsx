@@ -41,7 +41,7 @@ function ThinkingSteps({ steps }: { steps: ToolCallLogEntry[] }) {
       {steps.map((step, i) => (
         <span
           key={i}
-          className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/5 px-2.5 py-1 text-[11px] text-emerald-400/80"
+          className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[11px] text-primary/90"
         >
           <Wrench className="h-2.5 w-2.5" />
           {TOOL_LABELS[step.name] ?? step.name}
@@ -55,10 +55,10 @@ function ThinkingSteps({ steps }: { steps: ToolCallLogEntry[] }) {
 
 function TaskCreatedCard({ task }: { task: Record<string, unknown> }) {
   return (
-    <div className="mt-3 flex items-start gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3">
-      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
+    <div className="mt-3 flex items-start gap-3 rounded-2xl border border-green-500/25 bg-green-500/10 p-3">
+      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-500" />
       <div>
-        <p className="text-xs font-semibold text-emerald-400">Úkol vytvořen</p>
+        <p className="text-xs font-semibold text-green-500">Úkol vytvořen</p>
         <p className="mt-0.5 text-sm text-foreground">{String(task.title ?? '')}</p>
         {!!task.due_date && (
           <p className="mt-0.5 text-xs text-muted-foreground">Termín: {String(task.due_date)}</p>
@@ -70,10 +70,10 @@ function TaskCreatedCard({ task }: { task: Record<string, unknown> }) {
 
 function MonitoringCard({ rule }: { rule: Record<string, unknown> }) {
   return (
-    <div className="mt-3 flex items-start gap-3 rounded-xl border border-blue-500/30 bg-blue-500/5 p-3">
-      <Bell className="mt-0.5 h-4 w-4 shrink-0 text-blue-400" />
+    <div className="mt-3 flex items-start gap-3 rounded-2xl border border-primary/25 bg-primary/5 p-3">
+      <Bell className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
       <div>
-        <p className="text-xs font-semibold text-blue-400">Monitoring nastaven</p>
+        <p className="text-xs font-semibold text-primary">Monitoring nastaven</p>
         <p className="mt-0.5 text-sm text-foreground">{String(rule.location ?? '')}</p>
         <p className="mt-0.5 text-xs text-muted-foreground">
           Frekvence: {rule.frequency === 'daily' ? 'denně' : 'týdně'}
@@ -90,21 +90,21 @@ function ReportCard({ report }: { report: Record<string, unknown> }) {
   const actions = (report.action_items as string[]) ?? []
 
   return (
-    <div className="mt-3 rounded-xl border border-border bg-muted/30 overflow-hidden">
-      <div className="border-b border-border px-4 py-2.5 flex items-center gap-2">
-        <FileText className="h-4 w-4 text-muted-foreground" />
+    <div className="mt-3 overflow-hidden rounded-2xl border border-border bg-muted/40">
+      <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
+        <FileText className="h-4 w-4 text-primary" />
         <p className="text-xs font-semibold text-foreground">
           {summary ? String(summary.title ?? 'Report') : 'Report'}
         </p>
       </div>
-      <div className="px-4 py-3 space-y-3">
+      <div className="space-y-3 px-4 py-3">
         {!!summary?.overview && (
           <p className="text-sm text-foreground/80">{String(summary.overview)}</p>
         )}
         {!!metrics && Object.keys(metrics).length > 0 && (
           <div className="grid grid-cols-2 gap-2">
             {Object.entries(metrics).slice(0, 6).map(([k, v]) => (
-              <div key={k} className="rounded-lg bg-background/40 px-3 py-2">
+              <div key={k} className="rounded-xl border border-border bg-background/70 px-3 py-2">
                 <p className="text-[11px] text-muted-foreground capitalize">{k.replace(/_/g, ' ')}</p>
                 <p className="text-sm font-semibold text-foreground">{String(v ?? '')}</p>
               </div>
@@ -117,7 +117,7 @@ function ReportCard({ report }: { report: Record<string, unknown> }) {
             <ul className="space-y-1">
               {highlights.map((h, i) => (
                 <li key={i} className="flex items-start gap-2 text-sm text-foreground/80">
-                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" />
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
                   {h}
                 </li>
               ))}
@@ -130,7 +130,7 @@ function ReportCard({ report }: { report: Record<string, unknown> }) {
             <ul className="space-y-1">
               {actions.map((a, i) => (
                 <li key={i} className="flex items-start gap-2 text-sm text-foreground/80">
-                  <span className="mt-0.5 text-emerald-400">→</span>
+                  <span className="mt-0.5 text-primary">→</span>
                   {a}
                 </li>
               ))}
@@ -156,15 +156,15 @@ function PresentationCard({ data }: { data: Record<string, unknown> }) {
   }
 
   return (
-    <div className="mt-3 rounded-xl border border-border bg-muted/30 overflow-hidden">
-      <div className="border-b border-border px-4 py-2.5 flex items-center gap-2">
-        <Presentation className="h-4 w-4 text-muted-foreground" />
+    <div className="mt-3 overflow-hidden rounded-2xl border border-border bg-muted/40">
+      <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
+        <Presentation className="h-4 w-4 text-primary" />
         <p className="text-xs font-semibold text-foreground">{String(data.topic ?? 'Prezentace')}</p>
         <span className="ml-auto text-xs text-muted-foreground">{slides.length} snímků</span>
       </div>
       <div className="flex gap-3 overflow-x-auto p-4 pb-3">
         {slides.slice(0, 4).map((slide, i) => (
-          <div key={i} className="shrink-0 w-48 rounded-lg border border-border bg-background/40 p-3">
+          <div key={i} className="w-48 shrink-0 rounded-xl border border-border bg-background/70 p-3">
             <p className="text-[10px] text-muted-foreground mb-1">Snímek {i + 1}</p>
             <p className="text-xs font-semibold text-foreground leading-tight mb-2">{slide.title}</p>
             {slide.content.slice(0, 3).map((c, j) => (
@@ -173,15 +173,15 @@ function PresentationCard({ data }: { data: Record<string, unknown> }) {
           </div>
         ))}
         {slides.length > 4 && (
-          <div className="shrink-0 w-32 rounded-lg border border-border/50 bg-background/20 flex items-center justify-center">
+          <div className="flex w-32 shrink-0 items-center justify-center rounded-xl border border-border bg-background/40">
             <p className="text-xs text-muted-foreground">+{slides.length - 4} dalších</p>
           </div>
         )}
       </div>
-      <div className="border-t border-border/50 px-4 py-2">
+      <div className="border-t border-border px-4 py-2">
         <button
           onClick={handleDownload}
-          className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors"
+          className="button-smooth flex items-center gap-1.5 rounded-xl bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
         >
           <Download className="h-3.5 w-3.5" />
           Stáhnout PPTX
@@ -200,10 +200,10 @@ export default function MessageBubble({ message }: { message: ChatMessage }) {
     return (
       <div className="flex justify-end">
         <div className="max-w-[70%]">
-          <div className="rounded-2xl rounded-tr-sm bg-emerald-600 px-4 py-2.5 text-sm text-white">
+          <div className="rounded-2xl rounded-tr-sm bg-primary px-4 py-2.5 text-sm text-white shadow-sm dark:shadow-none">
             {message.content}
           </div>
-          <p className="mt-1 text-right text-[11px] text-muted-foreground/60">
+          <p className="mt-1 text-right text-[11px] text-muted-foreground/70">
             {formatTime(message.timestamp)}
           </p>
         </div>
@@ -214,64 +214,55 @@ export default function MessageBubble({ message }: { message: ChatMessage }) {
   return (
     <div className="flex justify-start">
       <div className="max-w-[85%]">
-        <div className="rounded-2xl rounded-tl-sm border border-border bg-card px-4 py-3">
-          {/* Thinking steps */}
+        <div className="rounded-2xl rounded-tl-sm border border-border bg-card px-4 py-3 shadow-sm dark:shadow-none">
           {message.toolCallLog && message.toolCallLog.length > 0 && (
             <ThinkingSteps steps={message.toolCallLog} />
           )}
 
-          {/* Markdown text */}
           <div className="prose prose-sm prose-invert max-w-none text-foreground/90
             [&_p]:leading-relaxed [&_p]:mb-2 last:[&_p]:mb-0
             [&_strong]:text-foreground [&_strong]:font-semibold
-            [&_a]:text-emerald-400 [&_a]:no-underline hover:[&_a]:underline
+            [&_a]:text-primary [&_a]:no-underline hover:[&_a]:underline
             [&_ul]:mt-1 [&_ul]:space-y-0.5 [&_li]:text-foreground/80
             [&_ol]:mt-1 [&_ol]:space-y-0.5
-            [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-xs [&_code]:text-emerald-300
+            [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-xs [&_code]:text-primary
             [&_h1]:text-base [&_h1]:font-semibold [&_h1]:text-foreground
             [&_h2]:text-sm  [&_h2]:font-semibold [&_h2]:text-foreground
             [&_h3]:text-sm  [&_h3]:font-medium  [&_h3]:text-foreground
-            [&_blockquote]:border-l-2 [&_blockquote]:border-emerald-500/40 [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground
+            [&_blockquote]:border-l-2 [&_blockquote]:border-primary/40 [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground
           ">
             <ReactMarkdown>{message.content}</ReactMarkdown>
           </div>
 
-          {/* Charts */}
           {message.charts?.map((chart, i) => (
             <InlineChart key={i} config={chart as ChartConfig} />
           ))}
 
-          {/* Tables */}
           {message.tables && message.tables.length > 0
             ? message.tables.map((table, i) => <InlineTable key={i} table={table} />)
             : null}
 
-          {/* Email draft */}
           {message.emailDraft
             ? <EmailDraftCard draft={message.emailDraft} />
             : null}
 
-          {/* Task created */}
           {message.taskCreated
             ? <TaskCreatedCard task={message.taskCreated as Record<string, unknown>} />
             : null}
 
-          {/* Monitoring set */}
           {message.monitoringSet
             ? <MonitoringCard rule={message.monitoringSet as Record<string, unknown>} />
             : null}
 
-          {/* Report data */}
           {message.reportData
             ? <ReportCard report={message.reportData as Record<string, unknown>} />
             : null}
 
-          {/* Presentation data */}
           {message.presentationData
             ? <PresentationCard data={message.presentationData as Record<string, unknown>} />
             : null}
         </div>
-        <p className="mt-1 text-[11px] text-muted-foreground/60">
+        <p className="mt-1 text-[11px] text-muted-foreground/70">
           {formatTime(message.timestamp)}
         </p>
       </div>

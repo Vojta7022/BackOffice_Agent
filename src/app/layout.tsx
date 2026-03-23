@@ -6,6 +6,18 @@ import Sidebar from '@/components/layout/Sidebar'
 import Header from '@/components/layout/Header'
 import MainWrapper from '@/components/layout/MainWrapper'
 
+const themeScript = `
+  (() => {
+    try {
+      const storageKey = 'backoffice-theme'
+      const savedTheme = window.localStorage.getItem(storageKey)
+      const theme = savedTheme === 'light' ? 'light' : 'dark'
+      document.documentElement.classList.toggle('dark', theme === 'dark')
+      document.documentElement.style.colorScheme = theme
+    } catch {}
+  })();
+`
+
 const geistSans = localFont({
   src: './fonts/GeistVF.woff',
   variable: '--font-geist-sans',
@@ -24,8 +36,15 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="cs" className={cn(geistSans.variable, geistMono.variable)}>
-      <body className="flex h-screen overflow-hidden bg-[var(--background)] font-[family-name:var(--font-geist-sans)]">
+    <html
+      lang="cs"
+      suppressHydrationWarning
+      className={cn(geistSans.variable, geistMono.variable, 'dark')}
+    >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
+      <body className="flex h-screen overflow-hidden bg-background text-foreground font-[family-name:var(--font-geist-sans)]">
         <Sidebar />
 
         <MainWrapper>

@@ -21,7 +21,7 @@ function KPISkeleton() {
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="animate-pulse rounded-xl border border-border bg-card p-5">
+        <div key={i} className="surface-card animate-pulse p-5">
           <div className="mb-3 flex items-center justify-between">
             <div className="h-3 w-28 rounded bg-muted" />
             <div className="h-9 w-9 rounded-full bg-muted" />
@@ -37,7 +37,7 @@ function KPISkeleton() {
 function Card({ label, value, sub, change, icon: Icon, iconColor }: CardDef) {
   const isPositive = (change ?? 0) >= 0
   return (
-    <div className="rounded-xl border border-border bg-card p-5 transition-shadow hover:shadow-lg hover:shadow-black/20">
+    <div className="surface-card p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/20">
       <div className="mb-3 flex items-center justify-between">
         <p className="text-sm text-muted-foreground">{label}</p>
         <div className={cn('flex h-9 w-9 items-center justify-center rounded-full', iconColor)}>
@@ -47,7 +47,7 @@ function Card({ label, value, sub, change, icon: Icon, iconColor }: CardDef) {
       <p className="text-2xl font-bold tracking-tight text-foreground">{value}</p>
       {sub && <p className="mt-0.5 text-xs text-muted-foreground">{sub}</p>}
       {change !== undefined && (
-        <div className={cn('mt-2 flex items-center gap-1 text-xs font-medium', isPositive ? 'text-emerald-400' : 'text-red-400')}>
+        <div className={cn('mt-2 flex items-center gap-1 text-xs font-medium', isPositive ? 'text-green-500' : 'text-red-500')}>
           {isPositive ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowDownRight className="h-3.5 w-3.5" />}
           {isPositive ? '+' : ''}{change} % vs. minulý měsíc
         </div>
@@ -63,7 +63,7 @@ export default function KPICards({ stats }: KPICardsProps) {
       value: String(stats.active_properties),
       sub: `z celkem ${stats.total_properties}`,
       icon: Building2,
-      iconColor: 'bg-blue-500/10 text-blue-400',
+      iconColor: 'bg-primary/10 text-primary',
     },
     {
       label: 'Nové leady',
@@ -71,8 +71,8 @@ export default function KPICards({ stats }: KPICardsProps) {
       change: stats.monthly_changes.leads,
       icon: TrendingUp,
       iconColor: stats.monthly_changes.leads >= 0
-        ? 'bg-emerald-500/10 text-emerald-400'
-        : 'bg-red-500/10 text-red-400',
+        ? 'bg-green-500/10 text-green-500'
+        : 'bg-red-500/10 text-red-500',
     },
     {
       label: 'Uzavřené obchody',
@@ -80,8 +80,8 @@ export default function KPICards({ stats }: KPICardsProps) {
       change: stats.monthly_changes.deals,
       icon: Handshake,
       iconColor: stats.monthly_changes.deals >= 0
-        ? 'bg-emerald-500/10 text-emerald-400'
-        : 'bg-red-500/10 text-red-400',
+        ? 'bg-primary/10 text-primary'
+        : 'bg-red-500/10 text-red-500',
     },
     {
       label: 'Tržby tento měsíc',
@@ -89,8 +89,8 @@ export default function KPICards({ stats }: KPICardsProps) {
       change: stats.monthly_changes.revenue,
       icon: DollarSign,
       iconColor: stats.monthly_changes.revenue >= 0
-        ? 'bg-emerald-500/10 text-emerald-400'
-        : 'bg-red-500/10 text-red-400',
+        ? 'bg-primary/10 text-primary'
+        : 'bg-red-500/10 text-red-500',
     },
   ]
 

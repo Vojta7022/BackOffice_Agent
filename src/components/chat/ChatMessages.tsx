@@ -23,7 +23,7 @@ function WelcomeScreen({ onSend }: { onSend: (msg: string) => void }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-8 px-4 py-12">
       <div className="flex flex-col items-center gap-4 text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-500">
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
           <Building2 className="h-8 w-8" />
         </div>
         <div>
@@ -39,8 +39,7 @@ function WelcomeScreen({ onSend }: { onSend: (msg: string) => void }) {
           <button
             key={s}
             onClick={() => onSend(s)}
-            className="rounded-xl border border-border bg-card px-4 py-3 text-left text-sm text-foreground/80
-              hover:border-emerald-500/40 hover:bg-card/80 hover:text-foreground transition-all duration-150"
+            className="button-smooth rounded-2xl border border-border bg-card px-4 py-3 text-left text-sm text-foreground/85 shadow-sm hover:-translate-y-0.5 hover:border-primary/20 hover:text-foreground dark:shadow-none"
           >
             {s}
           </button>
@@ -64,10 +63,9 @@ export default function ChatMessages({ onSend }: ChatMessagesProps) {
 
   return (
     <div className="relative flex flex-1 flex-col overflow-y-auto px-4 py-4">
-      {/* New chat button — top-right corner */}
       <button
         onClick={clearMessages}
-        className="absolute right-4 top-3 z-10 flex items-center gap-1.5 rounded-lg border border-border bg-card/80 px-2.5 py-1.5 text-xs text-muted-foreground backdrop-blur-sm transition-all hover:border-emerald-500/40 hover:text-emerald-400"
+        className="button-smooth absolute right-4 top-3 z-10 flex items-center gap-1.5 rounded-xl border border-border bg-card/95 px-2.5 py-1.5 text-xs text-muted-foreground shadow-sm backdrop-blur-sm hover:border-primary/20 hover:text-primary dark:shadow-none"
       >
         <Plus className="h-3.5 w-3.5" />
         Nový chat
@@ -79,7 +77,7 @@ export default function ChatMessages({ onSend }: ChatMessagesProps) {
         ))}
         {isLoading && (
           <div className="flex justify-start">
-            <div className="rounded-2xl rounded-tl-sm border border-border bg-card px-4 py-2">
+            <div className="rounded-2xl rounded-tl-sm border border-border bg-card px-4 py-2 shadow-sm dark:shadow-none">
               <TypingIndicator />
             </div>
           </div>

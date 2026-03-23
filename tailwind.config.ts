@@ -1,5 +1,7 @@
 import type { Config } from "tailwindcss";
 
+const withOpacity = (variable: string) => `rgb(var(${variable}) / <alpha-value>)`
+
 const config: Config = {
   darkMode: ["class"],
   content: [
@@ -10,55 +12,57 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background:  "var(--background)",
-        foreground:  "var(--foreground)",
-        border:      "var(--border)",
-        input:       "var(--input)",
-        ring:        "var(--ring)",
+        background:  withOpacity("--background-rgb"),
+        foreground:  withOpacity("--foreground-rgb"),
+        border:      withOpacity("--border-rgb"),
+        input:       withOpacity("--input-rgb"),
+        ring:        withOpacity("--ring-rgb"),
         card: {
-          DEFAULT:    "var(--card)",
-          foreground: "var(--card-foreground)",
+          DEFAULT:    withOpacity("--card-rgb"),
+          foreground: withOpacity("--card-foreground-rgb"),
         },
         popover: {
-          DEFAULT:    "var(--popover)",
-          foreground: "var(--popover-foreground)",
+          DEFAULT:    withOpacity("--popover-rgb"),
+          foreground: withOpacity("--popover-foreground-rgb"),
         },
         primary: {
-          DEFAULT:    "var(--primary)",
-          foreground: "var(--primary-foreground)",
+          DEFAULT:    withOpacity("--primary-rgb"),
+          foreground: withOpacity("--primary-foreground-rgb"),
         },
         secondary: {
-          DEFAULT:    "var(--secondary)",
-          foreground: "var(--secondary-foreground)",
+          DEFAULT:    withOpacity("--secondary-rgb"),
+          foreground: withOpacity("--secondary-foreground-rgb"),
         },
         muted: {
-          DEFAULT:    "var(--muted)",
-          foreground: "var(--muted-foreground)",
+          DEFAULT:    withOpacity("--muted-rgb"),
+          foreground: withOpacity("--muted-foreground-rgb"),
         },
         accent: {
-          DEFAULT:    "var(--accent)",
-          foreground: "var(--accent-foreground)",
+          DEFAULT:    withOpacity("--accent-rgb"),
+          foreground: withOpacity("--accent-foreground-rgb"),
         },
         destructive: {
-          DEFAULT:    "var(--destructive)",
-          foreground: "var(--destructive-foreground)",
+          DEFAULT:    withOpacity("--destructive-rgb"),
+          foreground: withOpacity("--destructive-foreground-rgb"),
         },
+        success: withOpacity("--success-rgb"),
+        warning: withOpacity("--warning-rgb"),
         chart: {
-          "1": "var(--chart-1)",
-          "2": "var(--chart-2)",
-          "3": "var(--chart-3)",
-          "4": "var(--chart-4)",
-          "5": "var(--chart-5)",
+          "1": withOpacity("--chart-1-rgb"),
+          "2": withOpacity("--chart-2-rgb"),
+          "3": withOpacity("--chart-3-rgb"),
+          "4": withOpacity("--chart-4-rgb"),
+          "5": withOpacity("--chart-5-rgb"),
         },
         sidebar: {
-          DEFAULT:              "var(--sidebar)",
-          foreground:           "var(--sidebar-foreground)",
-          primary:              "var(--sidebar-primary)",
-          "primary-foreground": "var(--sidebar-primary-foreground)",
-          accent:               "var(--sidebar-accent)",
-          "accent-foreground":  "var(--sidebar-accent-foreground)",
-          border:               "var(--sidebar-border)",
-          ring:                 "var(--sidebar-ring)",
+          DEFAULT:              withOpacity("--sidebar-rgb"),
+          foreground:           withOpacity("--sidebar-foreground-rgb"),
+          primary:              withOpacity("--sidebar-primary-rgb"),
+          "primary-foreground": withOpacity("--sidebar-primary-foreground-rgb"),
+          accent:               withOpacity("--sidebar-accent-rgb"),
+          "accent-foreground":  withOpacity("--sidebar-accent-foreground-rgb"),
+          border:               withOpacity("--sidebar-border-rgb"),
+          ring:                 withOpacity("--sidebar-ring-rgb"),
         },
       },
       borderRadius: {

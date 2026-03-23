@@ -11,7 +11,7 @@ const PRIORITY_COLORS: Record<TaskPriority, string> = {
   urgent: 'bg-red-500',
   high: 'bg-orange-500',
   medium: 'bg-amber-500',
-  low: 'bg-slate-500',
+  low: 'bg-muted-foreground',
 }
 
 const PRIORITY_LABELS: Record<TaskPriority, string> = {
@@ -25,13 +25,13 @@ const PRIORITY_TEXT: Record<TaskPriority, string> = {
   urgent: 'text-red-400',
   high: 'text-orange-400',
   medium: 'text-amber-400',
-  low: 'text-slate-400',
+  low: 'text-muted-foreground',
 }
 
 const COLUMN_CONFIG: { status: TaskStatus; label: string; icon: React.ElementType; color: string }[] = [
-  { status: 'todo',        label: 'K provedení',  icon: Clock,         color: 'text-slate-400' },
-  { status: 'in_progress', label: 'Probíhá',       icon: AlertCircle,   color: 'text-blue-400' },
-  { status: 'done',        label: 'Hotovo',        icon: CheckCircle2,  color: 'text-emerald-400' },
+  { status: 'todo',        label: 'K provedení',  icon: Clock,         color: 'text-muted-foreground' },
+  { status: 'in_progress', label: 'Probíhá',       icon: AlertCircle,   color: 'text-violet-500' },
+  { status: 'done',        label: 'Hotovo',        icon: CheckCircle2,  color: 'text-primary' },
 ]
 
 function isDueSoon(dueDate: string): boolean {
@@ -51,19 +51,16 @@ function TaskCard({ task }: { task: Task }) {
   const dueSoon = !overdue && isDueSoon(task.due_date)
 
   return (
-    <div className="rounded-xl border border-border bg-background/40 p-3 transition-all duration-150 hover:border-border/80 hover:bg-background/60">
-      {/* Priority + title */}
+    <div className="rounded-2xl border border-border bg-background/70 p-3 transition-all duration-200 hover:border-primary/15 hover:bg-background">
       <div className="flex items-start gap-2 mb-2">
         <div className={cn('mt-1.5 h-2 w-2 shrink-0 rounded-full', PRIORITY_COLORS[task.priority])} />
         <p className="text-sm font-medium text-foreground leading-snug">{task.title}</p>
       </div>
 
-      {/* Description */}
       {task.description && (
         <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2 mb-2 pl-4">{task.description}</p>
       )}
 
-      {/* Footer */}
       <div className="flex items-center justify-between pl-4">
         <span className={cn('text-[11px] font-medium', PRIORITY_TEXT[task.priority])}>
           {PRIORITY_LABELS[task.priority]}
@@ -82,7 +79,7 @@ function TaskCard({ task }: { task: Task }) {
 
 function TaskCardSkeleton() {
   return (
-    <div className="rounded-xl border border-border bg-background/40 p-3 animate-pulse">
+    <div className="rounded-2xl border border-border bg-background/70 p-3 animate-pulse">
       <div className="flex items-start gap-2 mb-2">
         <div className="mt-1.5 h-2 w-2 rounded-full bg-muted/60 shrink-0" />
         <div className="h-4 bg-muted rounded w-3/4" />
@@ -111,22 +108,20 @@ function KanbanColumn({
   loading: boolean
 }) {
   return (
-    <div className="flex flex-col min-h-[400px] rounded-xl border border-border bg-card overflow-hidden">
-      {/* Header */}
+    <div className="surface-card flex min-h-[400px] flex-col overflow-hidden">
       <div className="flex items-center gap-2 border-b border-border px-4 py-3">
         <Icon className={cn('h-4 w-4', color)} />
         <span className="text-sm font-semibold text-foreground">{label}</span>
         <span className={cn(
           'ml-auto flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-semibold',
-          status === 'todo' ? 'bg-slate-500/20 text-slate-400' :
-          status === 'in_progress' ? 'bg-blue-500/20 text-blue-400' :
-          'bg-emerald-500/20 text-emerald-400',
+          status === 'todo' ? 'bg-muted text-muted-foreground' :
+          status === 'in_progress' ? 'bg-violet-500/15 text-violet-500' :
+          'bg-primary/10 text-primary',
         )}>
           {loading ? '…' : tasks.length}
         </span>
       </div>
 
-      {/* Cards */}
       <div className="flex flex-col gap-2 p-3 flex-1">
         {loading ? (
           Array.from({ length: 3 }).map((_, i) => <TaskCardSkeleton key={i} />)
@@ -134,7 +129,7 @@ function KanbanColumn({
           tasks.map(t => <TaskCard key={t.id} task={t} />)
         ) : (
           <div className="flex flex-1 items-center justify-center">
-            <p className="text-xs text-muted-foreground/50">Žádné úkoly</p>
+            <p className="text-xs text-muted-foreground/60">Žádné úkoly</p>
           </div>
         )}
       </div>
@@ -167,30 +162,28 @@ export default function TasksPage() {
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6">
-      {/* Stats bar */}
       <div className="flex flex-wrap items-center gap-4">
-        <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5">
-          <CheckSquare className="h-4 w-4 text-emerald-400" />
+        <div className="surface-card flex items-center gap-2 px-4 py-2.5">
+          <CheckSquare className="h-4 w-4 text-primary" />
           <span className="text-sm font-semibold text-foreground">{loading ? '…' : total}</span>
           <span className="text-xs text-muted-foreground">úkolů celkem</span>
         </div>
         {!loading && urgentCount > 0 && (
-          <div className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-2.5">
-            <AlertCircle className="h-4 w-4 text-red-400" />
-            <span className="text-sm font-semibold text-red-400">{urgentCount}</span>
-            <span className="text-xs text-red-400/70">urgentních</span>
+          <div className="flex items-center gap-2 rounded-2xl border border-red-500/30 bg-red-500/5 px-4 py-2.5 shadow-sm dark:shadow-none">
+            <AlertCircle className="h-4 w-4 text-red-500" />
+            <span className="text-sm font-semibold text-red-500">{urgentCount}</span>
+            <span className="text-xs text-red-500/70">urgentních</span>
           </div>
         )}
         {!loading && overdueCount > 0 && (
-          <div className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-2.5">
-            <Clock className="h-4 w-4 text-amber-400" />
-            <span className="text-sm font-semibold text-amber-400">{overdueCount}</span>
-            <span className="text-xs text-amber-400/70">po termínu</span>
+          <div className="flex items-center gap-2 rounded-2xl border border-amber-500/30 bg-amber-500/5 px-4 py-2.5 shadow-sm dark:shadow-none">
+            <Clock className="h-4 w-4 text-amber-500" />
+            <span className="text-sm font-semibold text-amber-500">{overdueCount}</span>
+            <span className="text-xs text-amber-500/70">po termínu</span>
           </div>
         )}
       </div>
 
-      {/* Kanban board */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {COLUMN_CONFIG.map(col => (
           <KanbanColumn
