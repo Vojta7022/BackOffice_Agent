@@ -8,33 +8,24 @@ import EmailDraftCard from './EmailDraftCard'
 import type { ChatMessage } from '@/lib/chat-store'
 import type { ChartConfig, ToolCallLogEntry } from '@/lib/agent/orchestrator'
 import { generatePPTX } from '@/lib/exports/generate-pptx'
+import { useTranslation } from '@/lib/useTranslation'
 
-function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })
+function formatTime(iso: string, language: 'cs' | 'en') {
+  return new Date(iso).toLocaleTimeString(language === 'cs' ? 'cs-CZ' : 'en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
-// ─── Czech tool labels ─────────────────────────────────────────────────────
-
-const TOOL_LABELS: Record<string, string> = {
-  query_clients: 'Vyhledávání klientů',
-  query_leads: 'Analýza leadů',
-  query_properties: 'Prohledávání nemovitostí',
-  query_transactions: 'Analýza transakcí',
-  find_missing_data: 'Hledání chybějících dat',
-  generate_chart: 'Tvorba grafu',
-  draft_email: 'Příprava emailu',
-  check_calendar: 'Kontrola kalendáře',
-  create_task: 'Vytváření úkolu',
-  generate_report: 'Generování reportu',
-  generate_presentation: 'Příprava prezentace',
-  setup_monitoring: 'Nastavení monitoringu',
-  get_dashboard_metrics: 'Načítání metrik',
-  get_weekly_summary: 'Týdenní přehled',
+function formatMetricLabel(key: string, labels: Record<string, string>) {
+  return labels[key] ?? key.replace(/_/g, ' ')
 }
 
 // ─── ThinkingSteps ────────────────────────────────────────────────────────
 
 function ThinkingSteps({ steps }: { steps: ToolCallLogEntry[] }) {
+  const { t } = useTranslation()
+
   if (!steps.length) return null
   return (
     <div className="mb-3 flex flex-wrap gap-1.5">
@@ -44,7 +35,7 @@ function ThinkingSteps({ steps }: { steps: ToolCallLogEntry[] }) {
           className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[11px] text-primary/90"
         >
           <Wrench className="h-2.5 w-2.5" />
-          {TOOL_LABELS[step.name] ?? step.name}
+          {t.chat.toolLabels[step.name] ?? step.name}
         </span>
       ))}
     </div>
@@ -54,14 +45,16 @@ function ThinkingSteps({ steps }: { steps: ToolCallLogEntry[] }) {
 // ─── Rich content cards ────────────────────────────────────────────────────
 
 function TaskCreatedCard({ task }: { task: Record<string, unknown> }) {
+  const { t } = useTranslation()
+
   return (
     <div className="mt-3 flex items-start gap-3 rounded-2xl border border-green-500/25 bg-green-500/10 p-3">
       <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-500" />
       <div>
-        <p className="text-xs font-semibold text-green-500">Úkol vytvořen</p>
+        <p className="text-xs font-semibold text-green-500">{t.chat.taskCreated}</p>
         <p className="mt-0.5 text-sm text-foreground">{String(task.title ?? '')}</p>
         {!!task.due_date && (
-          <p className="mt-0.5 text-xs text-muted-foreground">Termín: {String(task.due_date)}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{t.chat.dueDate}: {String(task.due_date)}</p>
         )}
       </div>
     </div>
@@ -69,14 +62,17 @@ function TaskCreatedCard({ task }: { task: Record<string, unknown> }) {
 }
 
 function MonitoringCard({ rule }: { rule: Record<string, unknown> }) {
+  const { t } = useTranslation()
+  const frequency = rule.frequency === 'daily' ? t.chat.frequencies.daily : t.chat.frequencies.weekly
+
   return (
     <div className="mt-3 flex items-start gap-3 rounded-2xl border border-primary/25 bg-primary/5 p-3">
       <Bell className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
       <div>
-        <p className="text-xs font-semibold text-primary">Monitoring nastaven</p>
+        <p className="text-xs font-semibold text-primary">{t.chat.monitoringSet}</p>
         <p className="mt-0.5 text-sm text-foreground">{String(rule.location ?? '')}</p>
         <p className="mt-0.5 text-xs text-muted-foreground">
-          Frekvence: {rule.frequency === 'daily' ? 'denně' : 'týdně'}
+          {t.chat.frequency}: {frequency}
         </p>
       </div>
     </div>
@@ -84,6 +80,7 @@ function MonitoringCard({ rule }: { rule: Record<string, unknown> }) {
 }
 
 function ReportCard({ report }: { report: Record<string, unknown> }) {
+  const { t } = useTranslation()
   const summary = report.summary as Record<string, unknown> | undefined
   const metrics = report.metrics as Record<string, unknown> | undefined
   const highlights = (report.highlights as string[]) ?? []
@@ -94,7 +91,7 @@ function ReportCard({ report }: { report: Record<string, unknown> }) {
       <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
         <FileText className="h-4 w-4 text-primary" />
         <p className="text-xs font-semibold text-foreground">
-          {summary ? String(summary.title ?? 'Report') : 'Report'}
+          {summary ? String(summary.title ?? t.chat.report) : t.chat.report}
         </p>
       </div>
       <div className="space-y-3 px-4 py-3">
@@ -105,7 +102,7 @@ function ReportCard({ report }: { report: Record<string, unknown> }) {
           <div className="grid grid-cols-2 gap-2">
             {Object.entries(metrics).slice(0, 6).map(([k, v]) => (
               <div key={k} className="rounded-xl border border-border bg-background/70 px-3 py-2">
-                <p className="text-[11px] text-muted-foreground capitalize">{k.replace(/_/g, ' ')}</p>
+                <p className="text-[11px] text-muted-foreground capitalize">{formatMetricLabel(k, t.chat.reportMetrics)}</p>
                 <p className="text-sm font-semibold text-foreground">{String(v ?? '')}</p>
               </div>
             ))}
@@ -113,7 +110,7 @@ function ReportCard({ report }: { report: Record<string, unknown> }) {
         )}
         {highlights.length > 0 && (
           <div>
-            <p className="mb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Highlights</p>
+            <p className="mb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t.chat.highlights}</p>
             <ul className="space-y-1">
               {highlights.map((h, i) => (
                 <li key={i} className="flex items-start gap-2 text-sm text-foreground/80">
@@ -126,7 +123,7 @@ function ReportCard({ report }: { report: Record<string, unknown> }) {
         )}
         {actions.length > 0 && (
           <div>
-            <p className="mb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Akční kroky</p>
+            <p className="mb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t.chat.actionItems}</p>
             <ul className="space-y-1">
               {actions.map((a, i) => (
                 <li key={i} className="flex items-start gap-2 text-sm text-foreground/80">
@@ -143,6 +140,7 @@ function ReportCard({ report }: { report: Record<string, unknown> }) {
 }
 
 function PresentationCard({ data }: { data: Record<string, unknown> }) {
+  const { t } = useTranslation()
   const slides = (data.slides as { title: string; content: string[] }[]) ?? []
 
   async function handleDownload() {
@@ -150,7 +148,7 @@ function PresentationCard({ data }: { data: Record<string, unknown> }) {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${String(data.topic ?? 'prezentace')}.pptx`
+    a.download = `${String(data.topic ?? t.chat.presentation)}.pptx`
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -159,13 +157,13 @@ function PresentationCard({ data }: { data: Record<string, unknown> }) {
     <div className="mt-3 overflow-hidden rounded-2xl border border-border bg-muted/40">
       <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
         <Presentation className="h-4 w-4 text-primary" />
-        <p className="text-xs font-semibold text-foreground">{String(data.topic ?? 'Prezentace')}</p>
-        <span className="ml-auto text-xs text-muted-foreground">{slides.length} snímků</span>
+        <p className="text-xs font-semibold text-foreground">{String(data.topic ?? t.chat.presentation)}</p>
+        <span className="ml-auto text-xs text-muted-foreground">{slides.length} {t.chat.slides}</span>
       </div>
       <div className="flex gap-3 overflow-x-auto p-4 pb-3">
         {slides.slice(0, 4).map((slide, i) => (
           <div key={i} className="w-48 shrink-0 rounded-xl border border-border bg-background/70 p-3">
-            <p className="text-[10px] text-muted-foreground mb-1">Snímek {i + 1}</p>
+            <p className="mb-1 text-[10px] text-muted-foreground">{t.chat.slide} {i + 1}</p>
             <p className="text-xs font-semibold text-foreground leading-tight mb-2">{slide.title}</p>
             {slide.content.slice(0, 3).map((c, j) => (
               <p key={j} className="text-[11px] text-muted-foreground leading-tight truncate">• {c}</p>
@@ -174,7 +172,7 @@ function PresentationCard({ data }: { data: Record<string, unknown> }) {
         ))}
         {slides.length > 4 && (
           <div className="flex w-32 shrink-0 items-center justify-center rounded-xl border border-border bg-background/40">
-            <p className="text-xs text-muted-foreground">+{slides.length - 4} dalších</p>
+            <p className="text-xs text-muted-foreground">+{slides.length - 4} {t.chat.moreSlides}</p>
           </div>
         )}
       </div>
@@ -184,7 +182,7 @@ function PresentationCard({ data }: { data: Record<string, unknown> }) {
           className="button-smooth flex items-center gap-1.5 rounded-xl bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
         >
           <Download className="h-3.5 w-3.5" />
-          Stáhnout PPTX
+          {t.chat.downloadPptx}
         </button>
       </div>
     </div>
@@ -194,6 +192,7 @@ function PresentationCard({ data }: { data: Record<string, unknown> }) {
 // ─── Main component ────────────────────────────────────────────────────────
 
 export default function MessageBubble({ message }: { message: ChatMessage }) {
+  const { language } = useTranslation()
   const isUser = message.role === 'user'
 
   if (isUser) {
@@ -204,7 +203,7 @@ export default function MessageBubble({ message }: { message: ChatMessage }) {
             {message.content}
           </div>
           <p className="mt-1 text-right text-[11px] text-muted-foreground/70">
-            {formatTime(message.timestamp)}
+            {formatTime(message.timestamp, language)}
           </p>
         </div>
       </div>
@@ -263,7 +262,7 @@ export default function MessageBubble({ message }: { message: ChatMessage }) {
             : null}
         </div>
         <p className="mt-1 text-[11px] text-muted-foreground/70">
-          {formatTime(message.timestamp)}
+          {formatTime(message.timestamp, language)}
         </p>
       </div>
     </div>

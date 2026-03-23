@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { UserPlus, Plus, FileText, MessageSquare } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useTranslation } from '@/lib/useTranslation'
 
 interface Action {
   label: string
@@ -11,18 +12,19 @@ interface Action {
   highlight?: boolean
 }
 
-const actions: Action[] = [
-  { label: 'Nový klient',       icon: UserPlus,      href: '/clients' },
-  { label: 'Nová nemovitost',   icon: Plus,          href: '/properties' },
-  {
-    label: 'Generovat report',
-    icon: FileText,
-    href: '/chat?prompt=Generuj+t%C3%BDdenn%C3%AD+report',
-  },
-  { label: 'Otevřít chat',      icon: MessageSquare, href: '/chat', highlight: true },
-]
-
 export default function QuickActions() {
+  const { t } = useTranslation()
+  const actions: Action[] = [
+    { label: t.dashboard.quickActionNewClient, icon: UserPlus, href: '/clients' },
+    { label: t.dashboard.quickActionNewProperty, icon: Plus, href: '/properties' },
+    {
+      label: t.dashboard.quickActionGenerateReport,
+      icon: FileText,
+      href: `/chat?prompt=${encodeURIComponent(t.dashboard.quickActionReportPrompt)}`,
+    },
+    { label: t.dashboard.quickActionOpenChat, icon: MessageSquare, href: '/chat', highlight: true },
+  ]
+
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       {actions.map(({ label, icon: Icon, href, highlight }) => (

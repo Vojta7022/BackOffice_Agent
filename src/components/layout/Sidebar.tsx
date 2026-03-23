@@ -18,21 +18,23 @@ import {
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/lib/store'
 import { useChatStore } from '@/lib/chat-store'
-
-const navItems = [
-  { href: '/',            label: 'Dashboard',       icon: LayoutDashboard },
-  { href: '/chat',        label: 'Chat s agentem',  icon: MessageSquare },
-  { href: '/properties',  label: 'Nemovitosti',     icon: Home },
-  { href: '/clients',     label: 'Klienti',         icon: Users },
-  { href: '/tasks',       label: 'Úkoly',           icon: CheckSquare },
-  { href: '/monitoring',  label: 'Monitoring',      icon: Bell },
-]
+import { useTranslation } from '@/lib/useTranslation'
 
 export default function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
+  const { t } = useTranslation()
   const { sidebarOpen, toggleSidebar, setSidebarOpen } = useAppStore()
   const clearMessages = useChatStore(s => s.clearMessages)
+
+  const navItems = [
+    { href: '/', label: t.nav.dashboard, icon: LayoutDashboard },
+    { href: '/chat', label: t.nav.chat, icon: MessageSquare },
+    { href: '/properties', label: t.nav.properties, icon: Home },
+    { href: '/clients', label: t.nav.clients, icon: Users },
+    { href: '/tasks', label: t.nav.tasks, icon: CheckSquare },
+    { href: '/monitoring', label: t.nav.monitoring, icon: Bell },
+  ]
 
   const handleNewChat = () => {
     clearMessages()
@@ -79,7 +81,7 @@ export default function Sidebar() {
                 RE:Agent
               </span>
               <span className="block truncate text-[11px] text-sidebar-foreground/60">
-                Back Office
+                {t.nav.appCaption}
               </span>
             </div>
           )}
@@ -95,7 +97,7 @@ export default function Sidebar() {
             )}
           >
             <Plus className="h-4 w-4 shrink-0" />
-            {sidebarOpen && <span className="text-sm font-medium">Nový chat</span>}
+            {sidebarOpen && <span className="text-sm font-medium">{t.nav.newChat}</span>}
           </button>
         </div>
 
@@ -142,7 +144,7 @@ export default function Sidebar() {
             {sidebarOpen && (
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-sidebar-foreground">Pepa Novotný</p>
-                <p className="truncate text-[11px] text-sidebar-foreground/50">Back Office Manager</p>
+                <p className="truncate text-[11px] text-sidebar-foreground/50">{t.nav.userRole}</p>
               </div>
             )}
           </div>
@@ -158,7 +160,7 @@ export default function Sidebar() {
           {sidebarOpen ? (
             <>
               <ChevronLeft className="h-4 w-4 shrink-0" />
-              <span className="text-xs">Sbalit</span>
+              <span className="text-xs">{t.nav.collapse}</span>
             </>
           ) : (
             <ChevronRight className="h-4 w-4 shrink-0" />

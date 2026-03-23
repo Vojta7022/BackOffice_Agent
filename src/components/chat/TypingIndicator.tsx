@@ -1,6 +1,10 @@
 'use client'
 
+import { useTranslation } from '@/lib/useTranslation'
+
 export default function TypingIndicator() {
+  const { t } = useTranslation()
+
   return (
     <div className="flex items-center gap-3 px-1 py-2">
       <div className="flex items-center gap-1.5">
@@ -8,7 +12,7 @@ export default function TypingIndicator() {
         <span className="typing-dot" style={{ animationDelay: '150ms' }} />
         <span className="typing-dot" style={{ animationDelay: '300ms' }} />
       </div>
-      <span className="text-xs text-muted-foreground">RE:Agent přemýšlí…</span>
+      <span className="text-xs text-muted-foreground">{t.chat.thinking}</span>
       <style>{`
         .typing-dot {
           display: inline-block;

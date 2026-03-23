@@ -4,6 +4,7 @@ import type { FormEvent, ReactNode } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { useTranslation } from '@/lib/useTranslation'
 
 interface FormModalProps {
   open: boolean
@@ -28,14 +29,16 @@ export default function FormModal({
   description,
   children,
   onSubmit,
-  submitLabel = 'Uložit',
-  submitLoadingLabel = 'Ukládám…',
-  cancelLabel = 'Zrušit',
+  submitLabel,
+  submitLoadingLabel,
+  cancelLabel,
   isSubmitting = false,
   submitDisabled = false,
   error,
   className,
 }: FormModalProps) {
+  const { t } = useTranslation()
+
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !isSubmitting && onOpenChange(nextOpen)}>
       <DialogContent className={cn('sm:max-w-2xl', className)}>
@@ -60,10 +63,10 @@ export default function FormModal({
               onClick={() => onOpenChange(false)}
               disabled={isSubmitting}
             >
-              {cancelLabel}
+              {cancelLabel ?? t.common.cancel}
             </Button>
             <Button type="submit" disabled={submitDisabled || isSubmitting}>
-              {isSubmitting ? submitLoadingLabel : submitLabel}
+              {isSubmitting ? (submitLoadingLabel ?? t.common.loading) : (submitLabel ?? t.common.save)}
             </Button>
           </div>
         </form>

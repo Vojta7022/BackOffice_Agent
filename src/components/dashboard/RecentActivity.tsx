@@ -3,6 +3,7 @@
 import { cn, relativeTime } from '@/lib/utils'
 import type { TasksByStatus } from '@/lib/database'
 import type { Task } from '@/types'
+import { useTranslation } from '@/lib/useTranslation'
 
 interface RecentActivityProps {
   tasksByStatus: TasksByStatus
@@ -12,10 +13,6 @@ interface ActivityItem {
   dot: 'green' | 'blue' | 'orange' | 'red'
   text: string
   time: string
-}
-
-const PRIORITY_LABEL: Record<Task['priority'], string> = {
-  low: 'Nízká', medium: 'Střední', high: 'Vysoká', urgent: 'Urgentní',
 }
 
 const PRIORITY_COLOR: Record<Task['priority'], string> = {
@@ -55,6 +52,14 @@ function ActivitySkeleton() {
 }
 
 export default function RecentActivity({ tasksByStatus }: RecentActivityProps) {
+  const { t, language } = useTranslation()
+  const priorityLabels: Record<Task['priority'], string> = {
+    low: t.tasks.priorities.low,
+    medium: t.tasks.priorities.medium,
+    high: t.tasks.priorities.high,
+    urgent: t.tasks.priorities.urgent,
+  }
+
   // Build activity feed from tasks sorted by created_at desc
   const allTasks = [
     ...tasksByStatus.done,
@@ -69,18 +74,18 @@ export default function RecentActivity({ tasksByStatus }: RecentActivityProps) {
       task.priority === 'urgent' ? 'red' : 'orange',
     text:
       task.status === 'done'
-        ? `Dokončeno: ${task.title}`
+        ? `${t.dashboard.activityCompleted} ${task.title}`
         : task.status === 'in_progress'
-        ? `Probíhá: ${task.title}`
-        : `Nový úkol: ${task.title}`,
-    time: relativeTime(task.created_at),
+        ? `${t.dashboard.activityInProgress} ${task.title}`
+        : `${t.dashboard.activityNewTask} ${task.title}`,
+    time: relativeTime(task.created_at, language),
   }))
 
   // Status badge counts
   const statuses = [
-    { label: 'K řešení', count: tasksByStatus.todo.length, color: 'bg-warning/15 text-warning' },
-    { label: 'Probíhá', count: tasksByStatus.in_progress.length, color: 'bg-primary/12 text-primary' },
-    { label: 'Hotovo', count: tasksByStatus.done.length, color: 'bg-green-500/15 text-green-500' },
+    { label: t.dashboard.taskTodo, count: tasksByStatus.todo.length, color: 'bg-warning/15 text-warning' },
+    { label: t.dashboard.taskInProgress, count: tasksByStatus.in_progress.length, color: 'bg-primary/12 text-primary' },
+    { label: t.dashboard.taskDone, count: tasksByStatus.done.length, color: 'bg-green-500/15 text-green-500' },
   ]
 
   // Top urgent tasks
@@ -98,7 +103,7 @@ export default function RecentActivity({ tasksByStatus }: RecentActivityProps) {
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
       <div className="surface-card p-5 lg:col-span-2">
-        <p className="mb-4 text-sm font-semibold text-foreground">Poslední aktivita</p>
+        <p className="mb-4 text-sm font-semibold text-foreground">{t.dashboard.recentActivity}</p>
         <ul className="space-y-3">
           {activities.map((item, i) => (
             <li key={i} className="flex items-start gap-3">
@@ -111,7 +116,7 @@ export default function RecentActivity({ tasksByStatus }: RecentActivityProps) {
       </div>
 
       <div className="surface-card p-5">
-        <p className="mb-4 text-sm font-semibold text-foreground">Úkoly</p>
+        <p className="mb-4 text-sm font-semibold text-foreground">{t.dashboard.tasks}</p>
 
         <div className="mb-4 flex gap-2">
           {statuses.map(s => (
@@ -122,10 +127,10 @@ export default function RecentActivity({ tasksByStatus }: RecentActivityProps) {
         </div>
 
         <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground/70">
-          Prioritní
+          {t.dashboard.priority}
         </p>
         {urgentTasks.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Žádné urgentní úkoly</p>
+          <p className="text-sm text-muted-foreground">{t.dashboard.noUrgentTasks}</p>
         ) : (
           <ul className="space-y-2">
             {urgentTasks.map(task => (
@@ -133,7 +138,7 @@ export default function RecentActivity({ tasksByStatus }: RecentActivityProps) {
                 <p className="text-sm font-medium text-foreground leading-snug">{task.title}</p>
                 <div className="mt-1 flex items-center justify-between">
                   <span className={cn('text-xs font-medium', PRIORITY_COLOR[task.priority])}>
-                    {PRIORITY_LABEL[task.priority]}
+                    {priorityLabels[task.priority]}
                   </span>
                   <span className="text-xs text-muted-foreground">{task.due_date}</span>
                 </div>

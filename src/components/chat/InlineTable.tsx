@@ -3,19 +3,22 @@
 import { Download } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import type { TableData } from '@/lib/agent/orchestrator'
+import { useTranslation } from '@/lib/useTranslation'
 
-function downloadCsv(table: TableData) {
+function downloadCsv(table: TableData, fallbackName: string) {
   const csv = [table.headers.join(','), ...table.rows.map(r => r.join(','))].join('\n')
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `${table.title || 'export'}.csv`
+  a.download = `${table.title || fallbackName}.csv`
   a.click()
   URL.revokeObjectURL(url)
 }
 
 export default function InlineTable({ table }: { table: TableData }) {
+  const { t } = useTranslation()
+
   return (
     <div className="surface-muted mt-3 overflow-hidden">
       <div className="flex items-center gap-2 border-b border-border bg-primary/5 px-4 py-2.5">
@@ -25,11 +28,11 @@ export default function InlineTable({ table }: { table: TableData }) {
           </p>
         )}
         <button
-          onClick={() => downloadCsv(table)}
+          onClick={() => downloadCsv(table, t.chat.exportFilename)}
           className="button-smooth flex items-center gap-1 rounded-xl border border-primary/20 bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary hover:bg-primary/15"
         >
           <Download className="h-3 w-3" />
-          Stáhnout CSV
+          {t.chat.downloadCsv}
         </button>
       </div>
       <ScrollArea className="max-h-[360px]">
@@ -57,7 +60,7 @@ export default function InlineTable({ table }: { table: TableData }) {
         </table>
       </ScrollArea>
       <div className="border-t border-border px-4 py-1.5">
-        <p className="text-[11px] text-muted-foreground">{table.rows.length} záznamů</p>
+        <p className="text-[11px] text-muted-foreground">{table.rows.length} {t.chat.records}</p>
       </div>
     </div>
   )

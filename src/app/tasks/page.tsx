@@ -16,6 +16,7 @@ import { agents } from '@/data/agents'
 import FormModal from '@/components/ui/FormModal'
 import { useConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { cn, fetchJson, relativeTime } from '@/lib/utils'
+import { useTranslation } from '@/lib/useTranslation'
 import type { Client, Property, Task, TaskPriority, TaskStatus } from '@/types'
 
 const PRIORITY_COLORS: Record<TaskPriority, string> = {
@@ -25,31 +26,12 @@ const PRIORITY_COLORS: Record<TaskPriority, string> = {
   low: 'bg-muted-foreground',
 }
 
-const PRIORITY_LABELS: Record<TaskPriority, string> = {
-  urgent: 'Urgentní',
-  high: 'Vysoká',
-  medium: 'Střední',
-  low: 'Nízká',
-}
-
 const PRIORITY_TEXT: Record<TaskPriority, string> = {
   urgent: 'text-red-500',
   high: 'text-orange-500',
   medium: 'text-amber-500',
   low: 'text-muted-foreground',
 }
-
-const STATUS_LABELS: Record<TaskStatus, string> = {
-  todo: 'K provedení',
-  in_progress: 'Probíhá',
-  done: 'Hotovo',
-}
-
-const COLUMN_CONFIG: { status: TaskStatus; label: string; icon: React.ElementType; color: string }[] = [
-  { status: 'todo', label: 'K provedení', icon: Clock, color: 'text-muted-foreground' },
-  { status: 'in_progress', label: 'Probíhá', icon: AlertCircle, color: 'text-violet-500' },
-  { status: 'done', label: 'Hotovo', icon: CheckCircle2, color: 'text-primary' },
-]
 
 const FIELD_CLASSNAME = 'control-focus w-full rounded-2xl border border-border bg-background px-3 py-2 text-sm text-foreground shadow-sm dark:shadow-none'
 
@@ -125,9 +107,16 @@ function TaskCard({
   onAdvance: (task: Task) => void
   onDelete: (task: Task) => void
 }) {
+  const { t, language } = useTranslation()
   const overdue = isOverdue(task.due_date)
   const dueSoon = !overdue && isDueSoon(task.due_date)
   const nextStatus = getNextStatus(task.status)
+  const priorityLabels: Record<TaskPriority, string> = {
+    urgent: t.tasks.priorities.urgent,
+    high: t.tasks.priorities.high,
+    medium: t.tasks.priorities.medium,
+    low: t.tasks.priorities.low,
+  }
 
   return (
     <div
@@ -151,7 +140,7 @@ function TaskCard({
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium leading-snug text-foreground">{task.title}</p>
           {agentLabel ? (
-            <p className="mt-1 text-[11px] text-muted-foreground">Řeší: {agentLabel}</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">{t.tasks.assignedPrefix} {agentLabel}</p>
           ) : null}
         </div>
 
@@ -164,8 +153,8 @@ function TaskCard({
                 onAdvance(task)
               }}
               className="button-smooth rounded-xl border border-border bg-background px-2 py-1 text-muted-foreground hover:border-primary/20 hover:text-primary"
-              title={nextStatus === 'in_progress' ? 'Přesunout do sloupce Probíhá' : 'Označit jako hotové'}
-              aria-label={nextStatus === 'in_progress' ? 'Přesunout do Probíhá' : 'Označit jako hotové'}
+              title={nextStatus === 'in_progress' ? t.tasks.moveToInProgress : t.tasks.markDone}
+              aria-label={nextStatus === 'in_progress' ? t.tasks.moveToInProgress : t.tasks.markDone}
             >
               <Check className="h-3.5 w-3.5" />
             </button>
@@ -177,8 +166,8 @@ function TaskCard({
               onDelete(task)
             }}
             className="button-smooth rounded-xl border border-border bg-background px-2 py-1 text-muted-foreground hover:border-red-500/30 hover:text-red-500"
-            title="Smazat úkol"
-            aria-label="Smazat úkol"
+            title={t.tasks.deleteTitle}
+            aria-label={t.tasks.deleteTitle}
           >
             <X className="h-3.5 w-3.5" />
           </button>
@@ -191,14 +180,14 @@ function TaskCard({
 
       <div className="flex items-center justify-between pl-6">
         <span className={cn('text-[11px] font-medium', PRIORITY_TEXT[task.priority])}>
-          {PRIORITY_LABELS[task.priority]}
+          {priorityLabels[task.priority]}
         </span>
         <div className={cn(
           'flex items-center gap-1 text-[11px]',
           overdue ? 'text-red-500' : dueSoon ? 'text-amber-500' : 'text-muted-foreground',
         )}>
           <Calendar className="h-3 w-3" />
-          {overdue ? 'Po termínu' : relativeTime(task.due_date)}
+          {overdue ? t.tasks.overdueLabel : relativeTime(task.due_date, language)}
         </div>
       </div>
     </div>
@@ -245,6 +234,8 @@ function KanbanColumn({
   onAdvance: (task: Task) => void
   onDelete: (task: Task) => void
 }) {
+  const { t } = useTranslation()
+
   return (
     <div className="surface-card flex min-h-[400px] flex-col overflow-hidden">
       <div className="flex items-center gap-2 border-b border-border px-4 py-3">
@@ -276,7 +267,7 @@ function KanbanColumn({
           ))
         ) : (
           <div className="flex flex-1 items-center justify-center">
-            <p className="text-xs text-muted-foreground/60">Žádné úkoly</p>
+            <p className="text-xs text-muted-foreground/60">{t.tasks.noTasks}</p>
           </div>
         )}
       </div>
@@ -285,6 +276,7 @@ function KanbanColumn({
 }
 
 export default function TasksPage() {
+  const { t } = useTranslation()
   const { confirm, dialog } = useConfirmDialog()
   const [tasks, setTasks] = useState<TasksData>({ todo: [], in_progress: [], done: [] })
   const [clients, setClients] = useState<Client[]>([])
@@ -332,6 +324,22 @@ export default function TasksPage() {
   const total = tasks.todo.length + tasks.in_progress.length + tasks.done.length
   const urgentCount = [...tasks.todo, ...tasks.in_progress].filter((task) => task.priority === 'urgent').length
   const overdueCount = [...tasks.todo, ...tasks.in_progress].filter((task) => isOverdue(task.due_date)).length
+  const priorityLabels: Record<TaskPriority, string> = {
+    urgent: t.tasks.priorities.urgent,
+    high: t.tasks.priorities.high,
+    medium: t.tasks.priorities.medium,
+    low: t.tasks.priorities.low,
+  }
+  const statusLabels: Record<TaskStatus, string> = {
+    todo: t.tasks.statusLabels.todo,
+    in_progress: t.tasks.statusLabels.in_progress,
+    done: t.tasks.statusLabels.done,
+  }
+  const columnConfig: { status: TaskStatus; label: string; icon: React.ElementType; color: string }[] = [
+    { status: 'todo', label: t.tasks.todo, icon: Clock, color: 'text-muted-foreground' },
+    { status: 'in_progress', label: t.tasks.inProgress, icon: AlertCircle, color: 'text-violet-500' },
+    { status: 'done', label: t.tasks.done, icon: CheckCircle2, color: 'text-primary' },
+  ]
 
   function openCreateModal() {
     setEditingTask(null)
@@ -362,9 +370,9 @@ export default function TasksPage() {
 
   async function handleDelete(task: Task) {
     const approved = await confirm({
-      title: 'Smazat úkol',
-      message: `Opravdu smazat úkol „${task.title}“?`,
-      confirmLabel: 'Smazat',
+      title: t.tasks.deleteTitle,
+      message: `${t.tasks.confirmDelete} "${task.title}"?`,
+      confirmLabel: t.common.delete,
     })
 
     if (!approved) return
@@ -383,12 +391,12 @@ export default function TasksPage() {
     setFormError(null)
 
     if (!formValues.title.trim()) {
-      setFormError('Zadejte název úkolu.')
+      setFormError(t.tasks.validationTitleRequired)
       return
     }
 
     if (!formValues.due_date) {
-      setFormError('Vyberte termín splnění.')
+      setFormError(t.tasks.validationDueDateRequired)
       return
     }
 
@@ -425,7 +433,7 @@ export default function TasksPage() {
       setFormValues(createEmptyTaskForm())
       await fetchTasks()
     } catch (error) {
-      setFormError(error instanceof Error ? error.message : 'Nepodařilo se uložit úkol.')
+      setFormError(error instanceof Error ? error.message : t.common.unknownError)
     } finally {
       setIsSubmitting(false)
     }
@@ -438,20 +446,20 @@ export default function TasksPage() {
           <div className="surface-card flex items-center gap-2 px-4 py-2.5">
             <CheckSquare className="h-4 w-4 text-primary" />
             <span className="text-sm font-semibold text-foreground">{loading ? '…' : total}</span>
-            <span className="text-xs text-muted-foreground">úkolů celkem</span>
+            <span className="text-xs text-muted-foreground">{t.tasks.total}</span>
           </div>
           {!loading && urgentCount > 0 ? (
             <div className="flex items-center gap-2 rounded-2xl border border-red-500/30 bg-red-500/5 px-4 py-2.5 shadow-sm dark:shadow-none">
               <AlertCircle className="h-4 w-4 text-red-500" />
               <span className="text-sm font-semibold text-red-500">{urgentCount}</span>
-              <span className="text-xs text-red-500/70">urgentních</span>
+              <span className="text-xs text-red-500/70">{t.tasks.urgent}</span>
             </div>
           ) : null}
           {!loading && overdueCount > 0 ? (
             <div className="flex items-center gap-2 rounded-2xl border border-amber-500/30 bg-amber-500/5 px-4 py-2.5 shadow-sm dark:shadow-none">
               <Clock className="h-4 w-4 text-amber-500" />
               <span className="text-sm font-semibold text-amber-500">{overdueCount}</span>
-              <span className="text-xs text-amber-500/70">po termínu</span>
+              <span className="text-xs text-amber-500/70">{t.tasks.overdue}</span>
             </div>
           ) : null}
         </div>
@@ -462,12 +470,12 @@ export default function TasksPage() {
           className="button-smooth inline-flex items-center gap-2 rounded-2xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90 dark:shadow-none"
         >
           <Plus className="h-4 w-4" />
-          Nový úkol
+          {t.tasks.addNew}
         </button>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        {COLUMN_CONFIG.map((column) => (
+        {columnConfig.map((column) => (
           <KanbanColumn
             key={column.status}
             {...column}
@@ -484,36 +492,36 @@ export default function TasksPage() {
       <FormModal
         open={isModalOpen}
         onOpenChange={setIsModalOpen}
-        title={editingTask ? 'Upravit úkol' : 'Nový úkol'}
-        submitLabel={editingTask ? 'Uložit změny' : 'Vytvořit úkol'}
-        submitLoadingLabel={editingTask ? 'Ukládám změny…' : 'Vytvářím úkol…'}
+        title={editingTask ? t.tasks.editTitle : t.tasks.newTitle}
+        submitLabel={editingTask ? t.tasks.saveEdit : t.tasks.saveNew}
+        submitLoadingLabel={editingTask ? t.tasks.savingEdit : t.tasks.savingNew}
         isSubmitting={isSubmitting}
         error={formError}
         onSubmit={handleSubmit}
       >
         <div className="grid gap-4 md:grid-cols-2">
           <label className="space-y-2 md:col-span-2">
-            <span className="text-sm font-medium text-foreground">Název úkolu</span>
+            <span className="text-sm font-medium text-foreground">{t.tasks.taskTitle}</span>
             <input
               value={formValues.title}
               onChange={(event) => setFormValues((current) => ({ ...current, title: event.target.value }))}
               className={FIELD_CLASSNAME}
-              placeholder="Např. Doplnit chybějící data"
+              placeholder={t.tasks.placeholderTitle}
             />
           </label>
 
           <label className="space-y-2 md:col-span-2">
-            <span className="text-sm font-medium text-foreground">Popis</span>
+            <span className="text-sm font-medium text-foreground">{t.tasks.description}</span>
             <textarea
               value={formValues.description}
               onChange={(event) => setFormValues((current) => ({ ...current, description: event.target.value }))}
               className={cn(FIELD_CLASSNAME, 'min-h-[120px] resize-y')}
-              placeholder="Co je potřeba udělat?"
+              placeholder={t.tasks.placeholderDescription}
             />
           </label>
 
           <label className="space-y-2">
-            <span className="text-sm font-medium text-foreground">Přiřadit agentovi</span>
+            <span className="text-sm font-medium text-foreground">{t.tasks.assignedTo}</span>
             <select
               value={formValues.assigned_to}
               onChange={(event) => setFormValues((current) => ({ ...current, assigned_to: event.target.value }))}
@@ -528,13 +536,13 @@ export default function TasksPage() {
           </label>
 
           <label className="space-y-2">
-            <span className="text-sm font-medium text-foreground">Priorita</span>
+            <span className="text-sm font-medium text-foreground">{t.tasks.priority}</span>
             <select
               value={formValues.priority}
               onChange={(event) => setFormValues((current) => ({ ...current, priority: event.target.value as TaskPriority }))}
               className={FIELD_CLASSNAME}
             >
-              {Object.entries(PRIORITY_LABELS).map(([value, label]) => (
+              {Object.entries(priorityLabels).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
                 </option>
@@ -543,7 +551,7 @@ export default function TasksPage() {
           </label>
 
           <label className="space-y-2">
-            <span className="text-sm font-medium text-foreground">Termín splnění</span>
+            <span className="text-sm font-medium text-foreground">{t.tasks.dueDate}</span>
             <input
               type="date"
               value={formValues.due_date}
@@ -554,13 +562,13 @@ export default function TasksPage() {
 
           {editingTask ? (
             <label className="space-y-2">
-              <span className="text-sm font-medium text-foreground">Stav</span>
+              <span className="text-sm font-medium text-foreground">{t.tasks.status}</span>
               <select
                 value={formValues.status}
                 onChange={(event) => setFormValues((current) => ({ ...current, status: event.target.value as TaskStatus }))}
                 className={FIELD_CLASSNAME}
               >
-                {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                {Object.entries(statusLabels).map(([value, label]) => (
                   <option key={value} value={value}>
                     {label}
                   </option>
@@ -570,13 +578,13 @@ export default function TasksPage() {
           ) : null}
 
           <label className="space-y-2">
-            <span className="text-sm font-medium text-foreground">Související nemovitost</span>
+            <span className="text-sm font-medium text-foreground">{t.tasks.relatedProperty}</span>
             <select
               value={formValues.related_property_id}
               onChange={(event) => setFormValues((current) => ({ ...current, related_property_id: event.target.value }))}
               className={FIELD_CLASSNAME}
             >
-              <option value="">Bez vazby</option>
+              <option value="">{t.tasks.noRelation}</option>
               {properties.map((property) => (
                 <option key={property.id} value={property.id}>
                   {property.name}
@@ -586,13 +594,13 @@ export default function TasksPage() {
           </label>
 
           <label className="space-y-2">
-            <span className="text-sm font-medium text-foreground">Související klient</span>
+            <span className="text-sm font-medium text-foreground">{t.tasks.relatedClient}</span>
             <select
               value={formValues.related_client_id}
               onChange={(event) => setFormValues((current) => ({ ...current, related_client_id: event.target.value }))}
               className={FIELD_CLASSNAME}
             >
-              <option value="">Bez vazby</option>
+              <option value="">{t.tasks.noRelation}</option>
               {clients.map((client) => (
                 <option key={client.id} value={client.id}>
                   {client.name}

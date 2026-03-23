@@ -4,10 +4,12 @@ import { useEffect, useCallback, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useChatStore } from '@/lib/chat-store'
 import type { AgentResponse } from '@/lib/agent/orchestrator'
+import { useTranslation } from '@/lib/useTranslation'
 import ChatMessages from '@/components/chat/ChatMessages'
 import ChatInput from '@/components/chat/ChatInput'
 
 function ChatPageInner() {
+  const { t } = useTranslation()
   const searchParams = useSearchParams()
   const { messages, isLoading, addUserMessage, addAssistantMessage, setLoading } = useChatStore()
 
@@ -37,9 +39,9 @@ function ChatPageInner() {
       const data: AgentResponse = await res.json()
       addAssistantMessage(data)
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Neznámá chyba'
+      const msg = err instanceof Error ? err.message : t.common.unknownError
       addAssistantMessage({
-        message: `Omlouvám se, nastala chyba: **${msg}**. Zkuste to prosím znovu.`,
+        message: `${t.chat.errorIntro} **${msg}**. ${t.chat.errorRetry}`,
         charts: [],
         tables: [],
         emailDraft: null,
@@ -75,8 +77,14 @@ function ChatPageInner() {
 
 export default function ChatPage() {
   return (
-    <Suspense fallback={<div className="flex h-full items-center justify-center text-muted-foreground text-sm">Načítám…</div>}>
+    <Suspense fallback={<ChatPageFallback />}>
       <ChatPageInner />
     </Suspense>
   )
+}
+
+function ChatPageFallback() {
+  const { t } = useTranslation()
+
+  return <div className="flex h-full items-center justify-center text-sm text-muted-foreground">{t.common.loading}</div>
 }

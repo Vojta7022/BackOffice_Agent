@@ -4,34 +4,14 @@ import { useEffect, useState, useCallback } from 'react'
 import { Search, Home, SlidersHorizontal, AlertTriangle, Pencil } from 'lucide-react'
 import FormModal from '@/components/ui/FormModal'
 import { cn, fetchJson, formatCZK } from '@/lib/utils'
+import { useTranslation } from '@/lib/useTranslation'
 import type { Property, PropertyStatus, PropertyType, RenovationStatus } from '@/types'
-
-const TYPE_LABELS: Record<PropertyType, string> = {
-  apartment: 'Byt',
-  house: 'Dům',
-  land: 'Pozemek',
-  commercial: 'Komerční',
-  office: 'Kancelář',
-}
-
-const STATUS_LABELS: Record<PropertyStatus, string> = {
-  available: 'Volná',
-  reserved: 'Rezervovaná',
-  sold: 'Prodaná',
-  rented: 'Pronajatá',
-}
 
 const STATUS_COLORS: Record<PropertyStatus, string> = {
   available: 'bg-primary/10 text-primary',
   reserved: 'bg-amber-500/15 text-amber-500',
   sold: 'bg-muted text-muted-foreground',
   rented: 'bg-violet-500/15 text-violet-500',
-}
-
-const RENOVATION_LABELS: Record<RenovationStatus, string> = {
-  original: 'Původní stav',
-  partial: 'Částečná rekonstrukce',
-  full: 'Kompletní rekonstrukce',
 }
 
 const FIELD_CLASSNAME = 'control-focus w-full rounded-2xl border border-border bg-background px-3 py-2 text-sm text-foreground shadow-sm dark:shadow-none'
@@ -57,17 +37,21 @@ function createPropertyFormValues(property: Property): PropertyFormValues {
 }
 
 function StatusBadge({ status }: { status: PropertyStatus }) {
+  const { t } = useTranslation()
+
   return (
     <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-medium', STATUS_COLORS[status])}>
-      {STATUS_LABELS[status]}
+      {t.properties.statusLabels[status]}
     </span>
   )
 }
 
 function TypeBadge({ type }: { type: PropertyType }) {
+  const { t } = useTranslation()
+
   return (
     <span className="rounded-full bg-muted/70 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-      {TYPE_LABELS[type]}
+      {t.properties.typeLabels[type]}
     </span>
   )
 }
@@ -83,6 +67,7 @@ function PropertyCard({
   property: Property
   onEdit: (property: Property) => void
 }) {
+  const { t, language } = useTranslation()
   const missingData = property.type !== 'land' && (property.renovation_status === null || property.construction_notes === null)
   const rental = isRental(property)
 
@@ -94,13 +79,13 @@ function PropertyCard({
         className="button-smooth absolute right-3 top-3 inline-flex items-center gap-1 rounded-xl border border-border bg-background/95 px-2.5 py-1.5 text-xs font-medium text-muted-foreground opacity-100 shadow-sm hover:border-primary/20 hover:text-primary dark:shadow-none md:opacity-0 md:group-hover:opacity-100"
       >
         <Pencil className="h-3.5 w-3.5" />
-        Upravit
+        {t.properties.edit}
       </button>
 
       <div className="mb-3 flex items-start justify-between gap-2 pr-20">
         <h3 className="line-clamp-2 text-sm font-semibold leading-tight text-foreground">{property.name}</h3>
         {missingData ? (
-          <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" aria-label="Chybějící data" />
+          <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" aria-label={t.properties.missingDataShort} />
         ) : null}
       </div>
 
@@ -113,21 +98,21 @@ function PropertyCard({
         <StatusBadge status={property.status} />
         {rental ? (
           <span className="rounded-full bg-violet-500/15 px-2 py-0.5 text-[11px] font-medium text-violet-500">
-            Pronájem
+            {t.properties.rental}
           </span>
         ) : null}
       </div>
 
       <div className="mt-auto space-y-1">
         <p className="text-base font-semibold text-foreground">
-          {formatCZK(property.price)}
-          {rental ? <span className="text-xs font-normal text-muted-foreground"> / měsíc</span> : null}
+          {formatCZK(property.price, language)}
+          {rental ? <span className="text-xs font-normal text-muted-foreground"> {t.properties.perMonth}</span> : null}
         </p>
         <div className="flex gap-3 text-xs text-muted-foreground">
           <span>{property.area_sqm} m²</span>
-          {property.rooms !== null ? <span>{property.rooms} pokoje</span> : null}
+          {property.rooms !== null ? <span>{property.rooms} {t.properties.rooms}</span> : null}
           {property.floor !== null && property.total_floors !== null ? (
-            <span>{property.floor}/{property.total_floors}. patro</span>
+            <span>{property.floor}/{property.total_floors}. {t.properties.floor}</span>
           ) : null}
         </div>
       </div>
@@ -151,6 +136,7 @@ function PropertyCardSkeleton() {
 }
 
 export default function PropertiesPage() {
+  const { t } = useTranslation()
   const [properties, setProperties] = useState<Property[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -201,7 +187,7 @@ export default function PropertiesPage() {
 
     const price = Number(formValues.price)
     if (!Number.isFinite(price) || price < 0) {
-      setFormError('Cena musí být kladné číslo.')
+      setFormError(t.properties.invalidPrice)
       return
     }
 
@@ -227,7 +213,7 @@ export default function PropertiesPage() {
       setFormValues(null)
       await fetchProperties()
     } catch (error) {
-      setFormError(error instanceof Error ? error.message : 'Nepodařilo se uložit nemovitost.')
+      setFormError(error instanceof Error ? error.message : t.common.unknownError)
     } finally {
       setIsSubmitting(false)
     }
@@ -239,13 +225,13 @@ export default function PropertiesPage() {
         <div className="surface-card flex items-center gap-2 px-4 py-2.5">
           <Home className="h-4 w-4 text-primary" />
           <span className="text-sm font-semibold text-foreground">{total}</span>
-          <span className="text-xs text-muted-foreground">nemovitostí</span>
+          <span className="text-xs text-muted-foreground">{t.properties.total}</span>
         </div>
         {missingDataCount > 0 ? (
           <div className="flex items-center gap-2 rounded-2xl border border-amber-500/30 bg-amber-500/5 px-4 py-2.5 shadow-sm dark:shadow-none">
             <AlertTriangle className="h-4 w-4 text-amber-500" />
             <span className="text-sm font-semibold text-amber-500">{missingDataCount}</span>
-            <span className="text-xs text-amber-500/70">s chybějícími daty</span>
+            <span className="text-xs text-amber-500/70">{t.properties.missingData}</span>
           </div>
         ) : null}
       </div>
@@ -256,7 +242,7 @@ export default function PropertiesPage() {
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Hledat nemovitosti…"
+            placeholder={t.properties.search}
             className={cn(
               'control-focus w-full rounded-2xl border border-border bg-card py-2.5 pl-9 pr-4 text-sm shadow-sm dark:shadow-none',
               'text-foreground placeholder:text-muted-foreground/50',
@@ -271,11 +257,11 @@ export default function PropertiesPage() {
             onChange={(event) => setStatus(event.target.value as PropertyStatus | '')}
             className="bg-transparent text-sm text-foreground outline-none"
           >
-            <option value="">Všechny stavy</option>
-            <option value="available">Volná</option>
-            <option value="reserved">Rezervovaná</option>
-            <option value="sold">Prodaná</option>
-            <option value="rented">Pronajatá</option>
+            <option value="">{t.properties.allStatuses}</option>
+            <option value="available">{t.properties.statusLabels.available}</option>
+            <option value="reserved">{t.properties.statusLabels.reserved}</option>
+            <option value="sold">{t.properties.statusLabels.sold}</option>
+            <option value="rented">{t.properties.statusLabels.rented}</option>
           </select>
         </div>
 
@@ -284,12 +270,12 @@ export default function PropertiesPage() {
           onChange={(event) => setType(event.target.value as PropertyType | '')}
           className="control-focus rounded-2xl border border-border bg-card px-3 py-2 text-sm text-foreground shadow-sm dark:shadow-none"
         >
-          <option value="">Všechny typy</option>
-          <option value="apartment">Byt</option>
-          <option value="house">Dům</option>
-          <option value="land">Pozemek</option>
-          <option value="commercial">Komerční</option>
-          <option value="office">Kancelář</option>
+          <option value="">{t.properties.allTypes}</option>
+          <option value="apartment">{t.properties.typeLabels.apartment}</option>
+          <option value="house">{t.properties.typeLabels.house}</option>
+          <option value="land">{t.properties.typeLabels.land}</option>
+          <option value="commercial">{t.properties.typeLabels.commercial}</option>
+          <option value="office">{t.properties.typeLabels.office}</option>
         </select>
 
         <select
@@ -297,7 +283,7 @@ export default function PropertiesPage() {
           onChange={(event) => setCity(event.target.value)}
           className="control-focus rounded-2xl border border-border bg-card px-3 py-2 text-sm text-foreground shadow-sm dark:shadow-none"
         >
-          <option value="">Všechna města</option>
+          <option value="">{t.properties.allCities}</option>
           <option value="Praha">Praha</option>
           <option value="Brno">Brno</option>
           <option value="Plzeň">Plzeň</option>
@@ -315,8 +301,8 @@ export default function PropertiesPage() {
         ) : (
           <div className="col-span-full flex flex-col items-center justify-center py-20 text-center">
             <Home className="mb-3 h-12 w-12 text-muted-foreground/30" />
-            <p className="text-sm font-medium text-muted-foreground">Žádné nemovitosti nenalezeny</p>
-            <p className="mt-1 text-xs text-muted-foreground/60">Zkuste upravit filtry nebo vyhledávací dotaz</p>
+            <p className="text-sm font-medium text-muted-foreground">{t.properties.noResults}</p>
+            <p className="mt-1 text-xs text-muted-foreground/60">{t.properties.noResultsHint}</p>
           </div>
         )}
       </div>
@@ -330,9 +316,9 @@ export default function PropertiesPage() {
             setFormError(null)
           }
         }}
-        title={editingProperty ? `Upravit: ${editingProperty.name}` : 'Upravit nemovitost'}
-        submitLabel="Uložit změny"
-        submitLoadingLabel="Ukládám změny…"
+        title={editingProperty ? `${t.properties.edit}: ${editingProperty.name}` : t.properties.editTitle}
+        submitLabel={t.properties.saveEdit}
+        submitLoadingLabel={t.properties.savingEdit}
         isSubmitting={isSubmitting}
         error={formError}
         onSubmit={handleSubmit}
@@ -340,24 +326,24 @@ export default function PropertiesPage() {
         {formValues ? (
           <div className="grid gap-4 md:grid-cols-2">
             <label className="space-y-2">
-              <span className="text-sm font-medium text-foreground">Cena</span>
+              <span className="text-sm font-medium text-foreground">{t.properties.price}</span>
               <input
                 type="number"
                 value={formValues.price}
                 onChange={(event) => setFormValues((current) => current ? { ...current, price: event.target.value } : current)}
                 className={FIELD_CLASSNAME}
-                placeholder="8500000"
+                placeholder={t.properties.pricePlaceholder}
               />
             </label>
 
             <label className="space-y-2">
-              <span className="text-sm font-medium text-foreground">Stav</span>
+              <span className="text-sm font-medium text-foreground">{t.properties.status}</span>
               <select
                 value={formValues.status}
                 onChange={(event) => setFormValues((current) => current ? { ...current, status: event.target.value as PropertyStatus } : current)}
                 className={FIELD_CLASSNAME}
               >
-                {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                {Object.entries(t.properties.statusLabels).map(([value, label]) => (
                   <option key={value} value={value}>
                     {label}
                   </option>
@@ -366,14 +352,14 @@ export default function PropertiesPage() {
             </label>
 
             <label className="space-y-2">
-              <span className="text-sm font-medium text-foreground">Stav rekonstrukce</span>
+              <span className="text-sm font-medium text-foreground">{t.properties.renovationStatus}</span>
               <select
                 value={formValues.renovation_status}
                 onChange={(event) => setFormValues((current) => current ? { ...current, renovation_status: event.target.value as RenovationStatus | '' } : current)}
                 className={FIELD_CLASSNAME}
               >
-                <option value="">Neuvedeno</option>
-                {Object.entries(RENOVATION_LABELS).map(([value, label]) => (
+                <option value="">{t.properties.unspecified}</option>
+                {Object.entries(t.properties.renovationLabels).map(([value, label]) => (
                   <option key={value} value={value}>
                     {label}
                   </option>
@@ -382,33 +368,33 @@ export default function PropertiesPage() {
             </label>
 
             <label className="space-y-2">
-              <span className="text-sm font-medium text-foreground">Rok rekonstrukce</span>
+              <span className="text-sm font-medium text-foreground">{t.properties.renovationYear}</span>
               <input
                 type="number"
                 value={formValues.renovation_year}
                 onChange={(event) => setFormValues((current) => current ? { ...current, renovation_year: event.target.value } : current)}
                 className={FIELD_CLASSNAME}
-                placeholder="Např. 2022"
+                placeholder={t.properties.renovationYearPlaceholder}
               />
             </label>
 
             <label className="space-y-2 md:col-span-2">
-              <span className="text-sm font-medium text-foreground">Stavební poznámky</span>
+              <span className="text-sm font-medium text-foreground">{t.properties.constructionNotes}</span>
               <textarea
                 value={formValues.construction_notes}
                 onChange={(event) => setFormValues((current) => current ? { ...current, construction_notes: event.target.value } : current)}
                 className={cn(FIELD_CLASSNAME, 'min-h-[110px] resize-y')}
-                placeholder="Např. cihlová stavba, nové rozvody, původní podlahy…"
+                placeholder={t.properties.constructionNotesPlaceholder}
               />
             </label>
 
             <label className="space-y-2 md:col-span-2">
-              <span className="text-sm font-medium text-foreground">Popis</span>
+              <span className="text-sm font-medium text-foreground">{t.properties.description}</span>
               <textarea
                 value={formValues.description}
                 onChange={(event) => setFormValues((current) => current ? { ...current, description: event.target.value } : current)}
                 className={cn(FIELD_CLASSNAME, 'min-h-[140px] resize-y')}
-                placeholder="Doplňte popis nemovitosti…"
+                placeholder={t.properties.descriptionPlaceholder}
               />
             </label>
           </div>

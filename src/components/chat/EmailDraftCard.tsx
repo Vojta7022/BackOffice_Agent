@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Copy, Check, Pencil } from 'lucide-react'
+import { useTranslation } from '@/lib/useTranslation'
 
 interface EmailDraft {
   to: string
@@ -10,12 +11,13 @@ interface EmailDraft {
 }
 
 export default function EmailDraftCard({ draft }: { draft: EmailDraft }) {
+  const { t } = useTranslation()
   const [copied, setCopied] = useState(false)
   const [editing, setEditing] = useState(false)
   const [body, setBody] = useState(draft.body)
 
   const copy = async () => {
-    await navigator.clipboard.writeText(`Komu: ${draft.to}\nPředmět: ${draft.subject}\n\n${body}`)
+    await navigator.clipboard.writeText(`${t.chat.to}: ${draft.to}\n${t.chat.subject}: ${draft.subject}\n\n${body}`)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
@@ -24,15 +26,15 @@ export default function EmailDraftCard({ draft }: { draft: EmailDraft }) {
     <div className="mt-3 overflow-hidden rounded-2xl border border-primary/25 bg-primary/5">
       <div className="flex items-center gap-2 border-b border-primary/15 px-4 py-2.5">
         <div className="h-2 w-2 rounded-full bg-primary" />
-        <span className="text-xs font-semibold uppercase tracking-wide text-primary">Návrh emailu</span>
+        <span className="text-xs font-semibold uppercase tracking-wide text-primary">{t.chat.emailDraft}</span>
       </div>
       <div className="space-y-2 px-4 py-3">
         <div className="flex gap-2 text-sm">
-          <span className="w-16 shrink-0 text-muted-foreground">Komu:</span>
+          <span className="w-16 shrink-0 text-muted-foreground">{t.chat.to}:</span>
           <span className="text-foreground font-medium">{draft.to}</span>
         </div>
         <div className="flex gap-2 text-sm">
-          <span className="w-16 shrink-0 text-muted-foreground">Předmět:</span>
+          <span className="w-16 shrink-0 text-muted-foreground">{t.chat.subject}:</span>
           <span className="text-foreground font-medium">{draft.subject}</span>
         </div>
         <div className="mt-2 border-t border-primary/15 pt-2">
@@ -53,14 +55,14 @@ export default function EmailDraftCard({ draft }: { draft: EmailDraft }) {
           className="button-smooth flex items-center gap-1.5 rounded-xl bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/15"
         >
           {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-          {copied ? 'Zkopírováno' : 'Kopírovat'}
+          {copied ? t.chat.copied : t.chat.copy}
         </button>
         <button
           onClick={() => setEditing(e => !e)}
           className="button-smooth flex items-center gap-1.5 rounded-xl bg-muted/70 px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
         >
           <Pencil className="h-3.5 w-3.5" />
-          {editing ? 'Hotovo' : 'Upravit'}
+          {editing ? t.chat.done : t.chat.edit}
         </button>
       </div>
     </div>

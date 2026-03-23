@@ -3,12 +3,7 @@
 import { useRef, useState, useCallback, useEffect, KeyboardEvent } from 'react'
 import { SendHorizontal, Mic } from 'lucide-react'
 import { cn } from '@/lib/utils'
-
-const SUGGESTIONS = [
-  'Zobraz jako graf',
-  'Exportuj do CSV',
-  'Více detailů',
-]
+import { useTranslation } from '@/lib/useTranslation'
 
 interface ChatInputProps {
   onSend: (message: string) => void
@@ -17,6 +12,7 @@ interface ChatInputProps {
 }
 
 export default function ChatInput({ onSend, disabled, showSuggestions }: ChatInputProps) {
+  const { t, language } = useTranslation()
   const [value, setValue] = useState('')
   const [isListening, setIsListening] = useState(false)
   const [isSupported, setIsSupported] = useState(false)
@@ -30,7 +26,7 @@ export default function ChatInput({ onSend, disabled, showSuggestions }: ChatInp
     setIsSupported(true)
 
     const rec = new Ctor()
-    rec.lang = 'cs-CZ'
+    rec.lang = language === 'cs' ? 'cs-CZ' : 'en-US'
     rec.continuous = false
     rec.interimResults = true
 
@@ -57,7 +53,7 @@ export default function ChatInput({ onSend, disabled, showSuggestions }: ChatInp
     }
 
     recognitionRef.current = rec
-  }, [])
+  }, [language])
 
   const resize = useCallback(() => {
     const el = textareaRef.current
@@ -100,7 +96,7 @@ export default function ChatInput({ onSend, disabled, showSuggestions }: ChatInp
     <div className="border-t border-border bg-background/95 px-4 py-3 backdrop-blur-sm">
       {showSuggestions && (
         <div className="mb-2 flex gap-2 overflow-x-auto pb-1">
-          {SUGGESTIONS.map((s) => (
+          {t.chat.composerSuggestions.map((s) => (
             <button
               key={s}
               onClick={() => onSend(s)}
@@ -118,7 +114,7 @@ export default function ChatInput({ onSend, disabled, showSuggestions }: ChatInp
           <button
             onClick={toggleMic}
             disabled={disabled}
-            aria-label={isListening ? 'Zastavit nahrávání' : 'Nahrát hlasem'}
+            aria-label={isListening ? t.chat.stopRecording : t.chat.recordVoice}
             className={cn(
               'button-smooth relative flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-2xl border shadow-sm dark:shadow-none',
               'disabled:opacity-40 disabled:cursor-not-allowed',
@@ -143,7 +139,7 @@ export default function ChatInput({ onSend, disabled, showSuggestions }: ChatInp
           onChange={(e) => { setValue(e.target.value); resize() }}
           onKeyDown={onKey}
           disabled={disabled}
-          placeholder={isListening ? 'Poslouchám…' : 'Napište zprávu…'}
+          placeholder={isListening ? t.chat.listening : t.chat.placeholder}
           rows={1}
           className={cn(
             'control-focus flex-1 resize-none rounded-2xl border border-border bg-card px-4 py-2.5 shadow-sm dark:shadow-none',
@@ -157,6 +153,8 @@ export default function ChatInput({ onSend, disabled, showSuggestions }: ChatInp
         <button
           onClick={send}
           disabled={disabled || !value.trim()}
+          aria-label={t.chat.send}
+          title={t.chat.send}
           className={cn(
             'button-smooth flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-2xl',
             'bg-primary text-white shadow-sm hover:bg-primary/90 dark:shadow-none active:scale-95',

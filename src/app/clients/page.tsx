@@ -6,37 +6,13 @@ import { agents } from '@/data/agents'
 import FormModal from '@/components/ui/FormModal'
 import { useConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { cn, fetchJson, relativeTime } from '@/lib/utils'
+import { useTranslation } from '@/lib/useTranslation'
 import type { Client, ClientStatus, ClientType, ClientSource } from '@/types'
-
-const TYPE_LABELS: Record<ClientType, string> = {
-  buyer: 'Kupující',
-  seller: 'Prodávající',
-  investor: 'Investor',
-  tenant: 'Nájemník',
-}
-
-const SOURCE_LABELS: Record<ClientSource, string> = {
-  website: 'Web',
-  referral: 'Doporučení',
-  sreality: 'Sreality',
-  bezrealitky: 'Bezrealitky',
-  instagram: 'Instagram',
-  facebook: 'Facebook',
-  cold_call: 'Cold call',
-  walk_in: 'Walk-in',
-  other: 'Jiné',
-}
 
 const STATUS_COLORS: Record<ClientStatus, string> = {
   active: 'bg-primary/10 text-primary',
   inactive: 'bg-amber-500/15 text-amber-500',
   closed: 'bg-muted text-muted-foreground',
-}
-
-const STATUS_LABELS: Record<ClientStatus, string> = {
-  active: 'Aktivní',
-  inactive: 'Neaktivní',
-  closed: 'Uzavřený',
 }
 
 const TYPE_COLORS: Record<ClientType, string> = {
@@ -98,6 +74,8 @@ function ClientRow({
   onEdit: (client: Client) => void
   onDelete: (client: Client) => void
 }) {
+  const { t, language } = useTranslation()
+
   return (
     <tr className="group border-b border-border/60 transition-colors even:bg-muted/15 hover:bg-muted/30">
       <td className="px-4 py-3">
@@ -113,12 +91,12 @@ function ClientRow({
       </td>
       <td className="hidden px-4 py-3 sm:table-cell">
         <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-medium', TYPE_COLORS[client.type])}>
-          {TYPE_LABELS[client.type]}
+          {t.clients.typeLabels[client.type]}
         </span>
       </td>
       <td className="hidden px-4 py-3 md:table-cell">
         <span className="rounded-full bg-muted/70 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-          {SOURCE_LABELS[client.source]}
+          {t.clients.sourceLabels[client.source]}
         </span>
       </td>
       <td className="hidden px-4 py-3 lg:table-cell">
@@ -126,11 +104,11 @@ function ClientRow({
       </td>
       <td className="px-4 py-3">
         <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-medium', STATUS_COLORS[client.status])}>
-          {STATUS_LABELS[client.status]}
+          {t.clients.statusLabels[client.status]}
         </span>
       </td>
       <td className="hidden px-4 py-3 xl:table-cell text-right">
-        <span className="text-xs text-muted-foreground">{relativeTime(client.created_at)}</span>
+        <span className="text-xs text-muted-foreground">{relativeTime(client.created_at, language)}</span>
       </td>
       <td className="px-4 py-3">
         <div className="flex justify-end gap-2">
@@ -138,7 +116,7 @@ function ClientRow({
             type="button"
             onClick={() => onEdit(client)}
             className="button-smooth rounded-xl border border-border bg-background px-2 py-1 text-muted-foreground hover:border-primary/20 hover:text-primary"
-            aria-label={`Upravit klienta ${client.name}`}
+            aria-label={`${t.clients.editTitle} ${client.name}`}
           >
             <Pencil className="h-3.5 w-3.5" />
           </button>
@@ -146,7 +124,7 @@ function ClientRow({
             type="button"
             onClick={() => onDelete(client)}
             className="button-smooth rounded-xl border border-border bg-background px-2 py-1 text-muted-foreground hover:border-red-500/30 hover:text-red-500"
-            aria-label={`Smazat klienta ${client.name}`}
+            aria-label={`${t.clients.deleteTitle} ${client.name}`}
           >
             <Trash2 className="h-3.5 w-3.5" />
           </button>
@@ -183,6 +161,7 @@ function TableSkeleton() {
 }
 
 export default function ClientsPage() {
+  const { t } = useTranslation()
   const { confirm, dialog } = useConfirmDialog()
   const [clients, setClients] = useState<Client[]>([])
   const [total, setTotal] = useState(0)
@@ -235,9 +214,9 @@ export default function ClientsPage() {
 
   async function handleDelete(client: Client) {
     const approved = await confirm({
-      title: 'Smazat klienta',
-      message: `Opravdu smazat klienta ${client.name}?`,
-      confirmLabel: 'Smazat',
+      title: t.clients.deleteTitle,
+      message: `${t.clients.confirmDelete} ${client.name}?`,
+      confirmLabel: t.common.delete,
     })
 
     if (!approved) return
@@ -256,17 +235,17 @@ export default function ClientsPage() {
     setFormError(null)
 
     if (!formValues.name.trim()) {
-      setFormError('Zadejte jméno klienta.')
+      setFormError(t.clients.validationNameRequired)
       return
     }
 
     if (!formValues.email.trim()) {
-      setFormError('Zadejte e-mail klienta.')
+      setFormError(t.clients.validationEmailRequired)
       return
     }
 
     if (!formValues.email.includes('@')) {
-      setFormError('E-mail nemá správný formát.')
+      setFormError(t.clients.validationEmailInvalid)
       return
     }
 
@@ -299,7 +278,7 @@ export default function ClientsPage() {
       setFormValues(createEmptyClientForm())
       await fetchClients()
     } catch (error) {
-      setFormError(error instanceof Error ? error.message : 'Nepodařilo se uložit klienta.')
+      setFormError(error instanceof Error ? error.message : t.common.unknownError)
     } finally {
       setIsSubmitting(false)
     }
@@ -312,12 +291,12 @@ export default function ClientsPage() {
           <div className="surface-card flex items-center gap-2 px-4 py-2.5">
             <Users className="h-4 w-4 text-primary" />
             <span className="text-sm font-semibold text-foreground">{total}</span>
-            <span className="text-xs text-muted-foreground">klientů celkem</span>
+            <span className="text-xs text-muted-foreground">{t.clients.total}</span>
           </div>
           {!loading && (
             <div className="flex items-center gap-2 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-2.5 shadow-sm dark:shadow-none">
               <span className="text-sm font-semibold text-primary">{activeCount}</span>
-              <span className="text-xs text-primary/70">aktivních</span>
+              <span className="text-xs text-primary/70">{t.clients.active}</span>
             </div>
           )}
         </div>
@@ -328,7 +307,7 @@ export default function ClientsPage() {
           className="button-smooth inline-flex items-center gap-2 rounded-2xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90 dark:shadow-none"
         >
           <UserPlus className="h-4 w-4" />
-          Nový klient
+          {t.clients.addNew}
         </button>
       </div>
 
@@ -338,7 +317,7 @@ export default function ClientsPage() {
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Hledat klienty…"
+            placeholder={t.clients.search}
             className={cn(
               'control-focus w-full rounded-2xl border border-border bg-card py-2.5 pl-9 pr-4 text-sm shadow-sm dark:shadow-none',
               'text-foreground placeholder:text-muted-foreground/50',
@@ -353,10 +332,10 @@ export default function ClientsPage() {
             onChange={(event) => setStatus(event.target.value as ClientStatus | '')}
             className="bg-transparent text-sm text-foreground outline-none"
           >
-            <option value="">Všechny stavy</option>
-            <option value="active">Aktivní</option>
-            <option value="inactive">Neaktivní</option>
-            <option value="closed">Uzavřený</option>
+            <option value="">{t.clients.allStatuses}</option>
+            <option value="active">{t.clients.statusLabels.active}</option>
+            <option value="inactive">{t.clients.statusLabels.inactive}</option>
+            <option value="closed">{t.clients.statusLabels.closed}</option>
           </select>
         </div>
 
@@ -365,11 +344,11 @@ export default function ClientsPage() {
           onChange={(event) => setType(event.target.value as ClientType | '')}
           className="control-focus rounded-2xl border border-border bg-card px-3 py-2 text-sm text-foreground shadow-sm dark:shadow-none"
         >
-          <option value="">Všechny typy</option>
-          <option value="buyer">Kupující</option>
-          <option value="seller">Prodávající</option>
-          <option value="investor">Investor</option>
-          <option value="tenant">Nájemník</option>
+          <option value="">{t.clients.allTypes}</option>
+          <option value="buyer">{t.clients.typeLabels.buyer}</option>
+          <option value="seller">{t.clients.typeLabels.seller}</option>
+          <option value="investor">{t.clients.typeLabels.investor}</option>
+          <option value="tenant">{t.clients.typeLabels.tenant}</option>
         </select>
       </div>
 
@@ -378,13 +357,13 @@ export default function ClientsPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-border bg-muted/40">
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Klient</th>
-                <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:table-cell">Typ</th>
-                <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground md:table-cell">Zdroj</th>
-                <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground lg:table-cell">Telefon</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Stav</th>
-                <th className="hidden px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground xl:table-cell">Přidán</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">Akce</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t.clients.name}</th>
+                <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:table-cell">{t.clients.type}</th>
+                <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground md:table-cell">{t.clients.source}</th>
+                <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground lg:table-cell">{t.clients.phone}</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t.clients.status}</th>
+                <th className="hidden px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground xl:table-cell">{t.clients.createdAt}</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t.common.actions}</th>
               </tr>
             </thead>
             <tbody>
@@ -403,8 +382,8 @@ export default function ClientsPage() {
                 <tr>
                   <td colSpan={7} className="py-20 text-center">
                     <Users className="mx-auto mb-3 h-10 w-10 text-muted-foreground/30" />
-                    <p className="text-sm font-medium text-muted-foreground">Žádní klienti nenalezeni</p>
-                    <p className="mt-1 text-xs text-muted-foreground/60">Zkuste upravit filtry</p>
+                    <p className="text-sm font-medium text-muted-foreground">{t.clients.noResults}</p>
+                    <p className="mt-1 text-xs text-muted-foreground/60">{t.clients.noResultsHint}</p>
                   </td>
                 </tr>
               )}
@@ -416,53 +395,53 @@ export default function ClientsPage() {
       <FormModal
         open={isModalOpen}
         onOpenChange={setIsModalOpen}
-        title={editingClient ? 'Upravit klienta' : 'Nový klient'}
-        submitLabel={editingClient ? 'Uložit změny' : 'Vytvořit klienta'}
-        submitLoadingLabel={editingClient ? 'Ukládám změny…' : 'Vytvářím klienta…'}
+        title={editingClient ? t.clients.editTitle : t.clients.newTitle}
+        submitLabel={editingClient ? t.clients.saveEdit : t.clients.saveNew}
+        submitLoadingLabel={editingClient ? t.clients.savingEdit : t.clients.savingNew}
         isSubmitting={isSubmitting}
         error={formError}
         onSubmit={handleSubmit}
       >
         <div className="grid gap-4 md:grid-cols-2">
           <label className="space-y-2">
-            <span className="text-sm font-medium text-foreground">Jméno</span>
+            <span className="text-sm font-medium text-foreground">{t.clients.name}</span>
             <input
               value={formValues.name}
               onChange={(event) => setFormValues((current) => ({ ...current, name: event.target.value }))}
               className={FIELD_CLASSNAME}
-              placeholder="Např. Jan Novák"
+              placeholder={t.clients.placeholders.name}
             />
           </label>
 
           <label className="space-y-2">
-            <span className="text-sm font-medium text-foreground">E-mail</span>
+            <span className="text-sm font-medium text-foreground">{t.clients.email}</span>
             <input
               type="email"
               value={formValues.email}
               onChange={(event) => setFormValues((current) => ({ ...current, email: event.target.value }))}
               className={FIELD_CLASSNAME}
-              placeholder="jan.novak@email.cz"
+              placeholder={t.clients.placeholders.email}
             />
           </label>
 
           <label className="space-y-2">
-            <span className="text-sm font-medium text-foreground">Telefon</span>
+            <span className="text-sm font-medium text-foreground">{t.clients.phone}</span>
             <input
               value={formValues.phone}
               onChange={(event) => setFormValues((current) => ({ ...current, phone: event.target.value }))}
               className={FIELD_CLASSNAME}
-              placeholder="+420 777 123 456"
+              placeholder={t.clients.placeholders.phone}
             />
           </label>
 
           <label className="space-y-2">
-            <span className="text-sm font-medium text-foreground">Typ klienta</span>
+            <span className="text-sm font-medium text-foreground">{t.clients.type}</span>
             <select
               value={formValues.type}
               onChange={(event) => setFormValues((current) => ({ ...current, type: event.target.value as ClientType }))}
               className={FIELD_CLASSNAME}
             >
-              {Object.entries(TYPE_LABELS).map(([value, label]) => (
+              {Object.entries(t.clients.typeLabels).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
                 </option>
@@ -471,13 +450,13 @@ export default function ClientsPage() {
           </label>
 
           <label className="space-y-2">
-            <span className="text-sm font-medium text-foreground">Zdroj</span>
+            <span className="text-sm font-medium text-foreground">{t.clients.source}</span>
             <select
               value={formValues.source}
               onChange={(event) => setFormValues((current) => ({ ...current, source: event.target.value as ClientSource }))}
               className={FIELD_CLASSNAME}
             >
-              {Object.entries(SOURCE_LABELS).map(([value, label]) => (
+              {Object.entries(t.clients.sourceLabels).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
                 </option>
@@ -486,13 +465,13 @@ export default function ClientsPage() {
           </label>
 
           <label className="space-y-2">
-            <span className="text-sm font-medium text-foreground">Stav</span>
+            <span className="text-sm font-medium text-foreground">{t.clients.status}</span>
             <select
               value={formValues.status}
               onChange={(event) => setFormValues((current) => ({ ...current, status: event.target.value as ClientStatus }))}
               className={FIELD_CLASSNAME}
             >
-              {Object.entries(STATUS_LABELS).map(([value, label]) => (
+              {Object.entries(t.clients.statusLabels).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
                 </option>
@@ -501,7 +480,7 @@ export default function ClientsPage() {
           </label>
 
           <label className="space-y-2 md:col-span-2">
-            <span className="text-sm font-medium text-foreground">Přiřazený agent</span>
+            <span className="text-sm font-medium text-foreground">{t.clients.assignedAgent}</span>
             <select
               value={formValues.assigned_agent}
               onChange={(event) => setFormValues((current) => ({ ...current, assigned_agent: event.target.value }))}
@@ -516,12 +495,12 @@ export default function ClientsPage() {
           </label>
 
           <label className="space-y-2 md:col-span-2">
-            <span className="text-sm font-medium text-foreground">Poznámky</span>
+            <span className="text-sm font-medium text-foreground">{t.clients.notes}</span>
             <textarea
               value={formValues.notes}
               onChange={(event) => setFormValues((current) => ({ ...current, notes: event.target.value }))}
               className={cn(FIELD_CLASSNAME, 'min-h-[120px] resize-y')}
-              placeholder="Poznámky ke klientovi…"
+              placeholder={t.clients.placeholders.notes}
             />
           </label>
         </div>

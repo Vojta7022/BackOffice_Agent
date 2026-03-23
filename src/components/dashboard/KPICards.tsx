@@ -3,6 +3,7 @@
 import { Building2, TrendingUp, Handshake, DollarSign, ArrowUpRight, ArrowDownRight } from 'lucide-react'
 import { cn, formatCZK } from '@/lib/utils'
 import type { DashboardStatsResult } from '@/lib/database'
+import { useTranslation } from '@/lib/useTranslation'
 
 interface KPICardsProps {
   stats: DashboardStatsResult
@@ -35,6 +36,7 @@ function KPISkeleton() {
 }
 
 function Card({ label, value, sub, change, icon: Icon, iconColor }: CardDef) {
+  const { t } = useTranslation()
   const isPositive = (change ?? 0) >= 0
   return (
     <div className="surface-card p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/20">
@@ -49,7 +51,7 @@ function Card({ label, value, sub, change, icon: Icon, iconColor }: CardDef) {
       {change !== undefined && (
         <div className={cn('mt-2 flex items-center gap-1 text-xs font-medium', isPositive ? 'text-green-500' : 'text-red-500')}>
           {isPositive ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowDownRight className="h-3.5 w-3.5" />}
-          {isPositive ? '+' : ''}{change} % vs. minulý měsíc
+          {isPositive ? '+' : ''}{change} % {t.dashboard.vsPreviousMonth}
         </div>
       )}
     </div>
@@ -57,16 +59,18 @@ function Card({ label, value, sub, change, icon: Icon, iconColor }: CardDef) {
 }
 
 export default function KPICards({ stats }: KPICardsProps) {
+  const { t, language } = useTranslation()
+
   const cards: CardDef[] = [
     {
-      label: 'Aktivní nemovitosti',
+      label: t.dashboard.activeProperties,
       value: String(stats.active_properties),
-      sub: `z celkem ${stats.total_properties}`,
+      sub: `${t.dashboard.totalProperties} ${stats.total_properties}`,
       icon: Building2,
       iconColor: 'bg-primary/10 text-primary',
     },
     {
-      label: 'Nové leady',
+      label: t.dashboard.newLeads,
       value: String(stats.total_leads_this_month),
       change: stats.monthly_changes.leads,
       icon: TrendingUp,
@@ -75,7 +79,7 @@ export default function KPICards({ stats }: KPICardsProps) {
         : 'bg-red-500/10 text-red-500',
     },
     {
-      label: 'Uzavřené obchody',
+      label: t.dashboard.dealsClosed,
       value: String(stats.deals_this_month),
       change: stats.monthly_changes.deals,
       icon: Handshake,
@@ -84,8 +88,8 @@ export default function KPICards({ stats }: KPICardsProps) {
         : 'bg-red-500/10 text-red-500',
     },
     {
-      label: 'Tržby tento měsíc',
-      value: formatCZK(stats.revenue_this_month),
+      label: t.dashboard.revenue,
+      value: formatCZK(stats.revenue_this_month, language),
       change: stats.monthly_changes.revenue,
       icon: DollarSign,
       iconColor: stats.monthly_changes.revenue >= 0

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import type { DashboardStatsResult, MonthlyLeadCount, MonthlyTransactionSummary, TasksByStatus } from '@/lib/database'
+import { useTranslation } from '@/lib/useTranslation'
 import KPICards from './KPICards'
 import ChartsRow from './ChartsRow'
 import RecentActivity from './RecentActivity'
@@ -15,6 +16,7 @@ interface DashboardData {
 }
 
 export default function DashboardContent() {
+  const { t } = useTranslation()
   const [data, setData] = useState<DashboardData | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -28,7 +30,7 @@ export default function DashboardContent() {
   if (error) {
     return (
       <div className="mx-4 mt-4 flex h-48 items-center justify-center rounded-2xl border border-red-500/30 bg-red-500/5 text-sm text-red-500 md:mx-6">
-        Chyba při načítání dat: {error}
+        {t.dashboard.loadError} {error}
       </div>
     )
   }

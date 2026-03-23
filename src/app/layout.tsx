@@ -9,11 +9,13 @@ import MainWrapper from '@/components/layout/MainWrapper'
 const themeScript = `
   (() => {
     try {
-      const storageKey = 'backoffice-theme'
-      const savedTheme = window.localStorage.getItem(storageKey)
+      const savedTheme = window.localStorage.getItem('backoffice-theme')
+      const savedLanguage = window.localStorage.getItem('backoffice-language')
       const theme = savedTheme === 'light' ? 'light' : 'dark'
+      const language = savedLanguage === 'en' ? 'en' : 'cs'
       document.documentElement.classList.toggle('dark', theme === 'dark')
       document.documentElement.style.colorScheme = theme
+      document.documentElement.lang = language
     } catch {}
   })();
 `

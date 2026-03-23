@@ -3,23 +3,17 @@
 import { useEffect, useRef } from 'react'
 import { Building2, Plus } from 'lucide-react'
 import { useChatStore } from '@/lib/chat-store'
+import { useTranslation } from '@/lib/useTranslation'
 import MessageBubble from './MessageBubble'
 import TypingIndicator from './TypingIndicator'
-
-const SUGGESTIONS = [
-  'Noví klienti za Q1 2026',
-  'Graf leadů za 6 měsíců',
-  'Nemovitosti s chybějícími daty',
-  'Týdenní report pro vedení',
-  'Napiš email zájemci o nemovitost',
-  'Monitoring nabídek v Holešovicích',
-]
 
 interface ChatMessagesProps {
   onSend: (message: string) => void
 }
 
 function WelcomeScreen({ onSend }: { onSend: (msg: string) => void }) {
+  const { t } = useTranslation()
+
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-8 px-4 py-12">
       <div className="flex flex-col items-center gap-4 text-center">
@@ -27,15 +21,15 @@ function WelcomeScreen({ onSend }: { onSend: (msg: string) => void }) {
           <Building2 className="h-8 w-8" />
         </div>
         <div>
-          <h2 className="text-2xl font-semibold text-foreground">Jak vám mohu pomoci?</h2>
+          <h2 className="text-2xl font-semibold text-foreground">{t.chat.welcomeTitle}</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Zeptejte se mě na nemovitosti, klienty, statistiky nebo nechte mě připravit report.
+            {t.chat.welcomeDescription}
           </p>
         </div>
       </div>
 
       <div className="grid w-full max-w-lg grid-cols-2 gap-2">
-        {SUGGESTIONS.map((s) => (
+        {t.chat.welcomeSuggestions.map((s) => (
           <button
             key={s}
             onClick={() => onSend(s)}
@@ -50,6 +44,7 @@ function WelcomeScreen({ onSend }: { onSend: (msg: string) => void }) {
 }
 
 export default function ChatMessages({ onSend }: ChatMessagesProps) {
+  const { t } = useTranslation()
   const { messages, isLoading, clearMessages } = useChatStore()
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -68,7 +63,7 @@ export default function ChatMessages({ onSend }: ChatMessagesProps) {
         className="button-smooth absolute right-4 top-3 z-10 flex items-center gap-1.5 rounded-xl border border-border bg-card/95 px-2.5 py-1.5 text-xs text-muted-foreground shadow-sm backdrop-blur-sm hover:border-primary/20 hover:text-primary dark:shadow-none"
       >
         <Plus className="h-3.5 w-3.5" />
-        Nový chat
+        {t.chat.newChat}
       </button>
 
       <div className="mx-auto w-full max-w-3xl space-y-4 pt-8">

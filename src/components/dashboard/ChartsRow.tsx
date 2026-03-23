@@ -9,6 +9,7 @@ import {
 } from 'recharts'
 import { formatCZK, formatMonthLabel } from '@/lib/utils'
 import type { MonthlyLeadCount, MonthlyTransactionSummary } from '@/lib/database'
+import { useTranslation } from '@/lib/useTranslation'
 
 interface ChartsRowProps {
   leadsByMonth: MonthlyLeadCount[]
@@ -48,7 +49,8 @@ const TOOLTIP_STYLE = {
 const TOOLTIP_LABEL_STYLE = { color: 'var(--muted-foreground)' }
 
 function LeadsChart({ data }: { data: MonthlyLeadCount[] }) {
-  const chartData = data.map(d => ({ label: formatMonthLabel(d.month), count: d.count }))
+  const { t, language } = useTranslation()
+  const chartData = data.map(d => ({ label: formatMonthLabel(d.month, language), count: d.count }))
   return (
     <ResponsiveContainer width="100%" height={200}>
       <AreaChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
@@ -64,7 +66,7 @@ function LeadsChart({ data }: { data: MonthlyLeadCount[] }) {
           contentStyle={TOOLTIP_STYLE}
           labelStyle={TOOLTIP_LABEL_STYLE}
           itemStyle={{ color: 'var(--chart-1)' }}
-          formatter={(v) => [Number(v), 'Leady']}
+          formatter={(v) => [Number(v), t.dashboard.leadsSeries]}
         />
         <Area
           type="monotone"
@@ -81,8 +83,9 @@ function LeadsChart({ data }: { data: MonthlyLeadCount[] }) {
 }
 
 function TransactionsChart({ data }: { data: MonthlyTransactionSummary[] }) {
+  const { t, language } = useTranslation()
   const chartData = data.map(d => ({
-    label: formatMonthLabel(d.month),
+    label: formatMonthLabel(d.month, language),
     count: d.count,
     value: d.total_value,
   }))
@@ -98,8 +101,8 @@ function TransactionsChart({ data }: { data: MonthlyTransactionSummary[] }) {
           cursor={{ fill: 'rgb(var(--muted-rgb) / 0.35)' }}
           formatter={(v, name) =>
             name === 'count'
-              ? [Number(v), 'Transakce']
-              : [formatCZK(Number(v)), 'Hodnota']
+              ? [Number(v), t.dashboard.transactionsSeries]
+              : [formatCZK(Number(v), language), t.dashboard.valueSeries]
           }
         />
         <Bar dataKey="count" fill="var(--chart-2)" radius={[8, 8, 0, 0]} maxBarSize={40} />
@@ -109,12 +112,14 @@ function TransactionsChart({ data }: { data: MonthlyTransactionSummary[] }) {
 }
 
 export default function ChartsRow({ leadsByMonth, transactionsByMonth }: ChartsRowProps) {
+  const { t } = useTranslation()
+
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-      <ChartCard title="Vývoj leadů — posledních 6 měsíců">
+      <ChartCard title={t.dashboard.leadsChart}>
         <LeadsChart data={leadsByMonth} />
       </ChartCard>
-      <ChartCard title="Transakce — posledních 6 měsíců">
+      <ChartCard title={t.dashboard.transactionsChart}>
         <TransactionsChart data={transactionsByMonth} />
       </ChartCard>
     </div>

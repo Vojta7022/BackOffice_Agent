@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from '@/lib/useTranslation'
 
 interface ConfirmDialogOptions {
   title: string
@@ -22,20 +23,22 @@ function ConfirmDialogHost({
   state: ConfirmDialogState | null
   onResolve: (value: boolean) => void
 }) {
+  const { t } = useTranslation()
+
   return (
     <Dialog open={!!state} onOpenChange={(open) => !open && onResolve(false)}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{state?.title ?? 'Potvrzení'}</DialogTitle>
+          <DialogTitle>{state?.title ?? t.common.confirmation}</DialogTitle>
           <DialogDescription>{state?.message ?? ''}</DialogDescription>
         </DialogHeader>
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="outline" onClick={() => onResolve(false)}>
-            {state?.cancelLabel ?? 'Zrušit'}
+            {state?.cancelLabel ?? t.common.cancel}
           </Button>
           <Button type="button" variant="destructive" onClick={() => onResolve(true)}>
-            {state?.confirmLabel ?? 'Potvrdit'}
+            {state?.confirmLabel ?? t.common.confirm}
           </Button>
         </div>
       </DialogContent>
