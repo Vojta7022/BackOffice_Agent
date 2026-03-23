@@ -32,3 +32,18 @@ export function relativeTime(dateStr: string): string {
   if (days < 30) return `před ${Math.round(days / 7)} týdny`
   return `před ${Math.round(days / 30)} měsíci`
 }
+
+export async function fetchJson<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T> {
+  const response = await fetch(input, init)
+  const payload = await response.json().catch(() => null)
+
+  if (!response.ok) {
+    const errorMessage =
+      payload && typeof payload === 'object' && 'error' in payload && typeof payload.error === 'string'
+        ? payload.error
+        : `HTTP ${response.status}`
+    throw new Error(errorMessage)
+  }
+
+  return payload as T
+}

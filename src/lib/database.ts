@@ -4,6 +4,7 @@ import {
   ClientType, ClientSource, ClientStatus,
   LeadType, LeadStatus,
   TransactionType, TransactionStatus,
+  TaskStatus,
 } from '@/types'
 import { agents } from '@/data/agents'
 import { properties } from '@/data/properties'
@@ -181,6 +182,27 @@ class Database {
     })
   }
 
+  getPropertyById(id: string): Property | undefined {
+    return this.properties.find((property) => property.id === id)
+  }
+
+  updateProperty(id: string, updates: Partial<Property>): Property | null {
+    const index = this.properties.findIndex((property) => property.id === id)
+    if (index === -1) return null
+
+    const current = this.properties[index]
+    const next: Property = {
+      ...current,
+      ...updates,
+      id: current.id,
+      created_at: current.created_at,
+      updated_at: NOW,
+    }
+
+    this.properties[index] = next
+    return next
+  }
+
   // ── 2. Missing data ────────────────────────────────────────────────────────
 
   getPropertiesWithMissingData(): Property[] {
@@ -201,6 +223,45 @@ class Database {
       if (filters?.date_to && c.created_at > filters.date_to) return false
       return true
     })
+  }
+
+  getClientById(id: string): Client | undefined {
+    return this.clients.find((client) => client.id === id)
+  }
+
+  addClient(client: Omit<Client, 'id' | 'created_at'>): Client {
+    const createdClient: Client = {
+      ...client,
+      id: `client-${Date.now()}`,
+      created_at: NOW,
+    }
+
+    this.clients.push(createdClient)
+    return createdClient
+  }
+
+  updateClient(id: string, updates: Partial<Client>): Client | null {
+    const index = this.clients.findIndex((client) => client.id === id)
+    if (index === -1) return null
+
+    const current = this.clients[index]
+    const next: Client = {
+      ...current,
+      ...updates,
+      id: current.id,
+      created_at: current.created_at,
+    }
+
+    this.clients[index] = next
+    return next
+  }
+
+  deleteClient(id: string): boolean {
+    const index = this.clients.findIndex((client) => client.id === id)
+    if (index === -1) return false
+
+    this.clients.splice(index, 1)
+    return true
   }
 
   // ── 4. Clients by quarter grouped by source ────────────────────────────────
@@ -428,6 +489,49 @@ class Database {
 
   getAllTasks(): Task[] {
     return this.tasks
+  }
+
+  getTaskById(id: string): Task | undefined {
+    return this.tasks.find((task) => task.id === id)
+  }
+
+  addTask(task: Omit<Task, 'id' | 'created_at'>): Task {
+    const createdTask: Task = {
+      ...task,
+      id: `task-${Date.now()}`,
+      created_at: NOW,
+    }
+
+    this.tasks.push(createdTask)
+    return createdTask
+  }
+
+  updateTask(id: string, updates: Partial<Task>): Task | null {
+    const index = this.tasks.findIndex((task) => task.id === id)
+    if (index === -1) return null
+
+    const current = this.tasks[index]
+    const next: Task = {
+      ...current,
+      ...updates,
+      id: current.id,
+      created_at: current.created_at,
+    }
+
+    this.tasks[index] = next
+    return next
+  }
+
+  deleteTask(id: string): boolean {
+    const index = this.tasks.findIndex((task) => task.id === id)
+    if (index === -1) return false
+
+    this.tasks.splice(index, 1)
+    return true
+  }
+
+  moveTask(id: string, newStatus: TaskStatus): Task | null {
+    return this.updateTask(id, { status: newStatus })
   }
 
   // ── 19. All agents ────────────────────────────────────────────────────────

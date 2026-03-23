@@ -1,11 +1,22 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { CheckSquare, Clock, CheckCircle2, AlertCircle, Calendar } from 'lucide-react'
-import { cn, relativeTime } from '@/lib/utils'
-import type { Task, TaskPriority, TaskStatus } from '@/types'
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+import { useEffect, useMemo, useState } from 'react'
+import {
+  CheckSquare,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  Calendar,
+  Plus,
+  Check,
+  GripVertical,
+  X,
+} from 'lucide-react'
+import { agents } from '@/data/agents'
+import FormModal from '@/components/ui/FormModal'
+import { useConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { cn, fetchJson, relativeTime } from '@/lib/utils'
+import type { Client, Property, Task, TaskPriority, TaskStatus } from '@/types'
 
 const PRIORITY_COLORS: Record<TaskPriority, string> = {
   urgent: 'bg-red-500',
@@ -22,17 +33,68 @@ const PRIORITY_LABELS: Record<TaskPriority, string> = {
 }
 
 const PRIORITY_TEXT: Record<TaskPriority, string> = {
-  urgent: 'text-red-400',
-  high: 'text-orange-400',
-  medium: 'text-amber-400',
+  urgent: 'text-red-500',
+  high: 'text-orange-500',
+  medium: 'text-amber-500',
   low: 'text-muted-foreground',
 }
 
+const STATUS_LABELS: Record<TaskStatus, string> = {
+  todo: 'K provedení',
+  in_progress: 'Probíhá',
+  done: 'Hotovo',
+}
+
 const COLUMN_CONFIG: { status: TaskStatus; label: string; icon: React.ElementType; color: string }[] = [
-  { status: 'todo',        label: 'K provedení',  icon: Clock,         color: 'text-muted-foreground' },
-  { status: 'in_progress', label: 'Probíhá',       icon: AlertCircle,   color: 'text-violet-500' },
-  { status: 'done',        label: 'Hotovo',        icon: CheckCircle2,  color: 'text-primary' },
+  { status: 'todo', label: 'K provedení', icon: Clock, color: 'text-muted-foreground' },
+  { status: 'in_progress', label: 'Probíhá', icon: AlertCircle, color: 'text-violet-500' },
+  { status: 'done', label: 'Hotovo', icon: CheckCircle2, color: 'text-primary' },
 ]
+
+const FIELD_CLASSNAME = 'control-focus w-full rounded-2xl border border-border bg-background px-3 py-2 text-sm text-foreground shadow-sm dark:shadow-none'
+
+interface TasksData {
+  todo: Task[]
+  in_progress: Task[]
+  done: Task[]
+}
+
+interface TaskFormValues {
+  title: string
+  description: string
+  assigned_to: string
+  priority: TaskPriority
+  due_date: string
+  related_property_id: string
+  related_client_id: string
+  status: TaskStatus
+}
+
+function createEmptyTaskForm(): TaskFormValues {
+  return {
+    title: '',
+    description: '',
+    assigned_to: agents[0]?.id ?? '',
+    priority: 'medium',
+    due_date: '',
+    related_property_id: '',
+    related_client_id: '',
+    status: 'todo',
+  }
+}
+
+function toTaskFormValues(task: Task): TaskFormValues {
+  return {
+    title: task.title,
+    description: task.description,
+    assigned_to: task.assigned_to,
+    priority: task.priority,
+    due_date: task.due_date,
+    related_property_id: task.related_property_id ?? '',
+    related_client_id: task.related_client_id ?? '',
+    status: task.status,
+  }
+}
 
 function isDueSoon(dueDate: string): boolean {
   const now = new Date('2026-03-22')
@@ -44,30 +106,96 @@ function isOverdue(dueDate: string): boolean {
   return dueDate < '2026-03-22'
 }
 
-// ─── Task Card ────────────────────────────────────────────────────────────────
+function getNextStatus(status: TaskStatus): TaskStatus | null {
+  if (status === 'todo') return 'in_progress'
+  if (status === 'in_progress') return 'done'
+  return null
+}
 
-function TaskCard({ task }: { task: Task }) {
+function TaskCard({
+  task,
+  agentLabel,
+  onEdit,
+  onAdvance,
+  onDelete,
+}: {
+  task: Task
+  agentLabel?: string
+  onEdit: (task: Task) => void
+  onAdvance: (task: Task) => void
+  onDelete: (task: Task) => void
+}) {
   const overdue = isOverdue(task.due_date)
   const dueSoon = !overdue && isDueSoon(task.due_date)
+  const nextStatus = getNextStatus(task.status)
 
   return (
-    <div className="rounded-2xl border border-border bg-background/70 p-3 transition-all duration-200 hover:border-primary/15 hover:bg-background">
-      <div className="flex items-start gap-2 mb-2">
-        <div className={cn('mt-1.5 h-2 w-2 shrink-0 rounded-full', PRIORITY_COLORS[task.priority])} />
-        <p className="text-sm font-medium text-foreground leading-snug">{task.title}</p>
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onEdit(task)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          onEdit(task)
+        }
+      }}
+      className="group rounded-2xl border border-border bg-background/70 p-3 transition-all duration-200 hover:border-primary/15 hover:bg-background focus:outline-none focus:ring-2 focus:ring-primary/40"
+    >
+      <div className="mb-2 flex items-start gap-2">
+        <div className="mt-0.5 flex items-center gap-2">
+          <GripVertical className="h-4 w-4 text-muted-foreground/50" />
+          <div className={cn('h-2 w-2 rounded-full', PRIORITY_COLORS[task.priority])} />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium leading-snug text-foreground">{task.title}</p>
+          {agentLabel ? (
+            <p className="mt-1 text-[11px] text-muted-foreground">Řeší: {agentLabel}</p>
+          ) : null}
+        </div>
+
+        <div className="flex gap-1">
+          {nextStatus ? (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation()
+                onAdvance(task)
+              }}
+              className="button-smooth rounded-xl border border-border bg-background px-2 py-1 text-muted-foreground hover:border-primary/20 hover:text-primary"
+              title={nextStatus === 'in_progress' ? 'Přesunout do sloupce Probíhá' : 'Označit jako hotové'}
+              aria-label={nextStatus === 'in_progress' ? 'Přesunout do Probíhá' : 'Označit jako hotové'}
+            >
+              <Check className="h-3.5 w-3.5" />
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation()
+              onDelete(task)
+            }}
+            className="button-smooth rounded-xl border border-border bg-background px-2 py-1 text-muted-foreground hover:border-red-500/30 hover:text-red-500"
+            title="Smazat úkol"
+            aria-label="Smazat úkol"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
       </div>
 
-      {task.description && (
-        <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2 mb-2 pl-4">{task.description}</p>
-      )}
+      {task.description ? (
+        <p className="mb-2 pl-6 text-xs leading-relaxed text-muted-foreground line-clamp-2">{task.description}</p>
+      ) : null}
 
-      <div className="flex items-center justify-between pl-4">
+      <div className="flex items-center justify-between pl-6">
         <span className={cn('text-[11px] font-medium', PRIORITY_TEXT[task.priority])}>
           {PRIORITY_LABELS[task.priority]}
         </span>
         <div className={cn(
           'flex items-center gap-1 text-[11px]',
-          overdue ? 'text-red-400' : dueSoon ? 'text-amber-400' : 'text-muted-foreground',
+          overdue ? 'text-red-500' : dueSoon ? 'text-amber-500' : 'text-muted-foreground',
         )}>
           <Calendar className="h-3 w-3" />
           {overdue ? 'Po termínu' : relativeTime(task.due_date)}
@@ -80,25 +208,31 @@ function TaskCard({ task }: { task: Task }) {
 function TaskCardSkeleton() {
   return (
     <div className="rounded-2xl border border-border bg-background/70 p-3 animate-pulse">
-      <div className="flex items-start gap-2 mb-2">
-        <div className="mt-1.5 h-2 w-2 rounded-full bg-muted/60 shrink-0" />
-        <div className="h-4 bg-muted rounded w-3/4" />
+      <div className="mb-2 flex items-start gap-2">
+        <div className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-muted/60" />
+        <div className="h-4 w-3/4 rounded bg-muted" />
       </div>
-      <div className="h-3 bg-muted/60 rounded w-full mb-1 ml-4" />
-      <div className="h-3 bg-muted/60 rounded w-2/3 mb-2 ml-4" />
-      <div className="flex justify-between pl-4">
-        <div className="h-3 bg-muted/40 rounded w-12" />
-        <div className="h-3 bg-muted/40 rounded w-16" />
+      <div className="mb-1 ml-6 h-3 w-full rounded bg-muted/60" />
+      <div className="mb-2 ml-6 h-3 w-2/3 rounded bg-muted/60" />
+      <div className="flex justify-between pl-6">
+        <div className="h-3 w-12 rounded bg-muted/40" />
+        <div className="h-3 w-16 rounded bg-muted/40" />
       </div>
     </div>
   )
 }
 
-// ─── Column ───────────────────────────────────────────────────────────────────
-
 function KanbanColumn({
-  status, label, icon: Icon, color,
-  tasks, loading,
+  status,
+  label,
+  icon: Icon,
+  color,
+  tasks,
+  loading,
+  agentNames,
+  onEdit,
+  onAdvance,
+  onDelete,
 }: {
   status: TaskStatus
   label: string
@@ -106,6 +240,10 @@ function KanbanColumn({
   color: string
   tasks: Task[]
   loading: boolean
+  agentNames: Record<string, string>
+  onEdit: (task: Task) => void
+  onAdvance: (task: Task) => void
+  onDelete: (task: Task) => void
 }) {
   return (
     <div className="surface-card flex min-h-[400px] flex-col overflow-hidden">
@@ -122,11 +260,20 @@ function KanbanColumn({
         </span>
       </div>
 
-      <div className="flex flex-col gap-2 p-3 flex-1">
+      <div className="flex flex-1 flex-col gap-2 p-3">
         {loading ? (
-          Array.from({ length: 3 }).map((_, i) => <TaskCardSkeleton key={i} />)
+          Array.from({ length: 3 }).map((_, index) => <TaskCardSkeleton key={index} />)
         ) : tasks.length > 0 ? (
-          tasks.map(t => <TaskCard key={t.id} task={t} />)
+          tasks.map((task) => (
+            <TaskCard
+              key={task.id}
+              task={task}
+              agentLabel={agentNames[task.assigned_to]}
+              onEdit={onEdit}
+              onAdvance={onAdvance}
+              onDelete={onDelete}
+            />
+          ))
         ) : (
           <div className="flex flex-1 items-center justify-center">
             <p className="text-xs text-muted-foreground/60">Žádné úkoly</p>
@@ -137,63 +284,326 @@ function KanbanColumn({
   )
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
-
-interface TasksData {
-  todo: Task[]
-  in_progress: Task[]
-  done: Task[]
-}
-
 export default function TasksPage() {
+  const { confirm, dialog } = useConfirmDialog()
   const [tasks, setTasks] = useState<TasksData>({ todo: [], in_progress: [], done: [] })
+  const [clients, setClients] = useState<Client[]>([])
+  const [properties, setProperties] = useState<Property[]>([])
   const [loading, setLoading] = useState(true)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [editingTask, setEditingTask] = useState<Task | null>(null)
+  const [formValues, setFormValues] = useState<TaskFormValues>(createEmptyTaskForm())
+  const [formError, setFormError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const agentNames = useMemo(
+    () => Object.fromEntries(agents.map((agent) => [agent.id, agent.name])),
+    []
+  )
+
+  async function fetchTasks() {
+    const data = await fetchJson<TasksData>('/api/tasks')
+    setTasks(data)
+  }
+
+  async function fetchOptions() {
+    const [clientsData, propertiesData] = await Promise.all([
+      fetchJson<{ clients: Client[] }>('/api/clients'),
+      fetchJson<{ properties: Property[] }>('/api/properties'),
+    ])
+
+    setClients(clientsData.clients ?? [])
+    setProperties(propertiesData.properties ?? [])
+  }
 
   useEffect(() => {
-    fetch('/api/tasks')
-      .then(r => r.json())
-      .then((data: TasksData) => setTasks(data))
-      .finally(() => setLoading(false))
+    async function loadPage() {
+      setLoading(true)
+      try {
+        await Promise.all([fetchTasks(), fetchOptions()])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadPage()
   }, [])
 
   const total = tasks.todo.length + tasks.in_progress.length + tasks.done.length
-  const urgentCount = [...tasks.todo, ...tasks.in_progress].filter(t => t.priority === 'urgent').length
-  const overdueCount = [...tasks.todo, ...tasks.in_progress].filter(t => isOverdue(t.due_date)).length
+  const urgentCount = [...tasks.todo, ...tasks.in_progress].filter((task) => task.priority === 'urgent').length
+  const overdueCount = [...tasks.todo, ...tasks.in_progress].filter((task) => isOverdue(task.due_date)).length
+
+  function openCreateModal() {
+    setEditingTask(null)
+    setFormValues(createEmptyTaskForm())
+    setFormError(null)
+    setIsModalOpen(true)
+  }
+
+  function openEditModal(task: Task) {
+    setEditingTask(task)
+    setFormValues(toTaskFormValues(task))
+    setFormError(null)
+    setIsModalOpen(true)
+  }
+
+  async function handleAdvance(task: Task) {
+    const nextStatus = getNextStatus(task.status)
+    if (!nextStatus) return
+
+    await fetchJson<{ task: Task }>('/api/tasks', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: task.id, status: nextStatus }),
+    })
+
+    await fetchTasks()
+  }
+
+  async function handleDelete(task: Task) {
+    const approved = await confirm({
+      title: 'Smazat úkol',
+      message: `Opravdu smazat úkol „${task.title}“?`,
+      confirmLabel: 'Smazat',
+    })
+
+    if (!approved) return
+
+    await fetchJson<{ success: boolean }>('/api/tasks', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: task.id }),
+    })
+
+    await fetchTasks()
+  }
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setFormError(null)
+
+    if (!formValues.title.trim()) {
+      setFormError('Zadejte název úkolu.')
+      return
+    }
+
+    if (!formValues.due_date) {
+      setFormError('Vyberte termín splnění.')
+      return
+    }
+
+    setIsSubmitting(true)
+
+    try {
+      const payload = {
+        title: formValues.title.trim(),
+        description: formValues.description,
+        assigned_to: formValues.assigned_to,
+        priority: formValues.priority,
+        due_date: formValues.due_date,
+        related_property_id: formValues.related_property_id || null,
+        related_client_id: formValues.related_client_id || null,
+        ...(editingTask ? { status: formValues.status } : {}),
+      }
+
+      if (editingTask) {
+        await fetchJson<{ task: Task }>('/api/tasks', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: editingTask.id, ...payload }),
+        })
+      } else {
+        await fetchJson<{ task: Task }>('/api/tasks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+      }
+
+      setIsModalOpen(false)
+      setEditingTask(null)
+      setFormValues(createEmptyTaskForm())
+      await fetchTasks()
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'Nepodařilo se uložit úkol.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6">
-      <div className="flex flex-wrap items-center gap-4">
-        <div className="surface-card flex items-center gap-2 px-4 py-2.5">
-          <CheckSquare className="h-4 w-4 text-primary" />
-          <span className="text-sm font-semibold text-foreground">{loading ? '…' : total}</span>
-          <span className="text-xs text-muted-foreground">úkolů celkem</span>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="surface-card flex items-center gap-2 px-4 py-2.5">
+            <CheckSquare className="h-4 w-4 text-primary" />
+            <span className="text-sm font-semibold text-foreground">{loading ? '…' : total}</span>
+            <span className="text-xs text-muted-foreground">úkolů celkem</span>
+          </div>
+          {!loading && urgentCount > 0 ? (
+            <div className="flex items-center gap-2 rounded-2xl border border-red-500/30 bg-red-500/5 px-4 py-2.5 shadow-sm dark:shadow-none">
+              <AlertCircle className="h-4 w-4 text-red-500" />
+              <span className="text-sm font-semibold text-red-500">{urgentCount}</span>
+              <span className="text-xs text-red-500/70">urgentních</span>
+            </div>
+          ) : null}
+          {!loading && overdueCount > 0 ? (
+            <div className="flex items-center gap-2 rounded-2xl border border-amber-500/30 bg-amber-500/5 px-4 py-2.5 shadow-sm dark:shadow-none">
+              <Clock className="h-4 w-4 text-amber-500" />
+              <span className="text-sm font-semibold text-amber-500">{overdueCount}</span>
+              <span className="text-xs text-amber-500/70">po termínu</span>
+            </div>
+          ) : null}
         </div>
-        {!loading && urgentCount > 0 && (
-          <div className="flex items-center gap-2 rounded-2xl border border-red-500/30 bg-red-500/5 px-4 py-2.5 shadow-sm dark:shadow-none">
-            <AlertCircle className="h-4 w-4 text-red-500" />
-            <span className="text-sm font-semibold text-red-500">{urgentCount}</span>
-            <span className="text-xs text-red-500/70">urgentních</span>
-          </div>
-        )}
-        {!loading && overdueCount > 0 && (
-          <div className="flex items-center gap-2 rounded-2xl border border-amber-500/30 bg-amber-500/5 px-4 py-2.5 shadow-sm dark:shadow-none">
-            <Clock className="h-4 w-4 text-amber-500" />
-            <span className="text-sm font-semibold text-amber-500">{overdueCount}</span>
-            <span className="text-xs text-amber-500/70">po termínu</span>
-          </div>
-        )}
+
+        <button
+          type="button"
+          onClick={openCreateModal}
+          className="button-smooth inline-flex items-center gap-2 rounded-2xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90 dark:shadow-none"
+        >
+          <Plus className="h-4 w-4" />
+          Nový úkol
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {COLUMN_CONFIG.map(col => (
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        {COLUMN_CONFIG.map((column) => (
           <KanbanColumn
-            key={col.status}
-            {...col}
-            tasks={tasks[col.status]}
+            key={column.status}
+            {...column}
+            tasks={tasks[column.status]}
             loading={loading}
+            agentNames={agentNames}
+            onEdit={openEditModal}
+            onAdvance={handleAdvance}
+            onDelete={handleDelete}
           />
         ))}
       </div>
+
+      <FormModal
+        open={isModalOpen}
+        onOpenChange={setIsModalOpen}
+        title={editingTask ? 'Upravit úkol' : 'Nový úkol'}
+        submitLabel={editingTask ? 'Uložit změny' : 'Vytvořit úkol'}
+        submitLoadingLabel={editingTask ? 'Ukládám změny…' : 'Vytvářím úkol…'}
+        isSubmitting={isSubmitting}
+        error={formError}
+        onSubmit={handleSubmit}
+      >
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="space-y-2 md:col-span-2">
+            <span className="text-sm font-medium text-foreground">Název úkolu</span>
+            <input
+              value={formValues.title}
+              onChange={(event) => setFormValues((current) => ({ ...current, title: event.target.value }))}
+              className={FIELD_CLASSNAME}
+              placeholder="Např. Doplnit chybějící data"
+            />
+          </label>
+
+          <label className="space-y-2 md:col-span-2">
+            <span className="text-sm font-medium text-foreground">Popis</span>
+            <textarea
+              value={formValues.description}
+              onChange={(event) => setFormValues((current) => ({ ...current, description: event.target.value }))}
+              className={cn(FIELD_CLASSNAME, 'min-h-[120px] resize-y')}
+              placeholder="Co je potřeba udělat?"
+            />
+          </label>
+
+          <label className="space-y-2">
+            <span className="text-sm font-medium text-foreground">Přiřadit agentovi</span>
+            <select
+              value={formValues.assigned_to}
+              onChange={(event) => setFormValues((current) => ({ ...current, assigned_to: event.target.value }))}
+              className={FIELD_CLASSNAME}
+            >
+              {agents.map((agent) => (
+                <option key={agent.id} value={agent.id}>
+                  {agent.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="space-y-2">
+            <span className="text-sm font-medium text-foreground">Priorita</span>
+            <select
+              value={formValues.priority}
+              onChange={(event) => setFormValues((current) => ({ ...current, priority: event.target.value as TaskPriority }))}
+              className={FIELD_CLASSNAME}
+            >
+              {Object.entries(PRIORITY_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="space-y-2">
+            <span className="text-sm font-medium text-foreground">Termín splnění</span>
+            <input
+              type="date"
+              value={formValues.due_date}
+              onChange={(event) => setFormValues((current) => ({ ...current, due_date: event.target.value }))}
+              className={FIELD_CLASSNAME}
+            />
+          </label>
+
+          {editingTask ? (
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-foreground">Stav</span>
+              <select
+                value={formValues.status}
+                onChange={(event) => setFormValues((current) => ({ ...current, status: event.target.value as TaskStatus }))}
+                className={FIELD_CLASSNAME}
+              >
+                {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+
+          <label className="space-y-2">
+            <span className="text-sm font-medium text-foreground">Související nemovitost</span>
+            <select
+              value={formValues.related_property_id}
+              onChange={(event) => setFormValues((current) => ({ ...current, related_property_id: event.target.value }))}
+              className={FIELD_CLASSNAME}
+            >
+              <option value="">Bez vazby</option>
+              {properties.map((property) => (
+                <option key={property.id} value={property.id}>
+                  {property.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="space-y-2">
+            <span className="text-sm font-medium text-foreground">Související klient</span>
+            <select
+              value={formValues.related_client_id}
+              onChange={(event) => setFormValues((current) => ({ ...current, related_client_id: event.target.value }))}
+              className={FIELD_CLASSNAME}
+            >
+              <option value="">Bez vazby</option>
+              {clients.map((client) => (
+                <option key={client.id} value={client.id}>
+                  {client.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </FormModal>
+
+      {dialog}
     </div>
   )
 }
