@@ -17,10 +17,10 @@ import {
   X,
 } from 'lucide-react'
 import { useHydrated } from '@/hooks/useHydrated'
+import { selectConversationList, useChatStore } from '@/lib/chat-store'
 import { translations } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/lib/store'
-import { useChatStore } from '@/lib/chat-store'
 import { useTranslation } from '@/lib/useTranslation'
 
 function formatConversationTime(timestamp: string, language: 'cs' | 'en') {
@@ -49,7 +49,7 @@ export default function Sidebar() {
   const setActiveConversation = useChatStore((state) => state.setActiveConversation)
   const deleteConversation = useChatStore((state) => state.deleteConversation)
   const activeConversationId = useChatStore((state) => state.activeConversationId)
-  const conversationList = useChatStore((state) => state.getConversationList())
+  const conversationList = useChatStore(selectConversationList)
   const [historyOpen, setHistoryOpen] = useState(true)
   const currentT = hydrated ? t : translations.cs
   const currentLanguage = hydrated ? language : 'cs'

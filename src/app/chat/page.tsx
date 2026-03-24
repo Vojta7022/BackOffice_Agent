@@ -2,7 +2,7 @@
 
 import { useEffect, useCallback, useRef, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { useChatStore } from '@/lib/chat-store'
+import { selectActiveMessages, useChatStore } from '@/lib/chat-store'
 import type { AgentResponse } from '@/lib/agent/orchestrator'
 import { useTranslation } from '@/lib/useTranslation'
 import ChatMessages from '@/components/chat/ChatMessages'
@@ -11,8 +11,7 @@ import ChatInput from '@/components/chat/ChatInput'
 function ChatPageInner() {
   const { t } = useTranslation()
   const searchParams = useSearchParams()
-  const activeConversationId = useChatStore((state) => state.activeConversationId)
-  const messages = useChatStore((state) => state.getActiveMessages())
+  const messages = useChatStore(selectActiveMessages)
   const isLoading = useChatStore((state) => state.isLoading)
   const addUserMessage = useChatStore((state) => state.addUserMessage)
   const addAssistantMessage = useChatStore((state) => state.addAssistantMessage)
@@ -20,6 +19,7 @@ function ChatPageInner() {
   const createNewConversation = useChatStore((state) => state.createNewConversation)
   const prompt = searchParams.get('prompt')
   const processedPromptRef = useRef<string | null>(null)
+  const initializedConversationRef = useRef(false)
 
   const send = useCallback(async (text: string) => {
     const message = text.trim()
@@ -28,7 +28,7 @@ function ChatPageInner() {
     addUserMessage(message)
     setLoading(true)
 
-    const history = useChatStore.getState().getActiveMessages()
+    const history = selectActiveMessages(useChatStore.getState())
       .slice(-10)
       .map((entry) => ({ role: entry.role, content: entry.content }))
 
@@ -67,10 +67,13 @@ function ChatPageInner() {
   }, [addAssistantMessage, addUserMessage, setLoading, t])
 
   useEffect(() => {
-    if (!prompt && !activeConversationId) {
+    if (initializedConversationRef.current || prompt) return
+
+    initializedConversationRef.current = true
+    if (!useChatStore.getState().activeConversationId) {
       createNewConversation()
     }
-  }, [activeConversationId, createNewConversation, prompt])
+  }, [createNewConversation, prompt])
 
   useEffect(() => {
     if (!prompt) return

@@ -29,14 +29,14 @@ export interface ChatConversation {
   updatedAt: string
 }
 
-interface ConversationListItem {
+export interface ConversationListItem {
   id: string
   title: string
   updatedAt: string
   messageCount: number
 }
 
-interface ChatStore {
+export interface ChatState {
   conversations: Record<string, ChatConversation>
   activeConversationId: string | null
   isLoading: boolean
@@ -46,8 +46,6 @@ interface ChatStore {
   addUserMessage: (content: string) => void
   addAssistantMessage: (response: AgentResponse) => void
   deleteConversation: (id: string) => void
-  getActiveMessages: () => ChatMessage[]
-  getConversationList: () => ConversationListItem[]
   setLoading: (loading: boolean) => void
   clearAll: () => void
   addThinkingStep: (step: string) => void
@@ -109,9 +107,30 @@ function buildAssistantMessage(response: AgentResponse): ChatMessage {
   }
 }
 
-export const useChatStore = create<ChatStore>()(
+const EMPTY_MESSAGES: ChatMessage[] = []
+const EMPTY_CONVERSATION_LIST: ConversationListItem[] = []
+
+let cachedConversations: Record<string, ChatConversation> | null = null
+let cachedConversationList = EMPTY_CONVERSATION_LIST
+
+export function selectActiveMessages(state: ChatState): ChatMessage[] {
+  if (!state.activeConversationId) return EMPTY_MESSAGES
+  return state.conversations[state.activeConversationId]?.messages ?? EMPTY_MESSAGES
+}
+
+export function selectConversationList(state: ChatState): ConversationListItem[] {
+  if (state.conversations === cachedConversations) {
+    return cachedConversationList
+  }
+
+  cachedConversations = state.conversations
+  cachedConversationList = getSortedConversationList(state.conversations)
+  return cachedConversationList
+}
+
+export const useChatStore = create<ChatState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       conversations: {},
       activeConversationId: null,
       isLoading: false,
@@ -213,14 +232,6 @@ export const useChatStore = create<ChatStore>()(
             thinkingSteps: state.activeConversationId === id ? [] : state.thinkingSteps,
           }
         }),
-
-      getActiveMessages: () => {
-        const state = get()
-        if (!state.activeConversationId) return []
-        return state.conversations[state.activeConversationId]?.messages ?? []
-      },
-
-      getConversationList: () => getSortedConversationList(get().conversations),
 
       setLoading: (loading) => set({ isLoading: loading }),
 

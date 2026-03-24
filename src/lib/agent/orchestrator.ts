@@ -9,6 +9,8 @@ export interface ChartConfig {
   title: string
   x_label?: string
   y_label?: string
+  primary_label?: string
+  secondary_label?: string
   data: { label: string; value: number; secondary_value?: number }[]
 }
 
@@ -43,14 +45,21 @@ const MODEL = 'gemini-2.5-flash'
 const MAX_TOKENS = 2048
 const MAX_ITERATIONS = 5
 
-const SYSTEM_PROMPT =
-  'Jsi back-office asistent české realitní firmy RE:Agent. DŮLEŽITÉ: Odpovídej VŽDY ve stejném jazyce, ve kterém uživatel napsal svou zprávu. Pokud píše česky, odpověz česky. Pokud anglicky, odpověz anglicky. Pokud v jakémkoli jiném jazyce, odpověz v tom jazyce. ' +
-  'Používej nástroje pro získání dat — nehádej. ' +
-  'Když uživatel chce graf, VŽDY nejdřív zavolej datový nástroj (query_clients, query_leads, query_transactions) ' +
-  'a pak IHNED zavolej generate_chart s konkrétními čísly z výsledku. ' +
-  'Pro porovnání nemovitostí použij compare_properties. Pro analýzu portfolia použij analyze_portfolio. Pro historii klienta použij client_activity_timeline. ' +
-  'Formátuj částky v CZK. Datumy ve formátu DD.MM.YYYY. ' +
-  'Po každé odpovědi navrhni 1-2 další kroky.'
+const SYSTEM_PROMPT = `Jsi back-office asistent české realitní firmy RE:Agent.
+
+JAZYK: Odpovídej VŽDY ve stejném jazyce jako uživatel.
+
+GRAFY: Pokud uživatel žádá graf/vizualizaci/znázornění, MUSÍŠ: 1) zavolat datový nástroj, 2) IHNED zavolat generate_chart s reálnými čísly. Nikdy neříkej "mohu vytvořit graf" — prostě ho vytvoř. Pro dvě časové řady na jednom grafu nejdřív získej oba datasety a pak je spoj do jednoho generate_chart s položkami { label, value, secondary_value }.
+
+EMAIL + KALENDÁŘ: Pro email s termínem prohlídky: 1) zavolej check_calendar, 2) zavolej draft_email s termíny v těle.
+
+REPORT + PREZENTACE: Pro report s prezentací: 1) zavolej generate_report, 2) zavolej generate_presentation.
+
+MONITORING: Pro monitoring nemovitostí okamžitě zavolej setup_monitoring. Neptej se na upřesnění.
+
+DALŠÍ NÁSTROJE: Pro porovnání nemovitostí použij compare_properties. Pro analýzu portfolia použij analyze_portfolio. Pro historii klienta použij client_activity_timeline.
+
+OBECNĚ: Používej nástroje — nehádej. Částky v CZK. Datumy DD.MM.YYYY. Navrhni 1-2 další kroky.`
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -261,6 +270,10 @@ export async function processMessage(
         if (table) agentResponse.tables.push(table)
         break
       }
+
+      case 'report':
+        agentResponse.reportData = result.data
+        break
 
       case 'email_draft':
         agentResponse.emailDraft = result.data as AgentResponse['emailDraft']

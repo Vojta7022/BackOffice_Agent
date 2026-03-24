@@ -132,9 +132,21 @@ export interface Translations {
     copied: string
     edit: string
     done: string
+    nextSteps: string
     downloadCsv: string
     records: string
     exportFilename: string
+    chartLeadsSeries: string
+    chartSalesSeries: string
+    monitoringLocation: string
+    monitoringPropertyType: string
+    monitoringPriceRange: string
+    monitoringStatus: string
+    monitoringNextCheck: string
+    monitoringAllTypes: string
+    monitoringActive: string
+    monitoringNoPriceLimit: string
+    monitoringConfirmation: string
     reportMetrics: Record<string, string>
   }
   properties: {
@@ -456,9 +468,21 @@ const cs: Translations = {
     copied: 'Zkopirovano',
     edit: 'Upravit',
     done: 'Hotovo',
+    nextSteps: 'Pokracovat',
     downloadCsv: 'Stahnout CSV',
     records: 'zaznamu',
     exportFilename: 'export',
+    chartLeadsSeries: 'Leady',
+    chartSalesSeries: 'Prodeje',
+    monitoringLocation: 'Lokalita',
+    monitoringPropertyType: 'Typ',
+    monitoringPriceRange: 'Cenove rozpeti',
+    monitoringStatus: 'Status',
+    monitoringNextCheck: 'Dalsi kontrola',
+    monitoringAllTypes: 'Vsechny typy',
+    monitoringActive: 'aktivni',
+    monitoringNoPriceLimit: 'Bez cenoveho omezeni',
+    monitoringConfirmation: 'Monitoring nastaven. Budete informovani o novych nabidkach.',
     reportMetrics: {
       revenue: 'Trzby',
       deals_closed: 'Uzavrene obchody',
@@ -848,9 +872,21 @@ const en: Translations = {
     copied: 'Copied',
     edit: 'Edit',
     done: 'Done',
+    nextSteps: 'Next steps',
     downloadCsv: 'Download CSV',
     records: 'records',
     exportFilename: 'export',
+    chartLeadsSeries: 'Leads',
+    chartSalesSeries: 'Sales',
+    monitoringLocation: 'Location',
+    monitoringPropertyType: 'Property type',
+    monitoringPriceRange: 'Price range',
+    monitoringStatus: 'Status',
+    monitoringNextCheck: 'Next check',
+    monitoringAllTypes: 'All property types',
+    monitoringActive: 'active',
+    monitoringNoPriceLimit: 'No price limit',
+    monitoringConfirmation: 'Monitoring is active. You will be informed about new listings.',
     reportMetrics: {
       revenue: 'Revenue',
       deals_closed: 'Closed deals',

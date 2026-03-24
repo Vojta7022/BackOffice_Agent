@@ -11,6 +11,7 @@ import {
 } from 'recharts'
 import type { PieLabelRenderProps } from 'recharts'
 import type { ChartConfig } from '@/lib/agent/orchestrator'
+import { useTranslation } from '@/lib/useTranslation'
 
 const TICK = { fill: 'var(--muted-foreground)', fontSize: 11 }
 const TOOLTIP_STYLE = {
@@ -50,7 +51,20 @@ function renderPieLabel({ cx, cy, midAngle, outerRadius, percent, name }: PieLab
   )
 }
 
+function DualSeriesLegend() {
+  return (
+    <Legend
+      formatter={(value) => (
+        <span style={{ color: 'var(--muted-foreground)', fontSize: 11 }}>
+          {value}
+        </span>
+      )}
+    />
+  )
+}
+
 function ChartBody({ config }: { config: ChartConfig }) {
+  const { t } = useTranslation()
   const { chart_type, data } = config
   const chartData = data.map((item) => ({
     label: item.label,
@@ -107,6 +121,7 @@ function ChartBody({ config }: { config: ChartConfig }) {
           <Line
             type="monotone"
             dataKey="value"
+            name={config.primary_label ?? t.chat.chartLeadsSeries}
             stroke="var(--chart-1)"
             strokeWidth={2}
             dot={{ r: 3, fill: 'var(--chart-1)', strokeWidth: 0 }}
@@ -118,6 +133,7 @@ function ChartBody({ config }: { config: ChartConfig }) {
             <Line
               type="monotone"
               dataKey="secondary"
+              name={config.secondary_label ?? t.chat.chartSalesSeries}
               stroke="var(--chart-2)"
               strokeWidth={2}
               dot={{ r: 3, fill: 'var(--chart-2)', strokeWidth: 0 }}
@@ -126,6 +142,7 @@ function ChartBody({ config }: { config: ChartConfig }) {
               animationDuration={800}
             />
           ) : null}
+          {dual ? <DualSeriesLegend /> : null}
         </LineChart>
       </ResponsiveContainer>
     )
@@ -153,6 +170,7 @@ function ChartBody({ config }: { config: ChartConfig }) {
           <Area
             type="monotone"
             dataKey="value"
+            name={config.primary_label ?? t.chat.chartLeadsSeries}
             stroke="var(--chart-1)"
             strokeWidth={2}
             fill="url(#areaFill1)"
@@ -164,6 +182,7 @@ function ChartBody({ config }: { config: ChartConfig }) {
             <Area
               type="monotone"
               dataKey="secondary"
+              name={config.secondary_label ?? t.chat.chartSalesSeries}
               stroke="var(--chart-2)"
               strokeWidth={2}
               fill="url(#areaFill2)"
@@ -172,6 +191,7 @@ function ChartBody({ config }: { config: ChartConfig }) {
               animationDuration={800}
             />
           ) : null}
+          {dual ? <DualSeriesLegend /> : null}
         </AreaChart>
       </ResponsiveContainer>
     )
@@ -183,14 +203,31 @@ function ChartBody({ config }: { config: ChartConfig }) {
         <XAxis dataKey="label" tick={TICK} axisLine={false} tickLine={false} />
         <YAxis tick={TICK} axisLine={false} tickLine={false} />
         <Tooltip {...TOOLTIP_STYLE} />
-        <Bar dataKey="value" fill="var(--chart-1)" radius={[8, 8, 0, 0]} maxBarSize={48} isAnimationActive animationDuration={800}>
+        <Bar
+          dataKey="value"
+          name={config.primary_label ?? t.chat.chartLeadsSeries}
+          fill="var(--chart-1)"
+          radius={[8, 8, 0, 0]}
+          maxBarSize={48}
+          isAnimationActive
+          animationDuration={800}
+        >
           {chartData.length < 5 ? (
             <LabelList dataKey="value" position="top" fill="var(--muted-foreground)" fontSize={11} />
           ) : null}
         </Bar>
         {dual ? (
-          <Bar dataKey="secondary" fill="var(--chart-2)" radius={[8, 8, 0, 0]} maxBarSize={48} isAnimationActive animationDuration={800} />
+          <Bar
+            dataKey="secondary"
+            name={config.secondary_label ?? t.chat.chartSalesSeries}
+            fill="var(--chart-2)"
+            radius={[8, 8, 0, 0]}
+            maxBarSize={48}
+            isAnimationActive
+            animationDuration={800}
+          />
         ) : null}
+        {dual ? <DualSeriesLegend /> : null}
       </BarChart>
     </ResponsiveContainer>
   )

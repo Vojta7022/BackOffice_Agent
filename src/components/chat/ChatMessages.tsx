@@ -12,7 +12,9 @@ import {
   Search,
   Sparkles,
 } from 'lucide-react'
-import { useChatStore } from '@/lib/chat-store'
+import { useHydrated } from '@/hooks/useHydrated'
+import { selectActiveMessages, useChatStore } from '@/lib/chat-store'
+import { translations } from '@/lib/i18n'
 import { useTranslation } from '@/lib/useTranslation'
 import MessageBubble from './MessageBubble'
 import TypingIndicator from './TypingIndicator'
@@ -23,7 +25,10 @@ interface ChatMessagesProps {
 
 function WelcomeScreen({ onSend }: { onSend: (msg: string) => void }) {
   const { t, language } = useTranslation()
-  const starterGroups = language === 'cs'
+  const hydrated = useHydrated()
+  const currentT = hydrated ? t : translations.cs
+  const currentLanguage = hydrated ? language : 'cs'
+  const starterGroups = currentLanguage === 'cs'
     ? [
         {
           title: '📊 Data a analýzy',
@@ -82,9 +87,9 @@ function WelcomeScreen({ onSend }: { onSend: (msg: string) => void }) {
           <Building2 className="h-8 w-8" />
         </div>
         <div>
-          <h2 className="text-2xl font-semibold text-foreground">{t.chat.welcomeTitle}</h2>
+          <h2 className="text-2xl font-semibold text-foreground">{currentT.chat.welcomeTitle}</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            {t.chat.welcomeDescription}
+            {currentT.chat.welcomeDescription}
           </p>
         </div>
       </div>
@@ -136,14 +141,16 @@ function WelcomeScreen({ onSend }: { onSend: (msg: string) => void }) {
 export default function ChatMessages({ onSend }: ChatMessagesProps) {
   const router = useRouter()
   const { t } = useTranslation()
-  const messages = useChatStore((state) => state.getActiveMessages())
+  const hydrated = useHydrated()
+  const messages = useChatStore(selectActiveMessages)
   const isLoading = useChatStore((state) => state.isLoading)
   const createNewConversation = useChatStore((state) => state.createNewConversation)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const currentT = hydrated ? t : translations.cs
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, isLoading])
+  }, [messages.length, isLoading])
 
   if (messages.length === 0 && !isLoading) {
     return <WelcomeScreen onSend={onSend} />
@@ -159,7 +166,7 @@ export default function ChatMessages({ onSend }: ChatMessagesProps) {
         className="button-smooth absolute right-4 top-3 z-10 flex items-center gap-1.5 rounded-xl border border-border bg-card/95 px-2.5 py-1.5 text-xs text-muted-foreground shadow-sm backdrop-blur-sm hover:border-primary/20 hover:text-primary dark:shadow-none"
       >
         <Plus className="h-3.5 w-3.5" />
-        {t.chat.newChat}
+        {currentT.chat.newChat}
       </button>
 
       <div className="mx-auto w-full max-w-3xl space-y-4 pt-8">

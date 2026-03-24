@@ -1,5 +1,5 @@
 import { db } from '@/lib/database'
-import { MonitoringRule, Task, Lead, Client, Property } from '@/types'
+import { MonitoringRule, Task, Lead, Client, Property, PropertyType, Transaction } from '@/types'
 import { ToolName } from './tools'
 
 // ─── Result type ──────────────────────────────────────────────────────────────
@@ -7,7 +7,7 @@ import { ToolName } from './tools'
 export interface ToolResult {
   data: unknown
   summary: string
-  display_hint: 'text' | 'table' | 'chart' | 'email_draft' | 'file_download' | 'task_created' | 'monitoring_set' | 'comparison' | 'timeline'
+  display_hint: 'text' | 'table' | 'chart' | 'email_draft' | 'file_download' | 'task_created' | 'monitoring_set' | 'comparison' | 'timeline' | 'report'
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -17,6 +17,23 @@ function czk(amount: number): string {
 }
 
 const NOW = '2026-03-22'
+const DEFAULT_MONITORING_TYPES: PropertyType[] = ['apartment', 'house', 'commercial', 'office', 'land']
+const PROPERTY_TYPE_LABELS_CS: Record<PropertyType, string> = {
+  apartment: 'Byt',
+  house: 'Dům',
+  land: 'Pozemek',
+  commercial: 'Komerce',
+  office: 'Kancelář',
+}
+const WEEKDAY_NAMES_CS = ['neděle', 'pondělí', 'úterý', 'středa', 'čtvrtek', 'pátek', 'sobota'] as const
+const WEEKDAY_NAMES_EN = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as const
+const CALENDAR_SLOT_TEMPLATES = [
+  ['09:00-10:00', '14:00-15:00', '16:30-17:15'],
+  ['10:00-11:00', '13:30-14:30'],
+  ['14:00-15:00', '16:00-17:00'],
+  ['09:30-10:30', '11:30-12:15', '15:00-16:00'],
+  ['08:30-09:15', '12:00-13:00'],
+]
 
 function daysBetween(start: string, end: string): number {
   const startDate = new Date(start)
@@ -42,6 +59,10 @@ function average(values: number[]): number {
 function pctChange(current: number, previous: number): number {
   if (previous === 0) return current > 0 ? 100 : 0
   return Math.round(((current - previous) / previous) * 1000) / 10
+}
+
+function lastNMonthKeys(months: number): string[] {
+  return Array.from({ length: months }, (_, index) => monthKey(subtractMonths(NOW, months - index - 1)))
 }
 
 function pricePerSqm(property: Pick<Property, 'price' | 'area_sqm'>): number {
@@ -79,6 +100,40 @@ function groupBy<T>(items: T[], key: (item: T) => string): Record<string, T[]> {
   }, {})
 }
 
+function propertyTypeLabel(type: PropertyType): string {
+  return PROPERTY_TYPE_LABELS_CS[type]
+}
+
+function formatDotDate(date: Date): string {
+  return [
+    String(date.getDate()).padStart(2, '0'),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    date.getFullYear(),
+  ].join('.')
+}
+
+function getNextBusinessDaySlots() {
+  const slots: Array<{ date: string; day: string; day_en: string; slots: string[] }> = []
+  const cursor = new Date(`${NOW}T00:00:00`)
+  cursor.setDate(cursor.getDate() + 1)
+
+  while (slots.length < 5) {
+    const dayOfWeek = cursor.getDay()
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+      const template = CALENDAR_SLOT_TEMPLATES[slots.length % CALENDAR_SLOT_TEMPLATES.length]
+      slots.push({
+        date: formatDotDate(cursor),
+        day: WEEKDAY_NAMES_CS[dayOfWeek],
+        day_en: WEEKDAY_NAMES_EN[dayOfWeek],
+        slots: template,
+      })
+    }
+    cursor.setDate(cursor.getDate() + 1)
+  }
+
+  return slots
+}
+
 // ─── Handlers ─────────────────────────────────────────────────────────────────
 
 function handleQueryClients(input: Record<string, unknown>): ToolResult {
@@ -90,9 +145,12 @@ function handleQueryClients(input: Record<string, unknown>): ToolResult {
     if (!parsed) return { data: [], summary: 'Nepodařilo se rozpoznat čtvrtletí.', display_hint: 'text' }
     const grouped = db.getNewClientsByQuarter(parsed.year, parsed.quarter)
     const total = grouped.reduce((s, g) => s + g.count, 0)
+    const breakdown = grouped.map((item) => `${item.source}: ${item.count}`).join(', ')
     return {
       data: grouped.map(g => ({ source: g.source, count: g.count })),
-      summary: `Nalezeno ${total} klientů za ${quarter}, rozděleno podle zdroje.`,
+      summary: total > 0
+        ? `Celkem ${total} nových klientů za ${quarter}. Zdroje: ${breakdown}.`
+        : `Za ${quarter} nebyli evidováni žádní noví klienti.`,
       display_hint: 'table',
     }
   }
@@ -232,23 +290,31 @@ function handleFindMissingData(input: Record<string, unknown>): ToolResult {
     props = props.filter(p => p.construction_notes === null)
   }
 
-  const fieldLabel = field === 'all'
-    ? 'chybějícími údaji o rekonstrukci'
-    : field === 'renovation_status'
-    ? 'chybějícím stavem rekonstrukce'
-    : 'chybějícími stavebními poznámkami'
+  const rows = props
+    .map((property) => {
+      const missing: string[] = []
+
+      if ((field === 'all' || field === 'renovation_status') && property.renovation_status === null) {
+        missing.push('stav rekonstrukce')
+      }
+      if ((field === 'all' || field === 'construction_notes') && property.construction_notes === null) {
+        missing.push('stavební poznámky')
+      }
+
+      if (missing.length === 0) return null
+
+      return {
+        Název: property.name,
+        Adresa: `${property.address.street}, ${property.address.district}`,
+        Typ: propertyTypeLabel(property.type),
+        Chybí: missing.join(', ')
+      }
+    })
+    .filter((row): row is { Název: string; Adresa: string; Typ: string; Chybí: string } => row !== null)
 
   return {
-    data: props.map(p => ({
-      id: p.id,
-      name: p.name,
-      address: `${p.address.district}, ${p.address.city}`,
-      type: p.type,
-      status: p.status,
-      renovation_status: p.renovation_status,
-      construction_notes: p.construction_notes,
-    })),
-    summary: `Nalezeno ${props.length} nemovitostí s ${fieldLabel}. Vyžadují doplnění před prezentací klientům.`,
+    data: rows,
+    summary: `Nalezeno ${rows.length} nemovitostí s chybějícími údaji. Doporučuji kontaktovat vlastníky a doplnit chybějící údaje.`,
     display_hint: 'table',
   }
 }
@@ -258,12 +324,28 @@ function handleQueryTransactions(input: Record<string, unknown>): ToolResult {
 
   if (months_back) {
     const n = Number(months_back)
-    const data = db.getTransactionsByMonth(n)
+    const cutoff = subtractMonths(NOW, Math.max(n - 1, 0))
+    const effectiveType = (type as Transaction['type']) ?? 'sale'
+    const effectiveStatus = (status as Transaction['status']) ?? 'completed'
+    const filteredTransactions = db.getTransactions({
+      type: effectiveType,
+      status: effectiveStatus,
+      date_from: cutoff,
+      date_to: NOW,
+    })
+    const data = lastNMonthKeys(n).map((month) => {
+      const monthTransactions = filteredTransactions.filter((transaction) => monthKey(transaction.date) === month)
+      return {
+        month,
+        count: monthTransactions.length,
+        total_value: monthTransactions.reduce((sum, transaction) => sum + transaction.amount, 0),
+      }
+    })
     const totalValue = data.reduce((s, m) => s + m.total_value, 0)
     const totalCount = data.reduce((s, m) => s + m.count, 0)
     return {
       data,
-      summary: `${totalCount} transakcí za posledních ${n} měsíců v celkové hodnotě ${czk(totalValue)}.`,
+      summary: `${totalCount} ${effectiveType === 'sale' ? 'prodejů' : 'transakcí'} za posledních ${n} měsíců v celkové hodnotě ${czk(totalValue)}.`,
       display_hint: 'table',
     }
   }
@@ -312,18 +394,54 @@ function handleGetWeeklySummary(): ToolResult {
 }
 
 function handleGenerateChart(input: Record<string, unknown>): ToolResult {
+  const allowedTypes = new Set(['bar', 'line', 'pie', 'area'])
+  const rawData = Array.isArray(input.data) ? input.data : []
+  const chart = {
+    chart_type: allowedTypes.has(String(input.chart_type)) ? String(input.chart_type) as 'bar' | 'line' | 'pie' | 'area' : 'bar',
+    title: typeof input.title === 'string' && input.title.trim() ? input.title : 'Graf',
+    x_label: typeof input.x_label === 'string' ? input.x_label : undefined,
+    y_label: typeof input.y_label === 'string' ? input.y_label : undefined,
+    primary_label: typeof input.primary_label === 'string' ? input.primary_label : undefined,
+    secondary_label: typeof input.secondary_label === 'string' ? input.secondary_label : undefined,
+    data: rawData
+      .map((item) => {
+        if (typeof item !== 'object' || item === null) return null
+        const record = item as Record<string, unknown>
+        const label = typeof record.label === 'string' ? record.label : ''
+        if (!label) return null
+        const value = Number(record.value ?? 0)
+        const secondaryValue = record.secondary_value === undefined ? undefined : Number(record.secondary_value)
+        return {
+          label,
+          value: Number.isFinite(value) ? value : 0,
+          ...(secondaryValue !== undefined && Number.isFinite(secondaryValue) ? { secondary_value: secondaryValue } : {}),
+        }
+      })
+      .filter((item): item is { label: string; value: number; secondary_value?: number } => item !== null),
+  }
+
   return {
-    data: input,
-    summary: `Graf „${input.title}" je připraven k zobrazení.`,
+    data: chart,
+    summary: `Graf „${chart.title}“ je připraven k zobrazení.`,
     display_hint: 'chart',
   }
 }
 
 function handleDraftEmail(input: Record<string, unknown>): ToolResult {
   const { to, subject, body, context } = input as Record<string, string>
+  const normalizedContext = `${subject ?? ''} ${body ?? ''} ${context ?? ''}`
+  const isViewingEmail = /zájemce|zajemce|prohl[ií]dk|viewing/i.test(normalizedContext)
   return {
-    data: { to, subject, body, context: context ?? '' },
-    summary: `Email pro „${to}" s předmětem „${subject}" je připraven k odeslání.`,
+    data: {
+      to,
+      subject,
+      body,
+      context: context ?? '',
+      email_type: isViewingEmail ? 'property_viewing' : 'general',
+    },
+    summary: isViewingEmail
+      ? `Email zájemci s návrhem termínů prohlídky je připraven k odeslání.`
+      : `Email pro „${to}“ s předmětem „${subject}“ je připraven k odeslání.`,
     display_hint: 'email_draft',
   }
 }
@@ -331,39 +449,18 @@ function handleDraftEmail(input: Record<string, unknown>): ToolResult {
 function handleCheckCalendar(input: Record<string, unknown>): ToolResult {
   const { date_from, date_to, duration_minutes } = input as Record<string, string>
   const duration = Number(duration_minutes ?? 60)
-
-  // Generate slots on weekdays within range (deterministic, no random)
-  const preferredTimes = ['09:00', '10:30', '13:00', '14:30', '16:00']
-  const slots: { date: string; start: string; end: string; available: boolean }[] = []
-
-  const start = new Date(date_from)
-  const end = new Date(date_to)
-
-  let cursor = new Date(start)
-  let slotCount = 0
-
-  while (cursor <= end && slotCount < 5) {
-    const dow = cursor.getDay()
-    if (dow !== 0 && dow !== 6) {
-      const time = preferredTimes[slotCount % preferredTimes.length]
-      const [h, m] = time.split(':').map(Number)
-      const endH = Math.floor((h * 60 + m + duration) / 60)
-      const endM = (h * 60 + m + duration) % 60
-      const endTime = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`
-      slots.push({
-        date: cursor.toISOString().split('T')[0],
-        start: time,
-        end: endTime,
-        available: true,
-      })
-      slotCount++
-    }
-    cursor.setDate(cursor.getDate() + 1)
-  }
+  const slots = getNextBusinessDaySlots()
 
   return {
-    data: { slots, duration_minutes: duration },
-    summary: `Nalezeno ${slots.length} volných termínů od ${date_from} do ${date_to} (délka ${duration} min).`,
+    data: {
+      requested_range: {
+        date_from: date_from ?? NOW,
+        date_to: date_to ?? '2026-03-27',
+      },
+      duration_minutes: duration,
+      slots,
+    },
+    summary: `Volné termíny pro příštích 5 pracovních dní od 23.03.2026 do 27.03.2026 jsou připravené.`,
     display_hint: 'table',
   }
 }
@@ -699,6 +796,7 @@ function handleGenerateReport(input: Record<string, unknown>): ToolResult {
   const report = {
     period,
     generated_at: '2026-03-22',
+    summary_text: `Za ${periodLabel} jsme uzavřeli ${period === 'week' ? weekly.deals_closed : metrics.deals_closed} obchodů, získali ${period === 'week' ? weekly.new_leads : leadsMonthly.reduce((s, m) => s + m.count, 0)} leadů a dosáhli tržeb ${czk(period === 'week' ? weekly.revenue : metrics.total_revenue)}.`,
     summary: {
       title: `Report za ${periodLabel} — ${period === 'week' ? 'týden do 22. 3. 2026' : period === 'month' ? 'březen 2026' : 'Q1 2026'}`,
       overview: `Kancelář spravuje ${dash.total_properties} nemovitostí (${dash.active_properties} aktivních). Celkem ${dash.total_clients} klientů v databázi.`,
@@ -745,7 +843,7 @@ function handleGenerateReport(input: Record<string, unknown>): ToolResult {
     summary: isFmt
       ? `Strukturovaný report za ${periodLabel} vygenerován. Tržby: ${czk(report.metrics.revenue)}, obchody: ${report.metrics.deals_closed}, leady: ${report.metrics.new_leads}.`
       : `Report za ${periodLabel}: tržby ${czk(report.metrics.revenue)}, ${report.metrics.deals_closed} uzavřených obchodů, ${report.metrics.new_leads} nových leadů.`,
-    display_hint: 'table',
+    display_hint: 'report',
   }
 }
 
@@ -756,85 +854,54 @@ function handleGeneratePresentation(input: Record<string, unknown>): ToolResult 
     key_points?: string[]
   }
 
-  // Pull live data for the slides
   const dash = db.getDashboardStats()
   const metrics = db.getSalesMetrics()
+  const weekly = db.getWeeklySummary()
   const leadsMonthly = db.getLeadsByMonth(6)
-  const txMonthly = db.getTransactionsByMonth(6)
   const missingData = db.getPropertiesWithMissingData()
-  const stale = db.getStaleListings(60)
-
-  // Build a slide template pool — pick first `num_slides` relevant ones
-  const allSlides = [
-    {
-      title: topic,
-      content: [
-        `Připraveno: 22. 3. 2026`,
-        `ReAgent s.r.o. — Správa nemovitostí`,
-        ...(key_points ?? []),
-      ],
-    },
-    {
-      title: 'Přehled portfolia',
-      content: [
-        `Celkem nemovitostí: ${dash.total_properties}`,
-        `Aktivní (k prodeji/pronájmu): ${dash.active_properties}`,
-        `Uzavřené obchody celkem: ${metrics.deals_closed}`,
-        `Průměrná hodnota obchodu: ${czk(metrics.avg_deal_size)}`,
-      ],
-    },
-    {
-      title: 'Klienti a leady',
-      content: [
-        `Celkem klientů: ${dash.total_clients}`,
-        `Nových tento měsíc: ${dash.new_clients_this_month} (${dash.monthly_changes.clients > 0 ? '+' : ''}${dash.monthly_changes.clients} % m/m)`,
-        `Leady tento měsíc: ${dash.total_leads_this_month}`,
-        `Trend leadů: ${dash.monthly_changes.leads > 0 ? 'rostoucí' : 'klesající'} (${dash.monthly_changes.leads > 0 ? '+' : ''}${dash.monthly_changes.leads} %)`,
-      ],
-    },
-    {
-      title: 'Výsledky prodeje',
-      content: [
-        `Celkové tržby: ${czk(metrics.total_revenue)}`,
-        `Celková provize: ${czk(metrics.total_commission)}`,
-        `Probíhající obchody: ${metrics.pending_deals} (hodnota ${czk(metrics.pending_value)})`,
-      ],
-      chart_data: txMonthly.map(m => ({ label: m.month, value: m.total_value })),
-    },
-    {
-      title: 'Vývoj leadů — 6 měsíců',
-      content: leadsMonthly.map(m => `${m.month}: ${m.count} leadů`),
-      chart_data: leadsMonthly.map(m => ({ label: m.month, value: m.count })),
-    },
-    {
-      title: 'Oblasti ke zlepšení',
-      content: [
-        stale.length > 0 ? `${stale.length} stagnujících inzerátů (>60 dní na trhu)` : 'Žádné stagnující inzeráty',
-        missingData.length > 0 ? `${missingData.length} nemovitostí s neúplnými daty` : 'Všechna data jsou kompletní',
-        metrics.pending_deals > 0 ? `${metrics.pending_deals} transakcí čeká na dokončení` : 'Všechny transakce dokončeny',
-      ],
-    },
-    {
-      title: 'Plán na Q2 2026',
-      content: key_points ?? [
-        'Doplnit chybějící data ve všech inzerátech',
-        'Spustit cílenou kampaň na Instagramu',
-        'Přeceňovat stagnující nabídky každých 30 dní',
-        'Cíl: 20 % nárůst nových leadů',
-        'Rozšíření portfolia o Brno a střední Čechy',
-      ],
-    },
-    {
-      title: 'Závěr',
-      content: [
-        'Děkujeme za pozornost.',
-        'ReAgent s.r.o.',
-        'Kontakt: info@reagent.cz',
-      ],
-    },
+  const stale = db.getStaleListings(90)
+  const conversionRate = dash.total_leads_this_month > 0
+    ? Math.round((db.getAllLeads().filter((lead) => lead.status === 'closed_won').length / db.getAllLeads().length) * 1000) / 10
+    : 0
+  const requestedSlides = Math.max(1, Math.min(Number(num_slides) || 3, 3))
+  const highlights = [
+    `Nové leady za poslední týden: ${weekly.new_leads}`,
+    `Uzavřené obchody: ${weekly.deals_closed}`,
+    `Rozpracované obchody: ${metrics.pending_deals}`,
+    missingData.length > 0 ? `${missingData.length} nemovitostí s chybějícími údaji` : 'Data v inzerci jsou kompletní',
+    stale.length > 0 ? `${stale.length} stagnujících inzerátů nad 90 dní` : 'Bez stagnujících inzerátů nad 90 dní',
   ]
+  const actionItems = key_points?.length
+    ? key_points
+    : [
+        missingData.length > 0 ? 'Doplnit chybějící údaje u nemovitostí s neúplným profilem' : 'Udržet vysokou kvalitu dat v inzerci',
+        stale.length > 0 ? 'Přehodnotit cenu a propagaci stagnujících nabídek' : 'Pokračovat v aktivní práci s aktuálními nabídkami',
+        'Kontaktovat nové leady do 24 hodin',
+      ]
 
-  const slides = allSlides.slice(0, Math.min(Number(num_slides), allSlides.length))
+  const slides = [
+    {
+      title: 'Přehled výsledků',
+      content: [
+        `Téma: ${topic}`,
+        `Leady: ${weekly.new_leads} za posledních 7 dní / ${leadsMonthly.reduce((sum, month) => sum + month.count, 0)} za 6 měsíců`,
+        `Uzavřené obchody: ${weekly.deals_closed} za posledních 7 dní, celkem ${metrics.deals_closed}`,
+        `Tržby: ${czk(weekly.revenue)} za posledních 7 dní, celkem ${czk(metrics.total_revenue)}`,
+      ],
+    },
+    {
+      title: 'Hlavní úspěchy a výzvy',
+      content: [
+        `Aktivní portfolio: ${dash.active_properties} z ${dash.total_properties} nemovitostí`,
+        `Konverzní poměr leadů: ${conversionRate} %`,
+        ...highlights.slice(0, 3),
+      ],
+    },
+    {
+      title: 'Doporučené kroky',
+      content: actionItems.slice(0, 4),
+    },
+  ].slice(0, requestedSlides)
 
   return {
     data: { topic, slides, generated_at: '2026-03-22' },
@@ -846,28 +913,42 @@ function handleGeneratePresentation(input: Record<string, unknown>): ToolResult 
 function handleSetupMonitoring(input: Record<string, unknown>): ToolResult {
   const { location, property_type, price_min, price_max, frequency } =
     input as Record<string, string>
+  const normalizedLocation = location && /holešovice|holesovice/i.test(location)
+    ? 'Praha - Holešovice'
+    : location?.trim() || 'Praha - Holešovice'
+  const monitoredTypes = property_type
+    ? [property_type as PropertyType]
+    : DEFAULT_MONITORING_TYPES
+  const resolvedFrequency = (frequency as MonitoringRule['frequency']) ?? 'daily'
 
   const rule: MonitoringRule = {
     id: `monitoring-${Date.now()}`,
-    location,
+    location: normalizedLocation,
     filters: {
-      property_types: property_type ? [property_type as MonitoringRule['filters']['property_types'] extends (infer T)[] | undefined ? T : never] : undefined,
+      property_types: monitoredTypes,
       price_min: price_min ? Number(price_min) : undefined,
       price_max: price_max ? Number(price_max) : undefined,
     },
-    frequency: (frequency as MonitoringRule['frequency']) ?? 'daily',
+    frequency: resolvedFrequency,
     active: true,
     created_at: '2026-03-22',
   }
 
-  const filterDesc: string[] = [`lokalita: ${location}`]
+  const filterDesc: string[] = [`lokalita: ${normalizedLocation}`]
   if (property_type) filterDesc.push(`typ: ${property_type}`)
   if (price_min) filterDesc.push(`od ${czk(Number(price_min))}`)
   if (price_max) filterDesc.push(`do ${czk(Number(price_max))}`)
 
   return {
-    data: rule,
-    summary: `Monitoring nastaven — ${filterDesc.join(', ')}. Frekvence: ${rule.frequency === 'daily' ? 'denně' : 'týdně'}.`,
+    data: {
+      ...rule,
+      status: 'aktivní',
+      next_check: '23.03.2026 v 07:00',
+      next_check_relative_cs: 'zítra v 7:00',
+      next_check_relative_en: 'tomorrow at 7:00',
+      message: 'Monitoring nastaven. Budete informováni o nových nabídkách.',
+    },
+    summary: `Monitoring nastaven — ${filterDesc.join(', ')}. Frekvence: ${rule.frequency === 'daily' ? 'denně' : 'týdně'}. Další kontrola zítra v 7:00.`,
     display_hint: 'monitoring_set',
   }
 }

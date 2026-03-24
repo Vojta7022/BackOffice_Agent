@@ -131,6 +131,8 @@ export const agentTools: FunctionDeclaration[] = [
         title: { type: 'string' },
         x_label: { type: 'string' },
         y_label: { type: 'string' },
+        primary_label: { type: 'string', description: 'Label for the main data series' },
+        secondary_label: { type: 'string', description: 'Label for the optional second data series' },
         data: {
           type: 'array',
           description: 'Data points to plot',
@@ -206,7 +208,7 @@ export const agentTools: FunctionDeclaration[] = [
   },
   {
     name: 'generate_presentation',
-    description: 'Create a PowerPoint presentation. Use when asked to prepare a deck, slides, or presentation.',
+    description: 'Create a PowerPoint presentation. When paired with generate_report, build a short deck based on the report findings.',
     parametersJsonSchema: {
       type: 'object',
       properties: {
@@ -223,7 +225,7 @@ export const agentTools: FunctionDeclaration[] = [
   },
   {
     name: 'setup_monitoring',
-    description: 'Set up automated alerts for new listings matching criteria. Use when asked to monitor or watch for new properties.',
+    description: 'Set up automated alerts for new listings matching criteria. If details are missing, create a sensible default monitoring rule instead of asking follow-up questions.',
     parametersJsonSchema: {
       type: 'object',
       properties: {

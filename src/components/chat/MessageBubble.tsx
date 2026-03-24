@@ -174,18 +174,67 @@ function TaskCreatedCard({ task }: { task: Record<string, unknown> }) {
 }
 
 function MonitoringCard({ rule }: { rule: Record<string, unknown> }) {
-  const { t } = useTranslation()
+  const { t, language } = useTranslation()
   const frequency = rule.frequency === 'daily' ? t.chat.frequencies.daily : t.chat.frequencies.weekly
+  const propertyTypes = Array.isArray((rule.filters as { property_types?: unknown[] } | undefined)?.property_types)
+    ? ((rule.filters as { property_types?: string[] }).property_types ?? [])
+    : []
+  const typeLabel = propertyTypes.length > 0
+    ? propertyTypes
+        .map((type) => t.properties.typeLabels[type as keyof typeof t.properties.typeLabels] ?? type)
+        .join(', ')
+    : t.chat.monitoringAllTypes
+  const priceMin = typeof (rule.filters as { price_min?: unknown } | undefined)?.price_min === 'number'
+    ? Number((rule.filters as { price_min?: number }).price_min)
+    : null
+  const priceMax = typeof (rule.filters as { price_max?: unknown } | undefined)?.price_max === 'number'
+    ? Number((rule.filters as { price_max?: number }).price_max)
+    : null
+  const priceRange = priceMin !== null || priceMax !== null
+    ? `${priceMin !== null ? new Intl.NumberFormat('cs-CZ').format(priceMin) : '0'} CZK - ${priceMax !== null ? new Intl.NumberFormat('cs-CZ').format(priceMax) : '∞'} CZK`
+    : t.chat.monitoringNoPriceLimit
+  const nextCheck =
+    language === 'en'
+      ? String(rule.next_check_relative_en ?? rule.next_check ?? '')
+      : String(rule.next_check_relative_cs ?? rule.next_check ?? '')
 
   return (
-    <div className="mt-3 flex items-start gap-3 rounded-2xl border border-primary/25 bg-primary/5 p-3">
-      <Bell className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-      <div>
-        <p className="text-xs font-semibold text-primary">{t.chat.monitoringSet}</p>
-        <p className="mt-0.5 text-sm text-foreground">{String(rule.location ?? '')}</p>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          {t.chat.frequency}: {frequency}
-        </p>
+    <div className="mt-3 overflow-hidden rounded-2xl border border-green-500/20 bg-green-500/5 shadow-sm dark:shadow-none">
+      <div className="flex items-start gap-3 border-l-4 border-green-500 px-4 py-3">
+        <div className="relative mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-green-500/10 text-green-500">
+          <Bell className="h-4 w-4" />
+          <CheckCircle2 className="absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full bg-background text-green-500" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-semibold uppercase tracking-wide text-green-600 dark:text-green-400">{t.chat.monitoringSet}</p>
+          <p className="mt-1 text-sm text-foreground">{String(rule.message ?? t.chat.monitoringConfirmation)}</p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <div className="rounded-xl border border-border bg-background/70 px-3 py-2">
+              <p className="text-[11px] text-muted-foreground">{t.chat.monitoringLocation}</p>
+              <p className="text-sm font-medium text-foreground">{String(rule.location ?? '')}</p>
+            </div>
+            <div className="rounded-xl border border-border bg-background/70 px-3 py-2">
+              <p className="text-[11px] text-muted-foreground">{t.chat.monitoringPropertyType}</p>
+              <p className="text-sm font-medium text-foreground">{typeLabel}</p>
+            </div>
+            <div className="rounded-xl border border-border bg-background/70 px-3 py-2">
+              <p className="text-[11px] text-muted-foreground">{t.chat.monitoringPriceRange}</p>
+              <p className="text-sm font-medium text-foreground">{priceRange}</p>
+            </div>
+            <div className="rounded-xl border border-border bg-background/70 px-3 py-2">
+              <p className="text-[11px] text-muted-foreground">{t.chat.frequency}</p>
+              <p className="text-sm font-medium text-foreground">{frequency}</p>
+            </div>
+            <div className="rounded-xl border border-border bg-background/70 px-3 py-2">
+              <p className="text-[11px] text-muted-foreground">{t.chat.monitoringStatus}</p>
+              <p className="text-sm font-medium text-green-600 dark:text-green-400">{String(rule.status ?? t.chat.monitoringActive)}</p>
+            </div>
+            <div className="rounded-xl border border-border bg-background/70 px-3 py-2">
+              <p className="text-[11px] text-muted-foreground">{t.chat.monitoringNextCheck}</p>
+              <p className="text-sm font-medium text-foreground">{nextCheck}</p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -312,6 +361,7 @@ function SuggestionChips({
   language: 'cs' | 'en'
   onSend: (message: string) => void
 }) {
+  const { t } = useTranslation()
   const suggestions = useMemo(() => {
     const merged = [...extractTextSuggestions(content), ...getContextualSuggestions(steps, language)]
     return merged.filter((suggestion, index) => merged.findIndex((item) => item.toLowerCase() === suggestion.toLowerCase()) === index).slice(0, 6)
@@ -323,7 +373,7 @@ function SuggestionChips({
     <div className="mt-4">
       <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/70">
         <Sparkles className="h-3 w-3 text-primary" />
-        Pokračovat
+        {t.chat.nextSteps}
       </div>
       <div className="flex flex-wrap gap-2">
         {suggestions.map((suggestion) => (
