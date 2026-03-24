@@ -485,15 +485,16 @@ const cs: Translations = {
     monitoringConfirmation: 'Monitoring nastaven. Budete informovani o novych nabidkach.',
     reportMetrics: {
       revenue: 'Trzby',
+      commission: 'Provize',
       deals_closed: 'Uzavrene obchody',
       new_leads: 'Nove leady',
       new_clients: 'Novi klienti',
       viewings_scheduled: 'Prohlidky',
       pending_deals: 'Rozpracovane obchody',
       pending_value: 'Hodnota rozpracovanych',
-      avg_deal_size: 'Prumerna hodnota obchodu',
-      total_revenue: 'Celkove trzby',
-      total_commission: 'Celkova provize',
+      avg_deal_size: 'Prumerna hodnota',
+      total_revenue: 'Trzby',
+      total_commission: 'Provize',
     },
   },
   properties: {
@@ -889,6 +890,7 @@ const en: Translations = {
     monitoringConfirmation: 'Monitoring is active. You will be informed about new listings.',
     reportMetrics: {
       revenue: 'Revenue',
+      commission: 'Commission',
       deals_closed: 'Closed deals',
       new_leads: 'New leads',
       new_clients: 'New clients',

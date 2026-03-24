@@ -48,27 +48,28 @@ const LOCATION_COORDINATES: Record<string, Coordinates> = {
   praha: { lat: 50.0755, lon: 14.4378 },
   brno: { lat: 49.1951, lon: 16.6068 },
   'brno-stred': { lat: 49.1951, lon: 16.6068 },
-  'brno-jih': { lat: 49.1790, lon: 16.6186 },
-  'kralovo pole': { lat: 49.2247, lon: 16.5988 },
-  zabrdovice: { lat: 49.2012, lon: 16.6276 },
-  bystrc: { lat: 49.2276, lon: 16.5243 },
-  lesna: { lat: 49.2297, lon: 16.6267 },
-  zidenice: { lat: 49.2018, lon: 16.6505 },
-  plzen: { lat: 49.7384, lon: 13.3736 },
-  'plzen 1': { lat: 49.7507, lon: 13.3668 },
+  stranice: { lat: 49.2000, lon: 16.5900 },
+  'brno-jih': { lat: 49.1700, lon: 16.6200 },
+  'kralovo pole': { lat: 49.2200, lon: 16.5900 },
+  zabrdovice: { lat: 49.2000, lon: 16.6200 },
+  bystrc: { lat: 49.2250, lon: 16.5200 },
+  lesna: { lat: 49.2250, lon: 16.6150 },
+  zidenice: { lat: 49.2050, lon: 16.6400 },
+  'brno-venkov': { lat: 49.1500, lon: 16.5800 },
+  plzen: { lat: 49.7475, lon: 13.3776 },
+  'plzen 1': { lat: 49.7475, lon: 13.3776 },
   olomouc: { lat: 49.5938, lon: 17.2509 },
   'olomouc-mesto': { lat: 49.5938, lon: 17.2509 },
   turnov: { lat: 50.5836, lon: 15.1519 },
-  semily: { lat: 50.6020, lon: 15.3355 },
-  liberec: { lat: 50.7671, lon: 15.0562 },
-  'liberec i': { lat: 50.7705, lon: 15.0584 },
-  'ceske budejovice': { lat: 48.9747, lon: 14.4747 },
-  'ceske budejovice 1': { lat: 48.9747, lon: 14.4747 },
+  semily: { lat: 50.6020, lon: 15.3340 },
+  liberec: { lat: 50.7663, lon: 15.0543 },
+  'liberec i': { lat: 50.7663, lon: 15.0543 },
+  'ceske budejovice': { lat: 48.9745, lon: 14.4744 },
+  'ceske budejovice 1': { lat: 48.9745, lon: 14.4744 },
   rajhrad: { lat: 49.0902, lon: 16.6030 },
-  'brno-venkov': { lat: 49.1259, lon: 16.5220 },
   'zelezna ruda': { lat: 49.1374, lon: 13.2352 },
-  klatovy: { lat: 49.3956, lon: 13.2950 },
-  beroun: { lat: 49.9638, lon: 14.0720 },
+  klatovy: { lat: 49.3955, lon: 13.2950 },
+  beroun: { lat: 49.9636, lon: 14.0722 },
 }
 
 function normalizeLocation(value: string) {
@@ -87,8 +88,8 @@ function getCoordinates(property: Property): Coordinates {
 
 function getMapUrl(property: Property) {
   const { lat, lon } = getCoordinates(property)
-  const bbox = `${lon - 0.005},${lat - 0.005},${lon + 0.005},${lat + 0.005}`
-  return `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik&marker=${lat},${lon}`
+  const bbox = `${lon - 0.01},${lat - 0.01},${lon + 0.01},${lat + 0.01}`
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat},${lon}`
 }
 
 function isRental(property: Property) {

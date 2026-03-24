@@ -48,7 +48,7 @@ function lastNMonths(n: number): string[] {
 function quarterBounds(year: number, quarter: number): { from: string; to: string } {
   const startMonth = (quarter - 1) * 3 + 1
   const endMonth = startMonth + 2
-  const endDay = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][endMonth]
+  const endDay = new Date(year, endMonth, 0).getDate()
   return {
     from: `${year}-${String(startMonth).padStart(2, '0')}-01`,
     to: `${year}-${String(endMonth).padStart(2, '0')}-${endDay}`,

@@ -11,6 +11,7 @@ import TimelineCard from './TimelineCard'
 import type { ChatMessage } from '@/lib/chat-store'
 import type { ChartConfig, ToolCallLogEntry } from '@/lib/agent/orchestrator'
 import { useTranslation } from '@/lib/useTranslation'
+import { formatCZK } from '@/lib/utils'
 
 const TOOL_SUGGESTIONS: Record<string, { cs: string[]; en: string[] }> = {
   query_clients: {
@@ -51,6 +52,28 @@ const TOOL_SUGGESTIONS: Record<string, { cs: string[]; en: string[] }> = {
   },
 }
 
+const TOOL_STEP_LABELS_CS: Record<string, string> = {
+  query_clients: 'Vyhledavani klientu',
+  query_leads: 'Analyza leadu',
+  query_properties: 'Hledani nemovitosti',
+  query_transactions: 'Analyza transakci',
+  find_missing_data: 'Hledani chybejicich dat',
+  generate_chart: 'Tvorba grafu',
+  draft_email: 'Priprava emailu',
+  check_calendar: 'Kontrola kalendare',
+  create_task: 'Vytvareni ukolu',
+  generate_report: 'Generovani reportu',
+  generate_presentation: 'Priprava prezentace',
+  setup_monitoring: 'Nastaveni monitoringu',
+  get_dashboard_metrics: 'Nacitani metrik',
+  get_weekly_summary: 'Tydenni prehled',
+  compare_properties: 'Porovnani nemovitosti',
+  generate_property_description: 'Tvorba popisu nemovitosti',
+  analyze_portfolio: 'Analyza portfolia',
+  client_activity_timeline: 'Historie klienta',
+  market_overview: 'Prehled trhu',
+}
+
 function formatTime(iso: string, language: 'cs' | 'en') {
   return new Date(iso).toLocaleTimeString(language === 'cs' ? 'cs-CZ' : 'en-US', {
     hour: '2-digit',
@@ -60,6 +83,31 @@ function formatTime(iso: string, language: 'cs' | 'en') {
 
 function formatMetricLabel(key: string, labels: Record<string, string>) {
   return labels[key] ?? key.replace(/_/g, ' ')
+}
+
+function formatFullCZK(amount: number, language: 'cs' | 'en') {
+  const locale = language === 'cs' ? 'cs-CZ' : 'en-US'
+  return `${new Intl.NumberFormat(locale).format(Math.round(amount))} CZK`
+}
+
+function formatReportMetricValue(key: string, value: unknown, language: 'cs' | 'en') {
+  if (typeof value !== 'number') return String(value ?? '')
+
+  switch (key) {
+    case 'revenue':
+    case 'total_revenue':
+      return value === 0 ? '0 CZK' : formatFullCZK(value, language)
+    case 'commission':
+    case 'total_commission':
+      return formatFullCZK(value, language)
+    case 'avg_deal_size':
+    case 'pending_value':
+      return formatCZK(value, language)
+    default:
+      return new Intl.NumberFormat(language === 'cs' ? 'cs-CZ' : 'en-US', {
+        maximumFractionDigits: 1,
+      }).format(value)
+  }
 }
 
 function normalizePresentationContent(value: unknown): string[] {
@@ -147,8 +195,6 @@ function getContextualSuggestions(steps: ToolCallLogEntry[] | undefined, languag
 // ─── ThinkingSteps ────────────────────────────────────────────────────────
 
 function ThinkingSteps({ steps }: { steps: ToolCallLogEntry[] }) {
-  const { t } = useTranslation()
-
   if (!steps.length) return null
   return (
     <div className="mb-3 flex flex-wrap gap-1.5">
@@ -158,7 +204,7 @@ function ThinkingSteps({ steps }: { steps: ToolCallLogEntry[] }) {
           className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[11px] text-primary/90"
         >
           <Wrench className="h-2.5 w-2.5" />
-          {t.chat.toolLabels[step.name] ?? step.name}
+          {TOOL_STEP_LABELS_CS[step.name] ?? step.name}
         </span>
       ))}
     </div>
@@ -252,7 +298,7 @@ function MonitoringCard({ rule }: { rule: Record<string, unknown> }) {
 }
 
 function ReportCard({ report }: { report: Record<string, unknown> }) {
-  const { t } = useTranslation()
+  const { t, language } = useTranslation()
   const summary = report.summary as Record<string, unknown> | undefined
   const metrics = report.metrics as Record<string, unknown> | undefined
   const highlights = (report.highlights as string[]) ?? []
@@ -275,7 +321,7 @@ function ReportCard({ report }: { report: Record<string, unknown> }) {
             {Object.entries(metrics).slice(0, 6).map(([k, v]) => (
               <div key={k} className="rounded-xl border border-border bg-background/70 px-3 py-2">
                 <p className="text-[11px] text-muted-foreground capitalize">{formatMetricLabel(k, t.chat.reportMetrics)}</p>
-                <p className="text-sm font-semibold text-foreground">{String(v ?? '')}</p>
+                <p className="text-sm font-semibold text-foreground">{formatReportMetricValue(k, v, language)}</p>
               </div>
             ))}
           </div>

@@ -83,11 +83,39 @@ function matchesCity(propertyId: string | null | undefined, city?: string): bool
   return property?.address.city.toLowerCase() === city.toLowerCase()
 }
 
+function normalizeQuery(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+}
+
 function parseQuarter(q: string): { year: number; quarter: number } | null {
-  // Accepts "Q1 2026", "1Q 2026", "Q1/2026", etc.
-  const m = q.match(/Q?(\d)\D*(\d{4})|(\d{4})\D*Q?(\d)/i)
-  if (!m) return null
-  const [quarter, year] = m[1] ? [+m[1], +m[2]] : [+m[4], +m[3]]
+  const normalized = normalizeQuery(q)
+  const year = Number(normalized.match(/\b(20\d{2})\b/)?.[1] ?? '2026')
+  const numberMatch =
+    normalized.match(/\bq\s*([1-4])\b/) ??
+    normalized.match(/\b([1-4])\s*q\b/) ??
+    normalized.match(/\b([1-4])\.?\s*(kvartal|ctvrtleti)\b/)
+
+  const quarterWordMap: Record<string, number> = {
+    prvni: 1,
+    druhy: 2,
+    treti: 3,
+    ctvrty: 4,
+  }
+
+  let quarter = numberMatch?.[1] ? Number(numberMatch[1]) : 0
+  if (!quarter) {
+    for (const [word, value] of Object.entries(quarterWordMap)) {
+      if (normalized.includes(`${word} kvartal`) || normalized.includes(`${word} ctvrtleti`)) {
+        quarter = value
+        break
+      }
+    }
+  }
+
   if (quarter < 1 || quarter > 4) return null
   return { year, quarter }
 }
@@ -110,6 +138,13 @@ function formatDotDate(date: Date): string {
     String(date.getMonth() + 1).padStart(2, '0'),
     date.getFullYear(),
   ].join('.')
+}
+
+function formatChartMonthLabel(month: string): string {
+  const [year, rawMonth] = month.split('-').map(Number)
+  const monthLabels = ['Led', 'Úno', 'Bře', 'Dub', 'Kvě', 'Čvn', 'Čvc', 'Srp', 'Zář', 'Říj', 'Lis', 'Pro']
+  const label = monthLabels[(rawMonth ?? 1) - 1] ?? month
+  return Number.isFinite(year) ? `${label} ${year}` : month
 }
 
 function getNextBusinessDaySlots() {
@@ -146,11 +181,12 @@ function handleQueryClients(input: Record<string, unknown>): ToolResult {
     const grouped = db.getNewClientsByQuarter(parsed.year, parsed.quarter)
     const total = grouped.reduce((s, g) => s + g.count, 0)
     const breakdown = grouped.map((item) => `${item.source}: ${item.count}`).join(', ')
+    const quarterLabel = `Q${parsed.quarter} ${parsed.year}`
     return {
       data: grouped.map(g => ({ source: g.source, count: g.count })),
       summary: total > 0
-        ? `Celkem ${total} nových klientů za ${quarter}. Zdroje: ${breakdown}.`
-        : `Za ${quarter} nebyli evidováni žádní noví klienti.`,
+        ? `Nalezeno ${total} nových klientů za ${quarterLabel}. Rozložení podle zdroje: ${breakdown}.`
+        : `Za ${quarterLabel} nebyli evidováni žádní noví klienti.`,
       display_hint: 'table',
     }
   }
@@ -206,7 +242,11 @@ function handleQueryLeads(input: Record<string, unknown>): ToolResult {
 
   if (months_back) {
     const n = Number(months_back)
-    const data = db.getLeadsByMonth(n)
+    const data = db.getLeadsByMonth(n).map((item) => ({
+      month: item.month,
+      label: formatChartMonthLabel(item.month),
+      count: item.count,
+    }))
     const total = data.reduce((s, m) => s + m.count, 0)
     return {
       data,
@@ -337,6 +377,7 @@ function handleQueryTransactions(input: Record<string, unknown>): ToolResult {
       const monthTransactions = filteredTransactions.filter((transaction) => monthKey(transaction.date) === month)
       return {
         month,
+        label: formatChartMonthLabel(month),
         count: monthTransactions.length,
         total_value: monthTransactions.reduce((sum, transaction) => sum + transaction.amount, 0),
       }
@@ -407,10 +448,27 @@ function handleGenerateChart(input: Record<string, unknown>): ToolResult {
       .map((item) => {
         if (typeof item !== 'object' || item === null) return null
         const record = item as Record<string, unknown>
-        const label = typeof record.label === 'string' ? record.label : ''
+        const monthLabel = typeof record.month === 'string' ? formatChartMonthLabel(record.month) : ''
+        const rawLabel = typeof record.label === 'string' ? record.label : ''
+        const fallbackLabel =
+          typeof record.source === 'string' ? record.source :
+          typeof record.type === 'string' ? record.type :
+          typeof record.status === 'string' ? record.status :
+          typeof record.name === 'string' ? record.name :
+          typeof record.category === 'string' ? record.category :
+          typeof record.group === 'string' ? record.group :
+          typeof record.x === 'string' ? record.x :
+          ''
+        const label = monthLabel || rawLabel || fallbackLabel
         if (!label) return null
-        const value = Number(record.value ?? 0)
-        const secondaryValue = record.secondary_value === undefined ? undefined : Number(record.secondary_value)
+        const value = Number(record.value ?? record.count ?? record.primary_value ?? 0)
+        const secondarySource =
+          record.secondary_value ??
+          record.secondary ??
+          record.secondaryCount ??
+          record.sales_count ??
+          record.transaction_count
+        const secondaryValue = secondarySource === undefined ? undefined : Number(secondarySource)
         return {
           label,
           value: Number.isFinite(value) ? value : 0,
@@ -857,45 +915,49 @@ function handleGeneratePresentation(input: Record<string, unknown>): ToolResult 
   const resolvedTopic = topic?.trim() || 'Týdenní report pro vedení'
   const dash = db.getDashboardStats()
   const metrics = db.getSalesMetrics()
-  const weekly = db.getWeeklySummary()
-  const leadsMonthly = db.getLeadsByMonth(6)
+  const allLeads = db.getAllLeads()
+  const newLeadCount = allLeads.filter((lead) => lead.status === 'new').length
   const missingData = db.getPropertiesWithMissingData()
   const stale = db.getStaleListings(90)
-  const conversionRate = dash.total_leads_this_month > 0
-    ? Math.round((db.getAllLeads().filter((lead) => lead.status === 'closed_won').length / db.getAllLeads().length) * 1000) / 10
+  const completedSales = db.getTransactions({ type: 'sale', status: 'completed' })
+  const topDeals = [...completedSales]
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, 3)
+    .map((transaction) => {
+      const propertyName = db.getPropertyById(transaction.property_id)?.name ?? transaction.property_id
+      return `${propertyName}: ${czk(transaction.amount)}`
+    })
+  const conversionRate = allLeads.length > 0
+    ? Math.round((allLeads.filter((lead) => lead.status === 'closed_won').length / allLeads.length) * 1000) / 10
     : 0
   const requestedSlides = Math.max(1, Math.min(Number(num_slides) || 3, 3))
-  const highlights = [
-    `Nové leady za poslední týden: ${weekly.new_leads}`,
-    `Uzavřené obchody: ${weekly.deals_closed}`,
-    `Rozpracované obchody: ${metrics.pending_deals}`,
-    missingData.length > 0 ? `${missingData.length} nemovitostí s chybějícími údaji` : 'Data v inzerci jsou kompletní',
-    stale.length > 0 ? `${stale.length} stagnujících inzerátů nad 90 dní` : 'Bez stagnujících inzerátů nad 90 dní',
+  const leadTrend = `${dash.monthly_changes.leads > 0 ? '+' : ''}${dash.monthly_changes.leads} % vs. minulý měsíc`
+  const actionItems = [
+    `Kontaktovat ${newLeadCount} nových leadů`,
+    `Doplnit data u ${missingData.length} nemovitostí`,
+    `Přecenit ${stale.length} stagnujících inzerátů`,
+    `Dokončit ${metrics.pending_deals} rozpracovaných obchodů`,
+    ...(key_points?.length ? key_points : []),
   ]
-  const actionItems = key_points?.length
-    ? key_points
-    : [
-        missingData.length > 0 ? 'Doplnit chybějící údaje u nemovitostí s neúplným profilem' : 'Udržet vysokou kvalitu dat v inzerci',
-        stale.length > 0 ? 'Přehodnotit cenu a propagaci stagnujících nabídek' : 'Pokračovat v aktivní práci s aktuálními nabídkami',
-        'Kontaktovat nové leady do 24 hodin',
-      ]
 
   const slides = [
     {
       title: 'Přehled výsledků',
       content: [
-        `Téma: ${resolvedTopic}`,
-        `Leady: ${weekly.new_leads} za posledních 7 dní / ${leadsMonthly.reduce((sum, month) => sum + month.count, 0)} za 6 měsíců`,
-        `Uzavřené obchody: ${weekly.deals_closed} za posledních 7 dní, celkem ${metrics.deals_closed}`,
-        `Tržby: ${czk(weekly.revenue)} za posledních 7 dní, celkem ${czk(metrics.total_revenue)}`,
+        `Tržby za sledované období: ${czk(metrics.total_revenue)}`,
+        `Provize: ${czk(metrics.total_commission)}`,
+        `Nové leady: ${dash.total_leads_this_month} (${leadTrend})`,
+        `Uzavřené obchody: ${metrics.deals_closed}`,
+        `Aktivní portfolio: ${dash.active_properties} nemovitostí`,
       ],
     },
     {
       title: 'Hlavní úspěchy a výzvy',
       content: [
-        `Aktivní portfolio: ${dash.active_properties} z ${dash.total_properties} nemovitostí`,
         `Konverzní poměr leadů: ${conversionRate} %`,
-        ...highlights.slice(0, 3),
+        ...topDeals,
+        `${stale.length} stagnujících inzerátů nad 90 dní`,
+        `${missingData.length} nemovitostí s chybějícími daty`,
       ],
     },
     {

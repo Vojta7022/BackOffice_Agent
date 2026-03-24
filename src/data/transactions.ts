@@ -41,6 +41,9 @@ const detailedTransactionNotes = [
   'Mezonet v DOX rezidenci je ve finální fázi dokumentace. Advokát doplňuje přílohy ke kupní smlouvě a čeká se na poslední potvrzení od banky. Obě strany chtějí podpis ještě tento měsíc.',
   'Pronájem kanceláře Smíchov Gate. Velká poradenská firma si prostor zajistila na 5 let a řešila hlavně branding recepce a počet parkovacích míst. Jeden z největších pronájmů kvartálu.',
   'Chalupa v Českém ráji nakonec do prodeje nedošla. Kupující odstoupil po technické inspekci kvůli vlhkosti a nutnosti větší rekonstrukce střechy. Prodávající teď zvažuje slevu a nový inzerát.',
+  'Novostavba u Parukářky. Mladý pár kupoval první společné bydlení a ocenil hotový standard bez dalších investic. Rezervační i kupní smlouva proběhly bez komplikací během února.',
+  'Byt u náměstí Míru koupil investor z Vídně jako součást rozšiřování pražského portfolia. Rozhodla stabilní lokalita a možnost okamžitého pronájmu. Finální cena odpovídala očekávání prodávajícího.',
+  'Pozemek v Berounu získala rodina plánující stavbu rodinného domu ještě letos. Klienti řešili hlavně sítě a územní plán, které byly před podpisem prověřeny. Obchod se uzavřel v první polovině března.',
 ];
 
 const baseTransactions: Transaction[] = [
@@ -91,6 +94,9 @@ const baseTransactions: Transaction[] = [
   { id: 'tx-038', property_id: 'prop-005', client_id: 'client-030', type: 'sale', amount: 14_800_000, commission: 444_000, status: 'pending', date: '2026-03-01', notes: 'Mezonet DOX rezidence. Finalizace.' },
   { id: 'tx-039', property_id: 'prop-040', client_id: 'client-110', type: 'rental', amount: 120_000, commission: 120_000, status: 'completed', date: '2026-03-05', notes: 'Kancelář Smíchov Gate. Velký pronájem.' },
   { id: 'tx-040', property_id: 'prop-061', client_id: 'client-049', type: 'sale', amount: 4_200_000, commission: 126_000, status: 'cancelled', date: '2026-03-10', notes: 'Chalupa Český ráj. Kupující odstoupil kvůli špatnému stavu.' },
+  { id: 'tx-041', property_id: 'prop-048', client_id: 'client-019', type: 'sale', amount: 8_200_000, commission: 246_000, status: 'completed', date: '2026-02-15', notes: 'Novostavba u Parukářky. Mladý pár, první byt.' },
+  { id: 'tx-042', property_id: 'prop-026', client_id: 'client-082', type: 'sale', amount: 8_800_000, commission: 264_000, status: 'completed', date: '2026-02-25', notes: 'Byt u náměstí Míru. Investor z Vídně.' },
+  { id: 'tx-043', property_id: 'prop-065', client_id: 'client-059', type: 'sale', amount: 5_200_000, commission: 156_000, status: 'completed', date: '2026-03-12', notes: 'Pozemek v Berounu. Stavba rodinného domu.' },
 ];
 
 export const transactions: Transaction[] = baseTransactions.map((transaction, index) => ({
