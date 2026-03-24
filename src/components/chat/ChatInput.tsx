@@ -9,9 +9,10 @@ interface ChatInputProps {
   onSend: (message: string) => void
   disabled?: boolean
   showSuggestions?: boolean
+  initialValue?: string
 }
 
-export default function ChatInput({ onSend, disabled, showSuggestions }: ChatInputProps) {
+export default function ChatInput({ onSend, disabled, showSuggestions, initialValue = '' }: ChatInputProps) {
   const { t, language } = useTranslation()
   const [value, setValue] = useState('')
   const [isListening, setIsListening] = useState(false)
@@ -61,6 +62,13 @@ export default function ChatInput({ onSend, disabled, showSuggestions }: ChatInp
     el.style.height = 'auto'
     el.style.height = `${Math.min(el.scrollHeight, 120)}px`
   }, [])
+
+  useEffect(() => {
+    setValue(initialValue)
+    requestAnimationFrame(() => {
+      resize()
+    })
+  }, [initialValue, resize])
 
   const send = useCallback(() => {
     const msg = value.trim()

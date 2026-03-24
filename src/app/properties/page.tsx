@@ -1,11 +1,12 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { Search, Home, SlidersHorizontal, AlertTriangle, Pencil } from 'lucide-react'
+import { Search, Home, SlidersHorizontal, AlertTriangle, Pencil, Eye } from 'lucide-react'
 import FormModal from '@/components/ui/FormModal'
+import PropertyDetail from '@/components/properties/PropertyDetail'
 import { cn, fetchJson, formatCZK } from '@/lib/utils'
 import { useTranslation } from '@/lib/useTranslation'
-import type { Property, PropertyStatus, PropertyType, RenovationStatus } from '@/types'
+import type { Client, Property, PropertyStatus, PropertyType, RenovationStatus } from '@/types'
 
 const STATUS_COLORS: Record<PropertyStatus, string> = {
   available: 'bg-primary/10 text-primary',
@@ -62,9 +63,11 @@ function isRental(property: Property): boolean {
 
 function PropertyCard({
   property,
+  onOpenDetail,
   onEdit,
 }: {
   property: Property
+  onOpenDetail: (property: Property) => void
   onEdit: (property: Property) => void
 }) {
   const { t, language } = useTranslation()
@@ -72,17 +75,44 @@ function PropertyCard({
   const rental = isRental(property)
 
   return (
-    <div className="surface-card group relative flex flex-col p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/20">
-      <button
-        type="button"
-        onClick={() => onEdit(property)}
-        className="button-smooth absolute right-3 top-3 inline-flex items-center gap-1 rounded-xl border border-border bg-background/95 px-2.5 py-1.5 text-xs font-medium text-muted-foreground opacity-100 shadow-sm hover:border-primary/20 hover:text-primary dark:shadow-none md:opacity-0 md:group-hover:opacity-100"
-      >
-        <Pencil className="h-3.5 w-3.5" />
-        {t.properties.edit}
-      </button>
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpenDetail(property)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          onOpenDetail(property)
+        }
+      }}
+      className="surface-card group relative flex cursor-pointer flex-col p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/20"
+    >
+      <div className="absolute right-3 top-3 flex gap-2">
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation()
+            onOpenDetail(property)
+          }}
+          className="button-smooth inline-flex items-center gap-1 rounded-xl border border-border bg-background/95 px-2.5 py-1.5 text-xs font-medium text-muted-foreground opacity-100 shadow-sm hover:border-primary/20 hover:text-primary dark:shadow-none md:opacity-0 md:group-hover:opacity-100"
+        >
+          <Eye className="h-3.5 w-3.5" />
+          {t.properties.detail}
+        </button>
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation()
+            onEdit(property)
+          }}
+          className="button-smooth inline-flex items-center gap-1 rounded-xl border border-border bg-background/95 px-2.5 py-1.5 text-xs font-medium text-muted-foreground opacity-100 shadow-sm hover:border-primary/20 hover:text-primary dark:shadow-none md:opacity-0 md:group-hover:opacity-100"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+          {t.properties.edit}
+        </button>
+      </div>
 
-      <div className="mb-3 flex items-start justify-between gap-2 pr-20">
+      <div className="mb-3 flex items-start justify-between gap-2 pr-36">
         <h3 className="line-clamp-2 text-sm font-semibold leading-tight text-foreground">{property.name}</h3>
         {missingData ? (
           <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" aria-label={t.properties.missingDataShort} />
@@ -138,12 +168,14 @@ function PropertyCardSkeleton() {
 export default function PropertiesPage() {
   const { t } = useTranslation()
   const [properties, setProperties] = useState<Property[]>([])
+  const [clients, setClients] = useState<Client[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState<PropertyStatus | ''>('')
   const [type, setType] = useState<PropertyType | ''>('')
   const [city, setCity] = useState('')
+  const [selectedProperty, setSelectedProperty] = useState<Property | null>(null)
   const [editingProperty, setEditingProperty] = useState<Property | null>(null)
   const [formValues, setFormValues] = useState<PropertyFormValues | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
@@ -171,9 +203,34 @@ export default function PropertiesPage() {
     return () => clearTimeout(timeout)
   }, [fetchProperties, search])
 
+  useEffect(() => {
+    fetchJson<{ clients: Client[] }>('/api/clients')
+      .then((data) => setClients(data.clients ?? []))
+      .catch(() => setClients([]))
+  }, [])
+
+  useEffect(() => {
+    if (!selectedProperty) return
+
+    const nextProperty = properties.find((property) => property.id === selectedProperty.id)
+    if (!nextProperty) {
+      setSelectedProperty(null)
+      return
+    }
+
+    if (nextProperty !== selectedProperty) {
+      setSelectedProperty(nextProperty)
+    }
+  }, [properties, selectedProperty])
+
   const missingDataCount = properties.filter(
     (property) => property.type !== 'land' && (property.renovation_status === null || property.construction_notes === null)
   ).length
+  const owner = selectedProperty ? clients.find((client) => client.id === selectedProperty.owner_id) ?? null : null
+
+  function openDetail(property: Property) {
+    setSelectedProperty(property)
+  }
 
   function openEditModal(property: Property) {
     setEditingProperty(property)
@@ -296,7 +353,12 @@ export default function PropertiesPage() {
           Array.from({ length: 12 }).map((_, index) => <PropertyCardSkeleton key={index} />)
         ) : properties.length > 0 ? (
           properties.map((property) => (
-            <PropertyCard key={property.id} property={property} onEdit={openEditModal} />
+            <PropertyCard
+              key={property.id}
+              property={property}
+              onOpenDetail={openDetail}
+              onEdit={openEditModal}
+            />
           ))
         ) : (
           <div className="col-span-full flex flex-col items-center justify-center py-20 text-center">
@@ -400,6 +462,21 @@ export default function PropertiesPage() {
           </div>
         ) : null}
       </FormModal>
+
+      <PropertyDetail
+        open={!!selectedProperty}
+        property={selectedProperty}
+        owner={owner}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedProperty(null)
+          }
+        }}
+        onEdit={(property) => {
+          setSelectedProperty(null)
+          openEditModal(property)
+        }}
+      />
     </div>
   )
 }

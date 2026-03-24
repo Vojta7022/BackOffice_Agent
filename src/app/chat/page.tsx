@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useCallback, Suspense } from 'react'
+import { useEffect, useCallback, useRef, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useChatStore } from '@/lib/chat-store'
 import type { AgentResponse } from '@/lib/agent/orchestrator'
@@ -12,6 +12,8 @@ function ChatPageInner() {
   const { t } = useTranslation()
   const searchParams = useSearchParams()
   const { messages, isLoading, addUserMessage, addAssistantMessage, setLoading } = useChatStore()
+  const prompt = searchParams.get('prompt')
+  const autoSentPromptRef = useRef(false)
 
   const send = useCallback(async (text: string) => {
     if (!text.trim() || isLoading) return
@@ -60,19 +62,23 @@ function ChatPageInner() {
 
   // Auto-send from URL ?prompt= param (e.g. from dashboard quick actions)
   useEffect(() => {
-    const prompt = searchParams.get('prompt')
-    if (prompt && messages.length === 0) {
+    if (prompt && messages.length === 0 && !autoSentPromptRef.current) {
+      autoSentPromptRef.current = true
       send(decodeURIComponent(prompt))
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [messages.length, prompt, send])
 
   const showSuggestions = messages.length > 0 && !isLoading
 
   return (
     <div className="flex h-full flex-col">
       <ChatMessages onSend={send} />
-      <ChatInput onSend={send} disabled={isLoading} showSuggestions={showSuggestions} />
+      <ChatInput
+        onSend={send}
+        disabled={isLoading}
+        showSuggestions={showSuggestions}
+        initialValue={messages.length > 0 && prompt && !autoSentPromptRef.current ? decodeURIComponent(prompt) : ''}
+      />
     </div>
   )
 }

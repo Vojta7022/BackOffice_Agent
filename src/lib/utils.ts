@@ -24,15 +24,32 @@ const MONTHS: Record<AppLanguage, string[]> = {
   en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
 }
 
+const REFERENCE_NOW = new Date('2026-03-22T12:00:00')
+
 export function formatMonthLabel(ym: string, language: AppLanguage = 'cs'): string {
   const [, m] = ym.split('-').map(Number)
   return MONTHS[language][(m ?? 1) - 1] ?? ym
 }
 
 export function relativeTime(dateStr: string, language: AppLanguage = 'cs'): string {
-  const now = new Date('2026-03-22')
   const date = new Date(dateStr)
-  const days = Math.round((now.getTime() - date.getTime()) / 86_400_000)
+  const diffMs = REFERENCE_NOW.getTime() - date.getTime()
+
+  if (dateStr.includes('T')) {
+    const hours = Math.max(0, Math.floor(diffMs / 3_600_000))
+
+    if (language === 'en') {
+      if (hours <= 0) return 'today'
+      if (hours === 1) return '1 hour ago'
+      if (hours < 24) return `${hours} hours ago`
+    } else {
+      if (hours <= 0) return 'dnes'
+      if (hours === 1) return 'pred hodinou'
+      if (hours < 24) return `pred ${hours} hodinami`
+    }
+  }
+
+  const days = Math.max(0, Math.floor(diffMs / 86_400_000))
 
   if (language === 'en') {
     if (days <= 0) return 'today'

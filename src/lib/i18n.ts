@@ -28,6 +28,9 @@ export interface Translations {
   header: {
     notifications: string
     noNotifications: string
+    markAllRead: string
+    unread: string
+    allRead: string
     toggleTheme: string
     toggleMenu: string
     toggleLanguage: string
@@ -56,6 +59,18 @@ export interface Translations {
     activityCompleted: string
     activityInProgress: string
     activityNewTask: string
+    feedEmpty: string
+    badgeLead: string
+    badgeTransaction: string
+    badgeTask: string
+    badgeNotification: string
+    leadCreated: string
+    leadViewingScheduled: string
+    leadClosedWon: string
+    leadUpdated: string
+    transactionCompleted: string
+    transactionPending: string
+    transactionCancelled: string
     quickActionNewClient: string
     quickActionNewProperty: string
     quickActionGenerateReport: string
@@ -117,6 +132,17 @@ export interface Translations {
     allTypes: string
     allCities: string
     edit: string
+    detail: string
+    keyFacts: string
+    owner: string
+    ownerInfo: string
+    ownerMissing: string
+    map: string
+    addressLabel: string
+    contactOwner: string
+    compare: string
+    contactOwnerPrompt: string
+    comparePrompt: string
     editTitle: string
     noResults: string
     noResultsHint: string
@@ -283,6 +309,9 @@ const cs: Translations = {
   header: {
     notifications: 'Notifikace',
     noNotifications: 'Zadne nove notifikace',
+    markAllRead: 'Oznacit vse jako prectene',
+    unread: 'neprectene',
+    allRead: 'Vse je prectene',
     toggleTheme: 'Prepnout motiv',
     toggleMenu: 'Prepnout menu',
     toggleLanguage: 'Prepnout jazyk',
@@ -311,6 +340,18 @@ const cs: Translations = {
     activityCompleted: 'Dokonceno:',
     activityInProgress: 'Probiha:',
     activityNewTask: 'Novy ukol:',
+    feedEmpty: 'Zatim tu neni zadna aktivita.',
+    badgeLead: 'Lead',
+    badgeTransaction: 'Transakce',
+    badgeTask: 'Ukol',
+    badgeNotification: 'Notifikace',
+    leadCreated: 'Novy lead:',
+    leadViewingScheduled: 'Potvrzena prohlidka:',
+    leadClosedWon: 'Uzavreny lead:',
+    leadUpdated: 'Aktualizovany lead:',
+    transactionCompleted: 'Dokoncena transakce:',
+    transactionPending: 'Rozpracovana transakce:',
+    transactionCancelled: 'Zrusena transakce:',
     quickActionNewClient: 'Novy klient',
     quickActionNewProperty: 'Nova nemovitost',
     quickActionGenerateReport: 'Generovat report',
@@ -413,6 +454,17 @@ const cs: Translations = {
     allTypes: 'Vsechny typy',
     allCities: 'Vsechna mesta',
     edit: 'Upravit',
+    detail: 'Detail',
+    keyFacts: 'Klicove informace',
+    owner: 'Vlastnik',
+    ownerInfo: 'Informace o vlastnikovi',
+    ownerMissing: 'Vlastnik nebyl nalezen',
+    map: 'Mapa lokality',
+    addressLabel: 'Adresa',
+    contactOwner: 'Kontaktovat vlastnika',
+    compare: 'Porovnat',
+    contactOwnerPrompt: 'Napis email vlastnikovi nemovitosti {name}',
+    comparePrompt: 'Porovnej nemovitost {name} s podobnymi',
     editTitle: 'Upravit nemovitost',
     noResults: 'Zadne nemovitosti nenalezeny',
     noResultsHint: 'Zkuste upravit filtry nebo vyhledavaci dotaz',
@@ -636,6 +688,9 @@ const en: Translations = {
   header: {
     notifications: 'Notifications',
     noNotifications: 'No new notifications',
+    markAllRead: 'Mark all as read',
+    unread: 'unread',
+    allRead: 'Everything is read',
     toggleTheme: 'Toggle theme',
     toggleMenu: 'Toggle menu',
     toggleLanguage: 'Toggle language',
@@ -664,6 +719,18 @@ const en: Translations = {
     activityCompleted: 'Completed:',
     activityInProgress: 'In progress:',
     activityNewTask: 'New task:',
+    feedEmpty: 'No activity yet.',
+    badgeLead: 'Lead',
+    badgeTransaction: 'Transaction',
+    badgeTask: 'Task',
+    badgeNotification: 'Notification',
+    leadCreated: 'New lead:',
+    leadViewingScheduled: 'Viewing scheduled:',
+    leadClosedWon: 'Won lead:',
+    leadUpdated: 'Lead updated:',
+    transactionCompleted: 'Transaction completed:',
+    transactionPending: 'Transaction in progress:',
+    transactionCancelled: 'Transaction cancelled:',
     quickActionNewClient: 'New client',
     quickActionNewProperty: 'New property',
     quickActionGenerateReport: 'Generate report',
@@ -766,6 +833,17 @@ const en: Translations = {
     allTypes: 'All types',
     allCities: 'All cities',
     edit: 'Edit',
+    detail: 'Detail',
+    keyFacts: 'Key facts',
+    owner: 'Owner',
+    ownerInfo: 'Owner information',
+    ownerMissing: 'Owner was not found',
+    map: 'Location map',
+    addressLabel: 'Address',
+    contactOwner: 'Contact owner',
+    compare: 'Compare',
+    contactOwnerPrompt: 'Write an email to the owner of property {name}',
+    comparePrompt: 'Compare property {name} with similar ones',
     editTitle: 'Edit property',
     noResults: 'No properties found',
     noResultsHint: 'Try adjusting filters or the search query',

@@ -2,17 +2,39 @@
 
 import { useEffect, useState } from 'react'
 import type { DashboardStatsResult, MonthlyLeadCount, MonthlyTransactionSummary, TasksByStatus } from '@/lib/database'
+import type { LeadStatus, LeadType, TransactionStatus, TransactionType } from '@/types'
 import { useTranslation } from '@/lib/useTranslation'
 import KPICards from './KPICards'
 import ChartsRow from './ChartsRow'
 import RecentActivity from './RecentActivity'
 import QuickActions from './QuickActions'
 
+interface RecentLeadActivity {
+  id: string
+  created_at: string
+  status: LeadStatus
+  type: LeadType
+  client_name: string
+  property_name: string | null
+}
+
+interface RecentTransactionActivity {
+  id: string
+  date: string
+  status: TransactionStatus
+  type: TransactionType
+  amount: number
+  client_name: string
+  property_name: string
+}
+
 interface DashboardData {
   stats: DashboardStatsResult
   leadsByMonth: MonthlyLeadCount[]
   transactionsByMonth: MonthlyTransactionSummary[]
   tasksByStatus: TasksByStatus
+  recentLeads: RecentLeadActivity[]
+  recentTransactions: RecentTransactionActivity[]
 }
 
 export default function DashboardContent() {
@@ -48,7 +70,13 @@ export default function DashboardContent() {
 
       {/* Activity + tasks */}
       {data
-        ? <RecentActivity tasksByStatus={data.tasksByStatus} />
+        ? (
+          <RecentActivity
+            tasksByStatus={data.tasksByStatus}
+            recentLeads={data.recentLeads}
+            recentTransactions={data.recentTransactions}
+          />
+        )
         : <RecentActivity.Skeleton />
       }
 

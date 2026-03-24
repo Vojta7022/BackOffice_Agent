@@ -192,6 +192,13 @@ export default function ClientsPage() {
   }, [search, status, type])
 
   useEffect(() => {
+    const initialSearch = new URLSearchParams(window.location.search).get('search')
+    if (initialSearch) {
+      setSearch(initialSearch)
+    }
+  }, [])
+
+  useEffect(() => {
     const timeout = setTimeout(fetchClients, search ? 300 : 0)
     return () => clearTimeout(timeout)
   }, [fetchClients, search])
