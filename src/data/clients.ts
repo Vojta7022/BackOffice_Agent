@@ -64,65 +64,132 @@ const czechLastNames = [
 ];
 
 const agentIds = ['agent-001', 'agent-002', 'agent-003', 'agent-004', 'agent-005', 'agent-006', 'agent-007', 'agent-008'];
+const emailDomains = ['email.cz', 'seznam.cz', 'gmail.com', 'centrum.cz', 'outlook.com', 'firma.cz'];
 
 // ─── Notes by type (varied pool) ─────────────────────────────────────────────
 
 const notesByType: Record<Client['type'], string[]> = {
   buyer: [
-    'Hledá byt 3+kk v Praze, rozpočet do 10 mil. CZK',
-    'Zájemce o novostavbu, preferuje Karlín nebo Holešovice',
-    'Mladý pár, první byt, hledají 2+kk do 7 mil.',
-    'Hledá rodinný dům s zahradou, okolí Prahy',
-    'Hledá byt pro rodiče, bezbariérový přístup',
-    'Zájemce o luxusní nemovitost, priorita je lokalita',
-    'Koupě bytu jako investice k pronájmu, výnos min. 4,5 %',
-    'Hledá 2+1 nebo 3+kk, důležitá blízkost metra',
-    'Přestěhování z Brna, orientace v pražském trhu',
-    'Developer, zájem o pozemky nebo starší domy k demolici',
-    'Hledá byt do 50 m² v centru nebo Žižkově',
-    'Rodinný dům na Praze-západ, do 15 mil. CZK',
+    'Hledá 3+kk v Holešovicích, max 9 mil., preferuje cihlový dům.',
+    'Pár se dvěma dětmi, potřebují 4 pokoje a docházku do školy pěšky.',
+    'IT pracovník na remote, chce byt s oddělenou pracovnou a rychlým internetem.',
+    'Přestěhování z Brna do Prahy, potřebuje vyřešit koupi nejpozději do června.',
+    'Investor, zajímá se pouze o Vinohrady a Karlín, sleduje cenu za m².',
+    'Cizinec, komunikace v angličtině, hledá pronájem s opcí na koupi.',
+    'Senior, potřebuje bezbariérový byt v přízemí nebo s výtahem.',
+    'Mladá rodina kupuje první byt, celkový rozpočet do 6 mil. CZK.',
+    'Developer hledá pozemky pro menší rezidenční výstavbu na okraji Prahy.',
+    'Hledá komerční prostor pro kavárnu, 50–80 m², ideálně rohovou jednotku.',
+    'Chce byt s balkonem u metra B, domácí mazlíček podmínkou.',
+    'Manažer banky, hledá reprezentativní 4+kk na Vinohradech do 20 mil. CZK.',
+    'Rozvedený klient, potřebuje rychle menší byt blízko kanceláře na Andělu.',
+    'Zájem o novostavbu s garážovým stáním, nechce další investice do úprav.',
+    'Hledá chalupu do dvou hodin od Prahy, důležitá je zahrada a klid.',
+    'Kupuje byt pro studující dceru, preferuje Žižkov nebo Karlín.',
+    'Lékařka, chce tichý byt u parku a samostatnou místnost pro home office.',
+    'Hledá rodinný dům na Praze-západ, minimálně 5 pokojů a dvojgaráž.',
+    'Německý klient, hledá kancelář s možností rychlého nastěhování a parkování.',
+    'První investiční nákup, chce jistotu dlouhodobého pronájmu a nízkých nákladů.',
+    'Hledá byt pro rodiče po návratu ze zahraničí, důležitá je občanská vybavenost.',
+    'Architekt, zajímají ho lofty a byty s původními prvky v širším centru.',
   ],
   seller: [
-    'Prodává byt po rodičích, nemovitost v původním stavu',
-    'Prodej kvůli stěhování do zahraničí, potřebuje rychlý prodej',
-    'Prodává investiční byt, stávající nájemce do konce roku',
-    'Developer, prodej posledních jednotek v projektu',
-    'Prodej rodinného domu, stěhování do menšího',
-    'Prodává byt po rozvodu, chce co nejrychlejší transakci',
-    'Dědictví — sourozenci se dohodli na prodeji',
-    'Prodej komerčního prostoru, firma se stěhuje',
-    'Výprodej bytů z portfolia kvůli daňové optimalizaci',
-    'Urgentní prodej — hypotéka před splatností',
+    'Prodej bytu po rozvodu, potřebuje rychle uzavřít a rozdělit finance.',
+    'Dědictví, tři sourozenci se musí dohodnout na ceně i termínu předání.',
+    'Stěhuje se do zahraničí, byt bude volný od května a chce minimum starostí.',
+    'Prodává investiční byt, nájemce má smlouvu do konce roku 2026.',
+    'Developer, doprodává poslední 3 jednotky v projektu na Smíchově.',
+    'Důchodce, prodává velký dům a stěhuje se do menšího bytu.',
+    'Majitelka po rodičích zdědila byt v původním stavu, nechce rekonstrukci řešit sama.',
+    'Prodej kanceláře po sloučení firem, prostor je prázdný a připravený k předání.',
+    'Rodina se stěhuje do novostavby za Prahou, současný byt chce prodat do léta.',
+    'Urgentní prodej kvůli refixaci hypotéky, očekává realistickou cenovou strategii.',
+    'Klient prodává rekreační chalupu, protože ji rodina už nevyužívá.',
+    'Majitel pronajímaného bytu zvažuje prodej pouze investorovi se stávajícím nájemcem.',
+    'Potřebuje prodat komerční jednotku po ukončení podnikání v gastronomii.',
+    'Manželé prodávají dům po odchodu dětí, preferují diskrétní prodej bez portálů.',
+    'Správce rodinného trustu nabízí činžovní dům, chce silného kupujícího a rychlé due diligence.',
+    'Majitelka bytu na Vinohradech už koupila nový byt a potřebuje navazující financování.',
+    'Developer zvažuje blokový prodej několika menších bytů jednomu investorovi.',
+    'Prodej domu po rozdělení firmy, součástí je i garáž a dílna.',
+    'Klientka řeší přesun do senior housingu a chce profesionálně ohlídat celý proces.',
+    'Prodává ateliér po neúspěšném podnikání, potřebuje pomoct i s vyklizením prostoru.',
+    'Investor odprodává část portfolia kvůli přesunu kapitálu do zahraničí.',
+    'Vlastník bytu požaduje důkladné prověření kupujících, nechce riskovat zmařenou rezervaci.',
   ],
   investor: [
-    'Portfolio investor, hledá nemovitosti s výnosem nad 5 %',
-    'Zahraniční investor, zajímá se o pražský trh',
-    'Investuje do rekonstrukcí a flipů, praxe 10 let',
-    'Hledá celé bytové domy nebo komerční objekty',
-    'Investiční fond, rozpočet 50+ mil. CZK',
-    'Zájem o komerční nemovitosti v Brně',
-    'Kupuje byty v původním stavu, sám rekonstruuje',
-    'Zájem o pozemky v rozvojových lokalitách',
-    'Skupina investorů, hledá projekt od 20 jednotek',
-    'Zájem o administrativní budovy mimo centrum',
+    'Portfolio investor, hledá stabilní výnos nad 5 % a nízkou fluktuaci nájemníků.',
+    'Flipper, kupuje byty v původním stavu a prodává po rychlé rekonstrukci.',
+    'Zahraniční investor z Rakouska, komunikuje přes family office v Praze.',
+    'Investiční fond, rozpočet 50+ mil. CZK, preferuje větší balíky aktiv.',
+    'Kupuje celé činžovní domy s potenciálem zvýšení nájemného.',
+    'Zajímá se o komerční nemovitosti v Brně a Ostravě s dlouhými nájemními smlouvami.',
+    'Hledá menší retail parky s anchor tenantem a parkingem.',
+    'Investor orientovaný na studentské byty v Brně a Olomouci.',
+    'Skupina partnerů, hledá projekt od 20 jednotek ve fázi shell & core.',
+    'Private equity klient zvažuje nákup kancelářské budovy mimo centrum Prahy.',
+    'Kupuje pozemky v rozvojových lokalitách kolem Prahy s územní rezervou.',
+    'Rodinná kancelář, zajímají ji prémiové byty s dlouhodobou kapitálovou ochranou.',
+    'Klient hledá mixed-use objekt s retail parterem a kancelářemi nahoře.',
+    'Investuje do krátkodobých pronájmů, řeší hlavně turisticky silné lokality.',
+    'Hledá developerské příležitosti v brownfieldech a průmyslových areálech.',
+    'Nizozemský investor, prioritou je ESG standard a nízká energetická náročnost.',
+    'Kupuje pouze aktiva s možností refinancování po stabilizaci nájemního cashflow.',
+    'Lokální investor, chce diverzifikovat mezi byty, kanceláře a lehkou komerci.',
+    'Speciální situace: hledá distressed sale a majetek po restrukturalizaci.',
+    'Fond zvažuje forward purchase u projektu s dokončením v roce 2027.',
+    'Hledá servisované apartmány pro firemní klientelu a dlouhodobé pobyty.',
+    'Flipper se zaměřuje výhradně na byty 2+kk a 3+kk ve starší zástavbě.',
   ],
   tenant: [
-    'Hledá pronájem 2+kk v centru Prahy, do 25 000 CZK/měsíc',
-    'Expat z Německa, potřebuje byt na 2 roky, mluví anglicky',
-    'Rodina s dětmi, hledá 3+1 blízko dobré školy',
-    'Student, hledá garsonku nebo sdílení',
-    'Firma hledá byt pro zaměstnance na relokaci',
-    'Hledá pronájem kanceláře 50–100 m², centrum',
-    'Kavárna hledá prostory na frekventované ulici',
-    'Pronájem domu na rok, přechodné bydlení',
-    'Hledá velký byt 4+kk pro více spolubydlících',
-    'Startup hledá coworkingový nebo kancelářský prostor',
+    'Expat z Francie, potřebuje zařízený byt na 2 roky a komunikuje anglicky.',
+    'Rodina se dvěma dětmi hledá 3+1 blízko školy a dětského hřiště.',
+    'Student medicíny, chce menší byt poblíž MHD a nemocnice.',
+    'Korporátní relokace, firma hledá 5 bytů pro zaměstnance z Německa.',
+    'Mladý pár chce pronájem 2+kk v centru Prahy do 28 000 CZK měsíčně.',
+    'Startup hledá kancelář s možností růstu týmu během 12 měsíců.',
+    'Kavárna hledá rohový prostor s výlohou a zahrádkou.',
+    'Manažer na krátkodobé misi, chce servisovaný byt na 6 měsíců.',
+    'Rodina po rekonstrukci vlastního domu potřebuje přechodné bydlení na rok.',
+    'Studentka architektury hledá světlé studio s možností domácího ateliéru.',
+    'Americký expat chce byt s parkováním a domácí kanceláří poblíž Karlína.',
+    'Mladá právnička hledá reprezentativní 2+kk na Vinohradech nebo Letné.',
+    'Firma poptává kancelář 50–100 m² s recepcí a zasedačkou.',
+    'Tříčlenná skupina studentů hledá velký byt 4+kk pro spolubydlení.',
+    'Rozvedený klient chce rychlý pronájem menšího bytu bez provize navíc.',
+    'Cizinec s kočkou, potřebuje pet-friendly nájem poblíž parku.',
+    'Rodina vracející se ze zahraničí chce nájem s možností pozdější koupě.',
+    'Konzultant hledá klidný byt s balkonem a dobrou dostupností na letiště.',
+    'IT firma hledá kancelář s optikou, serverovnou a flexibilní smlouvou.',
+    'Zdravotní sestra chce menší nájem v dosahu nočních spojů MHD.',
+    'Čtyři studenti VUT hledají velký byt v Brně, ideálně poblíž centra.',
+    'Majitel malého e-shopu hledá kombinaci showroomu a skladu do 70 m².',
   ],
 };
 
 function pickNote(type: Client['type'], seed: number): string {
   const pool = notesByType[type];
   return pool[Math.floor(seededRand(seed) * pool.length)];
+}
+
+function pickEmailDomain(seed: number): string {
+  return emailDomains[Math.floor(seededRand(seed) * emailDomains.length)];
+}
+
+function formatPhoneNumber(seed: number): string {
+  const first = 600 + Math.floor(seededRand(seed * 5 + 1) * 300);
+  const second = 100 + Math.floor(seededRand(seed * 5 + 2) * 900);
+  const third = 100 + Math.floor(seededRand(seed * 5 + 3) * 900);
+  const compact = `${first}${String(second).padStart(3, '0')}${String(third).padStart(3, '0')}`;
+  const firstBlock = String(first).padStart(3, '0');
+  const secondBlock = String(second).padStart(3, '0');
+  const thirdBlock = String(third).padStart(3, '0');
+  const variant = Math.floor(seededRand(seed * 5 + 4) * 4);
+
+  if (variant === 0) return `+420 ${firstBlock} ${secondBlock} ${thirdBlock}`;
+  if (variant === 1) return `+420${compact}`;
+  if (variant === 2) return `+420 ${firstBlock}${secondBlock}${thirdBlock}`;
+  return `${firstBlock} ${secondBlock} ${thirdBlock}`;
 }
 
 // ─── Monthly distribution (total = 120) ──────────────────────────────────────
@@ -171,12 +238,13 @@ function generateClients(): Client[] {
         clientIndex <= 90 ? 'active' : clientIndex <= 105 ? 'inactive' : 'closed';
 
       const notes = pickNote(type, clientIndex * 13 + 5);
+      const domain = pickEmailDomain(clientIndex * 17 + 7);
 
       clients.push({
         id,
         name,
-        email: `${emailBase}${clientIndex > czechFirstNames.length ? clientIndex : ''}@email.cz`,
-        phone: `+420 ${600 + (clientIndex % 80)} ${String(100 + (clientIndex * 7) % 900).padStart(3, '0')} ${String(100 + (clientIndex * 13) % 900).padStart(3, '0')}`,
+        email: `${emailBase}${clientIndex > czechFirstNames.length ? clientIndex : ''}@${domain}`,
+        phone: formatPhoneNumber(clientIndex),
         type,
         source,
         status,

@@ -1,6 +1,218 @@
-import { Property } from '../types';
+import { Property, PropertyType } from '../types';
 
-export const properties: Property[] = [
+const descriptionOpenings: Record<PropertyType, string[]> = {
+  apartment: [
+    'vysokými stropy, ateliérovými okny a vzdušným denním prostorem',
+    'velkými okny do ulice a flexibilní dispozicí pro práci i bydlení',
+    'kompaktním půdorysem, který dává smysl pro startovací bydlení i investici',
+    'soukromou zahradou, klidem v okolí a rodinnou atmosférou',
+    'terasou s otevřeným výhledem a nadstandardně řešenou denní částí',
+    'industriálním charakterem a dostatkem světla po celý den',
+    'balkonem směrem k řece a čistým moderním standardem',
+    'podkrovní atmosférou, trámy a nečekaně klidným vnitroblokem',
+    'dispozicí, která dobře funguje pro rodinu i dlouhodobý pronájem',
+    'reprezentativními secesními prvky a velkorysým rozvržením místností',
+    'citlivě zrekonstruovaným interiérem a příjemným denním světlem',
+    'investičním potenciálem díky možnosti pracovat s více jednotkami najednou',
+    'příjemně řešeným 2+kk a praktickým úložným prostorem',
+    'klidným pracovním zázemím a dobrým oddělením denní a noční části',
+    'stropní výškou a půdní atmosférou s výhledem přes střechy okolních domů',
+    'kompaktní dispozicí, která dává smysl jako první bydlení',
+    'lodžií, dostatkem světla a silným developerským standardem',
+    'autentickým podkrovním charakterem a prostorem pro vlastní úpravy',
+    'původními detaily, které dodávají interiéru noblesu',
+    'blízkostí parku a pohodovou městskou atmosférou',
+    'flexibilitou pro investora i vícegenerační využití',
+    'částečně modernizovaným interiérem a výbornou polohou u metra',
+    'půdní vestavbou, lodžií a výhledem na městské střechy',
+    'malým formátem, který je ideální pro stabilní nájemní výnos',
+    'rodinným měřítkem a blízkostí zeleně',
+    'smart-home technologií, sklepem a pohodlným garážovým stáním',
+    'panoramatickým výhledem na řeku a velkými francouzskými okny',
+    'solidním cihlovým základem a klidným domem se stálými nájemci',
+    'dobrou cenovou dostupností a atmosférou širšího centra',
+    'industriálním loftovým stylem, cihlou a otevřenou galerií',
+    'nízkými provozními náklady a silným investičním příběhem',
+    'prostorným rodinným rozvržením a jistotou dlouhodobého nájmu',
+    'balkonem do vnitrobloku a příjemným ranním světlem',
+    'komorní novostavbou u parku a vysokým energetickým standardem',
+    'centrální polohou a nadčasovým městským charakterem',
+    'reprezentativní novostavbou a příjemným městským rytmem',
+    'větší dispozicí pro rodinu a praktickým uspořádáním místností',
+    'výnosem z pronájmu a jednoduchou správou pro investora',
+  ],
+  commercial: [
+    'silnou uliční viditelností a výlohou přes téměř celou šířku fasády',
+    'rohovou polohou, která přitahuje přirozený pěší provoz',
+    'menším formátem ideálním pro showroom, studio nebo služby',
+    'adresou v zavedené retailové zóně s vysokou návštěvností',
+    'přímým vstupem z ulice a dispozicí, která dobře funguje pro gastronomii',
+    'variabilním zázemím pro obchod, služby i lehkou administrativu',
+    'centrální polohou a dobrým poměrem velikosti a viditelnosti',
+    'vysokými stropy a možností vytvořit reprezentativní showroom',
+    'turisticky silným místem a okamžitým provozním potenciálem',
+    'větší podlahovou plochou a parkováním pro klienty i zásobování',
+  ],
+  house: [
+    'zahradou navazující na obytnou část a dostatkem soukromí',
+    'reprezentativním prvorepublikovým charakterem a velkorysým schodištěm',
+    'městskou polohou, ale překvapivě klidným zázemím pro rodinu',
+    'kombinací investičního potenciálu a pravidelného cashflow',
+    'historickou atmosférou a možností citlivé obnovy podle vlastního vkusu',
+    'výhledem do zeleně a dispozicí vhodnou pro vícečlennou rodinu',
+    'velkou zahradou, krytým parkováním a pohodlným denním provozem',
+    'charakterem venkovské rezidence s potenciálem pro víkendové i trvalé bydlení',
+  ],
+  office: [
+    'reprezentativním vstupem, kvalitním denním světlem a dobře členitelnou dispozicí',
+    'firemním standardem, recepcí a kvalitním technickým zázemím',
+    'adresou, která funguje pro klientská setkání i každodenní provoz týmu',
+    'kombinací open-space zóny a oddělených kanceláří pro management',
+    'prémiovým zázemím budovy, parkováním a kvalitní dopravní dostupností',
+  ],
+  land: [
+    'čistým tvarem pozemku a zajímavým development potenciálem',
+    'městskou polohou, kterou ocení rezidenční i investiční využití',
+    'dostatečnou výměrou pro rodinný dům nebo menší projekt',
+    'vilovou atmosférou lokality a dobrou dostupností inženýrských sítí',
+  ],
+};
+
+function getOpeningSentence(property: Property, typeIndex: number): string {
+  const options = descriptionOpenings[property.type];
+  const highlight = options[typeIndex % options.length];
+
+  if (property.type === 'office') return `${property.name} těží z ${highlight}.`;
+  if (property.type === 'commercial') return `${property.name} vyniká ${highlight}.`;
+  if (property.type === 'land') return `${property.name} láká na ${highlight}.`;
+  return `${property.name} zaujme ${highlight}.`;
+}
+
+function getNeighborhoodSentence(property: Property): string {
+  const { street, city, district } = property.address;
+
+  switch (district) {
+    case 'Holešovice':
+      return `${street} je pár minut chůze od tramvají na Dělnické, Vltavy a holešovických kaváren i galerií.`;
+    case 'Karlín':
+      return `${street} spojuje blízkost metra, Rohanského nábřeží a silného kancelářského i rezidenčního zázemí Karlína.`;
+    case 'Vinohrady':
+      return `${street} nabízí klid prestižní rezidenční čtvrti a zároveň rychlou docházku k metru Jiřího z Poděbrad nebo Náměstí Míru.`;
+    case 'Smíchov':
+      return `${street} těží z blízkosti Anděla, Smíchov City a nábřeží, takže centrum i služby jsou doslova za rohem.`;
+    case 'Žižkov':
+      return `${street} kombinuje živou atmosféru Žižkova, dobrou dostupnost MHD a blízkost parků Parukářka nebo Vítkov.`;
+    case 'Brno-střed':
+      return `${street} drží silnou centrální polohu s kavárnami, tramvajemi i pěší dostupností historického jádra Brna.`;
+    case 'Stránice':
+      return `${street} leží v prestižní rezidenční části Brna se zelení, vilovou zástavbou a rychlým dojezdem do centra.`;
+    case 'Brno-jih':
+      return `${street} nabízí dobrou dopravní dostupnost autem i MHD a zázemí zavedené business lokality.`;
+    case 'Královo Pole':
+      return `${street} má silnou poptávku díky univerzitám, technologickým firmám a rychlému spojení do centra Brna.`;
+    case 'Zábrdovice':
+      return `${street} je součástí rychle proměňující se čtvrti s novými projekty, službami a dobrou vazbou na centrum.`;
+    case 'Bystrc':
+      return `${street} potěší blízkostí přehrady, zeleně a pohodlného rodinného zázemí s dobrou občanskou vybaveností.`;
+    case 'Brno-venkov':
+      return `${street} přináší klid menší obce a zároveň rychlý dojezd do Brna pro každodenní dojíždění.`;
+    case 'Plzeň 1':
+      return `${street} nabízí klidnou městskou část se službami v okolí a rychlou dostupností do centra Plzně.`;
+    case 'Olomouc-město':
+      return `${street} je v pěší vzdálenosti od historického centra, parků i hlavních tramvajových tras.`;
+    case 'Semily':
+      return `${street} dává přímý kontakt s krajinou Českého ráje, turistickými trasami a víkendovou atmosférou.`;
+    case 'Liberec I':
+      return `${street} využívá městskou polohu s dobrou viditelností, parkováním a napojením na hlavní tahy Liberce.`;
+    case 'České Budějovice 1':
+      return `${street} drží pěší dostupnost centra, nábřeží i běžných služeb, které jsou pro městské bydlení klíčové.`;
+    case 'Klatovy':
+      return `${street} stojí v turisticky silné horské lokalitě s celoroční návštěvností a dobrou dostupností služeb.`;
+    case 'Beroun':
+      return `${street} je zasazená do klidné vilové části s rychlým napojením na Prahu i přírodu Českého krasu.`;
+    default:
+      return `${street} propojuje výhody lokality ${district} ve městě ${city} s dobrou dostupností služeb a dopravy.`;
+  }
+}
+
+function getConditionSentence(property: Property, typeIndex: number): string {
+  const yearText = property.renovation_year ? ` v roce ${property.renovation_year}` : '';
+
+  if (property.type === 'land') {
+    return typeIndex % 2 === 0
+      ? 'Pozemek působí přehledně a díky lokalitě dává smysl pro rodinnou výstavbu i dlouhodobou investici.'
+      : 'Parcela má jasný budoucí příběh a nový majitel může bez kompromisů navázat vlastním projektem.';
+  }
+
+  if (property.renovation_status === 'full') {
+    return `Interiér prošel kompletní obnovou${yearText}, působí současně a je připravený k okamžitému užívání bez dalších větších investic.`;
+  }
+
+  if (property.renovation_status === 'partial') {
+    return `Nemovitost byla částečně modernizována${yearText} a kombinuje hotové klíčové prvky s prostorem pro další doladění podle vkusu nového majitele.`;
+  }
+
+  if (property.renovation_status === 'original') {
+    return 'Dochoval se původní charakter domu i dispozice, takže prostor osloví každého, kdo hledá autenticitu a možnost citlivé modernizace.';
+  }
+
+  return 'Stav nemovitosti nechává novému majiteli volnost, jak moc zachovat původní atmosféru a jak moc ji proměnit podle budoucího využití.';
+}
+
+function getDetailedConstructionNotes(property: Property, typeIndex: number): string | null {
+  if (!property.renovation_status) return property.construction_notes;
+
+  const yearText = property.renovation_year ? ` v roce ${property.renovation_year}` : '';
+
+  if (property.renovation_status === 'full') {
+    if (property.type === 'office' || property.type === 'commercial') {
+      return `Kompletní modernizace${yearText}: nové datové rozvody, LED osvětlení, upravené zázemí pro personál, nové podlahové povrchy a reprezentativní vstupní část připravená pro klientský provoz.`;
+    }
+    if (property.type === 'house') {
+      return `Kompletní obnova${yearText}: nové rozvody vody a elektřiny, zdroj vytápění, podlahy, koupelny, kuchyňské zázemí, repasovaná nebo nová okna a průběžně řešená střecha i zateplení.`;
+    }
+    return `Kompletní rekonstrukce${yearText}: nové rozvody vody a elektřiny, dubové nebo vinylové podlahy, kuchyňská linka na míru se spotřebiči, obložená koupelna s walk-in sprchou a kvalitní interiérové dveře.`;
+  }
+
+  if (property.renovation_status === 'partial') {
+    if (property.type === 'office' || property.type === 'commercial') {
+      return `Částečná obnova${yearText}: modernizované osvětlení, upravené sociální zázemí, část technických rozvodů po výměně a zbytek prostoru připravený pro další úpravy podle konkrétního provozu.`;
+    }
+    if (property.type === 'house') {
+      return `Částečná rekonstrukce${yearText}: nová okna, průběžně modernizované vytápění, upravené koupelny a obnovované povrchy, přičemž část domu zůstává vhodná pro další postupné investice.`;
+    }
+    return `Částečná rekonstrukce${yearText}: obnovená koupelna nebo kuchyně, část rozvodů, nové podlahové krytiny v hlavních místnostech a průběžně repasované prvky, které drží byt ve velmi dobré kondici.`;
+  }
+
+  return `Původní stav s dochovanými dobovými prvky: původní dveře, dispozice i část povrchů zachovávají autentický charakter a vytvářejí prostor pro citlivou rekonstrukci podle nového konceptu.`;
+}
+
+function enrichProperties(items: Property[]): Property[] {
+  const typeCounters: Record<PropertyType, number> = {
+    apartment: 0,
+    commercial: 0,
+    house: 0,
+    land: 0,
+    office: 0,
+  };
+
+  return items.map((property) => {
+    const typeIndex = typeCounters[property.type];
+    typeCounters[property.type] += 1;
+
+    return {
+      ...property,
+      description: [
+        getOpeningSentence(property, typeIndex),
+        getNeighborhoodSentence(property),
+        getConditionSentence(property, typeIndex),
+      ].join(' '),
+      construction_notes: getDetailedConstructionNotes(property, typeIndex),
+    };
+  });
+}
+
+const baseProperties: Property[] = [
   // === PRAHA - HOLEŠOVICE (12 properties) ===
   { id: 'prop-001', name: 'Loftový byt v Holešovicích', address: { street: 'Komunardů 32', city: 'Praha', district: 'Holešovice', zip: '170 00' }, type: 'apartment', status: 'available', price: 8_500_000, area_sqm: 78, rooms: 3, floor: 4, total_floors: 6, year_built: 1928, renovation_status: 'full', renovation_year: 2022, construction_notes: 'Kompletní rekonstrukce včetně rozvodů a koupelny', description: 'Prostorný loftový byt s vysokými stropy v centru Holešovic. Cihlový dům po celkové rekonstrukci.', images: [], owner_id: 'client-005', created_at: '2025-06-15', updated_at: '2025-06-15' },
   { id: 'prop-002', name: 'Komerční prostor u metra', address: { street: 'Veletržní 15', city: 'Praha', district: 'Holešovice', zip: '170 00' }, type: 'commercial', status: 'available', price: 12_000_000, area_sqm: 120, rooms: 1, floor: 0, total_floors: 5, year_built: 1935, renovation_status: null, renovation_year: null, construction_notes: null, description: 'Obchodní prostor v přízemí na frekventované ulici. Velká výloha, vysoký strop.', images: [], owner_id: 'client-012', created_at: '2025-04-10', updated_at: '2025-04-10' },
@@ -80,3 +292,5 @@ export const properties: Property[] = [
   { id: 'prop-064', name: 'Penzion Šumava', address: { street: 'Náměstí 5', city: 'Železná Ruda', district: 'Klatovy', zip: '340 04' }, type: 'commercial', status: 'available', price: 14_500_000, area_sqm: 400, rooms: 12, floor: null, total_floors: 3, year_built: 1920, renovation_status: 'partial', renovation_year: 2014, construction_notes: 'Nové sociální zařízení v pokojích, fasáda', description: 'Horský penzion s restaurací v centru Železné Rudy. Kapacita 24 hostů.', images: [], owner_id: 'client-056', created_at: '2025-11-05', updated_at: '2025-11-05' },
   { id: 'prop-065', name: 'Pozemek Beroun', address: { street: 'V Alejích', city: 'Beroun', district: 'Beroun', zip: '266 01' }, type: 'land', status: 'available', price: 5_200_000, area_sqm: 700, rooms: 0, floor: null, total_floors: null, year_built: null, renovation_status: null, renovation_year: null, construction_notes: null, description: 'Stavební pozemek ve vilové čtvrti Berouna. Všechny IS, klidná lokalita.', images: [], owner_id: 'client-059', created_at: '2025-12-20', updated_at: '2025-12-20' },
 ];
+
+export const properties: Property[] = enrichProperties(baseProperties);

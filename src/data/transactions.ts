@@ -1,6 +1,49 @@
 import { Transaction } from '../types';
 
-export const transactions: Transaction[] = [
+const detailedTransactionNotes = [
+  'Prodej garsonky v Holešovicích. Klient platil hotově, celý proces od rezervace po podpis trval jen 3 týdny. Velmi spokojený a doporučil nás sousedům.',
+  'Pronájem investičního bytu 1+kk. Nájemce přišel přes doporučení a podepsal roční smlouvu s možností prodloužení. Předání proběhlo bez výhrad.',
+  'Prodej garsonky na Žižkově mladému páru jako první společné bydlení. Financování bylo kombinované z hypotéky a vlastních zdrojů. Ocenili rychlé právní servisní kroky.',
+  'Prodej bytu v Olomouci přes hypoteční financování. Banka schválila úvěr během 10 dnů a kupující převzali byt ještě před létem. Prodávající chtěli minimum osobních prohlídek.',
+  'Investiční nákup garsonky na Vinohradech. Kupující počítá s dlouhodobým pronájmem studentům a detailně řešil čistý výnos. Finální cena zůstala bez slevy.',
+  'Pronájem kanceláře v Holešovické tržnici. Kreativní studio podepsalo dvouletou smlouvu a ocenilo industriální charakter prostoru. Majitel souhlasil s příspěvkem na fit-out.',
+  'Nejlevnější prodej sezóny v Brně. Garsonku koupila maminka pro syna studujícího na VUT. Rozhodující byla blízkost kampusu a nízké provozní náklady.',
+  'Garsonka u Anděla se prodala po třech prohlídkách během 21 dnů. Kupující byl cash buyer, takže odpadla čekací doba na hypotéku. Prodávající chtěl jistotu a rychlost.',
+  'Pronájem bytu u Flory pro rodinu se dvěma dětmi. Prioritou byla škola v docházkové vzdálenosti a sklep na kola. Nájemníci podepsali smlouvu na 24 měsíců.',
+  'Pronájem kanceláře v Brně. IT firma si prostor rezervovala po jediné prohlídce a vyjednala právo na rozšíření o sousední jednotku. Nájemné je fixované s inflační doložkou.',
+  'Prodej cihlového bytu v Holešovicích. Kupující chtěl původní charakter domu i hotovou rekonstrukci bez dalších investic. Nabídku podal v den druhé prohlídky.',
+  'Prodej bytu u Riegrových sadů. O nemovitost soupeřili dva zájemci a finální cena se dostala nad původní očekávání prodávajícího. Pomohl silný home staging a načasování kampaně.',
+  'Pronájem obchodu na Sokolovské ulici. Prostor si vzala kavárna s celodenním provozem a zahrádkou. Pronajímatel souhlasil s příspěvkem na novou výlohu.',
+  'Dlouhodobý pronájem na Vinohradech pro manažerku z farmaceutické firmy. Rozhodla rychlá připravenost bytu a možnost parkování ve dvoře. Podepsáno bez vyjednávání ceny.',
+  'Pronájem cihlového bytu na Smíchově. Nájemce přecházel z menšího bytu ve stejné čtvrti a chtěl klidnou ulici. Smlouva obsahuje opci na další rok za předem daných podmínek.',
+  'Pronájem investičního bytu v Brně. Nájemník je doktorand a majitel ocenil jeho dlouhodobý horizont. Celý proces od inzerce po předání klíčů trval 9 dní.',
+  'Prodej bytu v Karlíně v cihlovém domě. Kupující řešil dispoziční možnosti pro budoucí rekonstrukci a chtěl i stavební konzultaci. Podepsal po třetí návštěvě.',
+  'Prodej moderního bytu u Florenc. Klient chtěl rychlé nastěhování kvůli relokaci do Prahy. Výhodou byla novostavba a okamžitá dostupnost parkovacího stání.',
+  'Prodej bytu na Žižkově. Kupující využil předjednanou hypotéku a stihl podepsat rezervaci ještě ten samý týden. Prodávající ocenil hladké vyjednávání bez dalších podmínek.',
+  'Byt s balkónem na Žižkově koupila klientka po doporučení od kolegyně. Důležitá byla klidná ulice a výhled do vnitrobloku. Cena se podařila vyjednat jen o 80 tisíc níže.',
+  'Novostavba v Brně se prodala mladému páru po dvou prohlídkách. Klienti chtěli moderní standard a nízké energetické náklady. Developer souhlasil s bonusem v podobě sklepa.',
+  'Byt v centru Brna koupil investor do portfolia. Rozhodující byla stabilní lokalita a možnost okamžitého pronájmu. Analýzu yield jsme dodali ještě před rezervační smlouvou.',
+  'Loft na Žižkově byl jednou z nejvýraznějších nemovitostí podzimu. Kupující požadoval technickou inspekci i konzultaci s architektem. Přesto se obchod uzavřel do měsíce.',
+  'Mezonet na Vinohradech. Kupující dlouho porovnával nabídky, ale rozhodla terasa a lodžie směrem na západ. Prodávající nakonec akceptoval drobnou slevu výměnou za rychlý podpis.',
+  'Byt s výhledem na Vltavu na Smíchově koupila manažerka z fintechu. Ocenila možnost nastěhování bez rekonstrukce a sklep v domě. Provizi jsme uzavřeli v plné výši.',
+  'Prodej rodinného domu v Plzni. Zájem měla rodina, která se stěhovala z bytu a řešila hlavně zahradu a parkování. Proces komplikovalo načasování čerpání hypotéky, ale termín se stihl.',
+  'Dům v Bystrci koupila rodina s dětmi po několika víkendových prohlídkách. Klienti si nechali prověřit technický stav střechy i kotle. Finální cena odpovídala listovací ceně.',
+  'Reprezentativní byt na Vinohradech byl nejvyšší rezidenční obchod kvartálu. Kupující hledal reprezentativní bydlení s původními prvky a vysokými stropy. Rozhodla kvalita rekonstrukce.',
+  'Luxusní byt v Karlín Parku. Zájemce přiletěl na dvě soukromé prohlídky z Curychu a řešil zejména správu nemovitosti po koupi. Deal se uzavřel bez financování bankou.',
+  'Nejvyšší obchod roku. Vila v Brně za 32 mil. CZK šla investorovi z Vídně a jednání trvalo téměř 4 měsíce. Součástí byla i detailní právní a technická due diligence.',
+  'Novostavba ve Smíchov City. Kupující chtěl smart home a okamžitý standard bez dalších úprav. Developer přidal druhé parkovací stání za zvýhodněnou cenu.',
+  'Prodej penthousu v Karlíně. Kupující požadoval tři prohlídky, stavební posudek a revizi terasy. Finální cena byla o 200 tisíc nižší, ale obchod se uzavřel bez dalších podmínek.',
+  'Byt v Riverparku koupil klient po relokaci z Brna do Prahy. Rozhodl výhled na Vltavu, balkon a rychlé spojení do kanceláře v Karlíně. Rezervace proběhla hned po video prohlídce.',
+  'Panelový byt na Lesné po rekonstrukci. Kupující chtěl větší dispozici pro rodinu a ocenil blízkost zeleně i tramvaje. Hypotéka byla schválena do 14 dnů.',
+  'Novostavba u Parukářky čeká na zápis do katastru. Kupující je připraven převzít jednotku ihned po zápisu a už řeší vybavení interiéru. Prodávající tlačí na co nejrychlejší finalizaci.',
+  'Byt u náměstí Míru má podepsanou smlouvu a čeká se na doplacení kupní ceny. Kupující prodává vlastní byt a využívá delší lhůtu pro čerpání úvěru. Prodávající zatím spolupracuje bez komplikací.',
+  'River Lofts Karlín. Smlouva je v přípravě a kupující dolaďuje strukturu financování mezi hypotékou a vlastními prostředky. Majitel chce udržet termín předání do dubna.',
+  'Mezonet v DOX rezidenci je ve finální fázi dokumentace. Advokát doplňuje přílohy ke kupní smlouvě a čeká se na poslední potvrzení od banky. Obě strany chtějí podpis ještě tento měsíc.',
+  'Pronájem kanceláře Smíchov Gate. Velká poradenská firma si prostor zajistila na 5 let a řešila hlavně branding recepce a počet parkovacích míst. Jeden z největších pronájmů kvartálu.',
+  'Chalupa v Českém ráji nakonec do prodeje nedošla. Kupující odstoupil po technické inspekci kvůli vlhkosti a nutnosti větší rekonstrukce střechy. Prodávající teď zvažuje slevu a nový inzerát.',
+];
+
+const baseTransactions: Transaction[] = [
   // 2025 Q2 (April - June): 8 transactions
   { id: 'tx-001', property_id: 'prop-003', client_id: 'client-018', type: 'sale', amount: 4_200_000, commission: 126_000, status: 'completed', date: '2025-04-15', notes: 'Prodej garsonky v Holešovicích. Rychlý obchod.' },
   { id: 'tx-002', property_id: 'prop-012', client_id: 'client-052', type: 'rental', amount: 18_000, commission: 18_000, status: 'completed', date: '2025-04-20', notes: 'Pronájem investičního bytu, roční smlouva.' },
@@ -49,3 +92,8 @@ export const transactions: Transaction[] = [
   { id: 'tx-039', property_id: 'prop-040', client_id: 'client-110', type: 'rental', amount: 120_000, commission: 120_000, status: 'completed', date: '2026-03-05', notes: 'Kancelář Smíchov Gate. Velký pronájem.' },
   { id: 'tx-040', property_id: 'prop-061', client_id: 'client-049', type: 'sale', amount: 4_200_000, commission: 126_000, status: 'cancelled', date: '2026-03-10', notes: 'Chalupa Český ráj. Kupující odstoupil kvůli špatnému stavu.' },
 ];
+
+export const transactions: Transaction[] = baseTransactions.map((transaction, index) => ({
+  ...transaction,
+  notes: detailedTransactionNotes[index] ?? transaction.notes,
+}));

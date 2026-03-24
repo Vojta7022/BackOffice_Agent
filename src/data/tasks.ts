@@ -91,4 +91,34 @@ export const tasks: Task[] = [
     assigned_to: 'agent-001', related_property_id: null, related_client_id: null,
     status: 'todo', priority: 'medium', due_date: '2026-03-31', created_at: '2026-03-17',
   },
+  {
+    id: 'task-016', title: 'Obnovit fotografie — Byt na Vinohradech',
+    description: 'Domluvit nové focení pro prop-023 a připravit shortlist záběrů se zaměřením na štuky, parkety a výhled do ulice.',
+    assigned_to: 'agent-006', related_property_id: 'prop-023', related_client_id: 'client-076',
+    status: 'todo', priority: 'low', due_date: '2026-04-03', created_at: '2026-03-21',
+  },
+  {
+    id: 'task-017', title: 'Urgentní: Klient hrozí odstoupením — River Lofts',
+    description: 'Okamžitě zavolat klientovi client-068, vysvětlit stav financování a připravit varianty dalšího postupu pro prop-019.',
+    assigned_to: 'agent-005', related_property_id: 'prop-019', related_client_id: 'client-068',
+    status: 'in_progress', priority: 'urgent', due_date: '2026-03-24', created_at: '2026-03-22',
+  },
+  {
+    id: 'task-018', title: 'Připravit smlouvu o pronájmu — Kancelář Smíchov Gate',
+    description: 'Doplnit obchodní podmínky, inflační doložku a harmonogram předání pro pronájem kanceláře prop-040.',
+    assigned_to: 'agent-002', related_property_id: 'prop-040', related_client_id: 'client-110',
+    status: 'todo', priority: 'high', due_date: '2026-03-29', created_at: '2026-03-22',
+  },
+  {
+    id: 'task-019', title: 'Ověřit katastrální zápis — Penthouse Karlín',
+    description: 'Zkontrolovat aktuální stav zápisu v KN, plombu a navazující přílohy u prop-016 před finálním podpisem.',
+    assigned_to: 'agent-004', related_property_id: 'prop-016', related_client_id: 'client-062',
+    status: 'in_progress', priority: 'medium', due_date: '2026-03-26', created_at: '2026-03-21',
+  },
+  {
+    id: 'task-020', title: 'Aktualizovat ceny na portálech — 5 nemovitostí',
+    description: 'Porovnat interní ceník s inzeráty na Sreality, Bezrealitky a webu, poté sjednotit ceny u pěti aktivních nabídek.',
+    assigned_to: 'agent-007', related_property_id: null, related_client_id: null,
+    status: 'todo', priority: 'medium', due_date: '2026-03-30', created_at: '2026-03-22',
+  },
 ];
