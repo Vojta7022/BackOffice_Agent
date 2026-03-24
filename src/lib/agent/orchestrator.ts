@@ -41,9 +41,10 @@ export interface AgentResponse {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const MODEL = 'gemini-2.5-flash'
+const MODEL = 'gemini-2.5-flash-lite'
 const MAX_TOKENS = 2048
 const MAX_ITERATIONS = 5
+const RETRY_DELAYS_MS = [5000, 15000, 30000] as const
 
 const SYSTEM_PROMPT = `Jsi back-office asistent české realitní firmy RE:Agent.
 
@@ -124,11 +125,185 @@ function emptyResponse(message: string): AgentResponse {
 type GeminiPart = Record<string, unknown>
 type GeminiContent = { role: 'user' | 'model'; parts: GeminiPart[] }
 
+class GeminiQuotaError extends Error {}
+class GeminiOverloadedError extends Error {}
+
 function historyToGemini(history: HistoryMessage[]): GeminiContent[] {
   return history.map(m => ({
     role: m.role === 'assistant' ? 'model' : 'user',
     parts: [{ text: m.content }],
   }))
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message
+  if (typeof error === 'string') return error
+  if (typeof error === 'object' && error !== null) {
+    const maybeMessage = (error as { message?: unknown }).message
+    if (typeof maybeMessage === 'string') return maybeMessage
+  }
+  return String(error)
+}
+
+function getErrorStatus(error: unknown): number | null {
+  if (typeof error !== 'object' || error === null) return null
+
+  const directStatus = (error as { status?: unknown }).status
+  if (typeof directStatus === 'number') return directStatus
+
+  const responseStatus = (error as { response?: { status?: unknown } }).response?.status
+  if (typeof responseStatus === 'number') return responseStatus
+
+  const code = (error as { code?: unknown }).code
+  if (typeof code === 'number') return code
+
+  return null
+}
+
+function isQuotaError(error: unknown): boolean {
+  const message = getErrorMessage(error).toLowerCase()
+  return (
+    message.includes('quota') ||
+    message.includes('resource_exhausted') ||
+    message.includes('daily limit') ||
+    message.includes('rate limit exceeded')
+  )
+}
+
+function isRetryable429(error: unknown): boolean {
+  return getErrorStatus(error) === 429
+}
+
+function parseRetryDelayMs(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value > 1000 ? value : value * 1000
+  }
+
+  if (typeof value !== 'string') return null
+
+  const trimmed = value.trim()
+  if (!trimmed) return null
+
+  if (/^\d+ms$/i.test(trimmed)) return Number(trimmed.replace(/ms/i, ''))
+  if (/^\d+(\.\d+)?s$/i.test(trimmed)) return Math.round(Number(trimmed.replace(/s/i, '')) * 1000)
+  if (/^\d+$/.test(trimmed)) {
+    const numeric = Number(trimmed)
+    return numeric > 1000 ? numeric : numeric * 1000
+  }
+
+  const asDate = Date.parse(trimmed)
+  if (!Number.isNaN(asDate)) {
+    const delta = asDate - Date.now()
+    return delta > 0 ? delta : null
+  }
+
+  return null
+}
+
+function extractRetryDelayMs(error: unknown): number | null {
+  if (typeof error !== 'object' || error === null) return null
+
+  const retryAfterHeader = (() => {
+    const headers = (error as { headers?: Headers | Record<string, unknown> }).headers
+    if (headers && typeof (headers as Headers).get === 'function') {
+      return (headers as Headers).get('retry-after')
+    }
+
+    const responseHeaders = (error as { response?: { headers?: Headers | Record<string, unknown> } }).response?.headers
+    if (responseHeaders && typeof (responseHeaders as Headers).get === 'function') {
+      return (responseHeaders as Headers).get('retry-after')
+    }
+
+    if (responseHeaders && typeof responseHeaders === 'object') {
+      const maybeHeader = (responseHeaders as Record<string, unknown>)['retry-after']
+      return typeof maybeHeader === 'string' ? maybeHeader : null
+    }
+
+    if (headers && typeof headers === 'object') {
+      const maybeHeader = (headers as Record<string, unknown>)['retry-after']
+      return typeof maybeHeader === 'string' ? maybeHeader : null
+    }
+
+    return null
+  })()
+
+  const fromHeader = parseRetryDelayMs(retryAfterHeader)
+  if (fromHeader !== null) return fromHeader
+
+  const candidates: unknown[] = [
+    (error as { retryAfter?: unknown }).retryAfter,
+    (error as { retryAfterMs?: unknown }).retryAfterMs,
+    (error as { retryDelay?: unknown }).retryDelay,
+    (error as { retryDelayMs?: unknown }).retryDelayMs,
+    (error as { error?: { retryAfter?: unknown; retryDelay?: unknown } }).error?.retryAfter,
+    (error as { error?: { retryAfter?: unknown; retryDelay?: unknown } }).error?.retryDelay,
+  ]
+
+  const details = (error as { details?: unknown[]; errorDetails?: unknown[] }).details
+    ?? (error as { details?: unknown[]; errorDetails?: unknown[] }).errorDetails
+
+  if (Array.isArray(details)) {
+    for (const detail of details) {
+      if (typeof detail === 'object' && detail !== null) {
+        candidates.push((detail as { retryDelay?: unknown }).retryDelay)
+        candidates.push((detail as { retry_delay?: unknown }).retry_delay)
+      }
+    }
+  }
+
+  for (const candidate of candidates) {
+    const parsed = parseRetryDelayMs(candidate)
+    if (parsed !== null) return parsed
+  }
+
+  return null
+}
+
+async function generateContentWithRetry(
+  ai: GoogleGenAI,
+  params: {
+    model: string
+    contents: GeminiContent[]
+    config: {
+      systemInstruction: string
+      tools: { functionDeclarations: typeof agentTools }[]
+      maxOutputTokens: number
+    }
+  }
+) {
+  let retryCount = 0
+
+  while (true) {
+    try {
+      return await ai.models.generateContent({
+        model: params.model,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        contents: params.contents as any,
+        config: params.config,
+      })
+    } catch (error) {
+      if (isQuotaError(error)) {
+        throw new GeminiQuotaError(getErrorMessage(error))
+      }
+
+      if (!isRetryable429(error)) {
+        throw error
+      }
+
+      if (retryCount >= RETRY_DELAYS_MS.length) {
+        throw new GeminiOverloadedError(getErrorMessage(error))
+      }
+
+      const retryDelay = extractRetryDelayMs(error) ?? RETRY_DELAYS_MS[retryCount]
+      retryCount += 1
+      console.warn(`[Agent] 429 from Gemini, retrying in ${Math.round(retryDelay / 1000)}s (${retryCount}/${RETRY_DELAYS_MS.length})`)
+      await sleep(retryDelay)
+    }
+  }
 }
 
 // ─── Main export ──────────────────────────────────────────────────────────────
@@ -165,10 +340,9 @@ export async function processMessage(
   let response: any
 
   try {
-    response = await ai.models.generateContent({
+    response = await generateContentWithRetry(ai, {
       model: MODEL,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      contents: contents as any,
+      contents,
       config: geminiConfig,
     })
 
@@ -219,17 +393,25 @@ export async function processMessage(
       contents.push({ role: 'model', parts })
       contents.push({ role: 'user', parts: fnResponseParts })
 
-      response = await ai.models.generateContent({
+      response = await generateContentWithRetry(ai, {
         model: MODEL,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        contents: contents as any,
+        contents,
         config: geminiConfig,
       })
     }
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = getErrorMessage(err)
     console.error('[Agent] API error:', msg)
-    return emptyResponse(`Chyba při komunikaci s AI: ${msg}`)
+
+    if (err instanceof GeminiQuotaError || isQuotaError(err)) {
+      return emptyResponse('Byl překročen denní limit AI dotazů. Zkuste to prosím později nebo kontaktujte administrátora.')
+    }
+
+    if (err instanceof GeminiOverloadedError || getErrorStatus(err) === 429) {
+      return emptyResponse('AI služba je dočasně přetížená. Zkuste to prosím za minutu.')
+    }
+
+    return emptyResponse('Při komunikaci s AI došlo k chybě. Zkuste to prosím znovu.')
   }
 
   // ── Extract final text ──────────────────────────────────────────────────

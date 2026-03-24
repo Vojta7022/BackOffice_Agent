@@ -854,6 +854,7 @@ function handleGeneratePresentation(input: Record<string, unknown>): ToolResult 
     key_points?: string[]
   }
 
+  const resolvedTopic = topic?.trim() || 'Týdenní report pro vedení'
   const dash = db.getDashboardStats()
   const metrics = db.getSalesMetrics()
   const weekly = db.getWeeklySummary()
@@ -883,7 +884,7 @@ function handleGeneratePresentation(input: Record<string, unknown>): ToolResult 
     {
       title: 'Přehled výsledků',
       content: [
-        `Téma: ${topic}`,
+        `Téma: ${resolvedTopic}`,
         `Leady: ${weekly.new_leads} za posledních 7 dní / ${leadsMonthly.reduce((sum, month) => sum + month.count, 0)} za 6 měsíců`,
         `Uzavřené obchody: ${weekly.deals_closed} za posledních 7 dní, celkem ${metrics.deals_closed}`,
         `Tržby: ${czk(weekly.revenue)} za posledních 7 dní, celkem ${czk(metrics.total_revenue)}`,
@@ -904,8 +905,8 @@ function handleGeneratePresentation(input: Record<string, unknown>): ToolResult 
   ].slice(0, requestedSlides)
 
   return {
-    data: { topic, slides, generated_at: '2026-03-22' },
-    summary: `Prezentace „${topic}" s ${slides.length} snímky je připravena ke stažení.`,
+    data: { topic: resolvedTopic, slides },
+    summary: `Prezentace se ${slides.length} slidy připravena ke stažení.`,
     display_hint: 'file_download',
   }
 }

@@ -6,7 +6,11 @@ import type { TableData } from '@/lib/agent/orchestrator'
 import { useTranslation } from '@/lib/useTranslation'
 
 function downloadCsv(table: TableData, fallbackName: string) {
-  const csv = [table.headers.join(','), ...table.rows.map(r => r.join(','))].join('\n')
+  const escapeCell = (value: string) => `"${value.replace(/"/g, '""')}"`
+  const csv = '\uFEFF' + [
+    table.headers.map(escapeCell).join(';'),
+    ...table.rows.map((row) => row.map(escapeCell).join(';')),
+  ].join('\n')
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')

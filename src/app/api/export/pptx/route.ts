@@ -1,65 +1,150 @@
 import { NextRequest, NextResponse } from 'next/server'
-import pptxgen from 'pptxgenjs'
+import PptxGenJS from 'pptxgenjs'
 
-interface SlideData {
-  title: string
-  content: string[]
+export const runtime = 'nodejs'
+
+interface SlidePayload {
+  title?: string
+  content?: string[] | string
+  bullet_points?: string[]
+  key_points?: string[]
 }
 
 interface PresentationPayload {
   topic?: string
-  slides: SlideData[]
+  slides?: SlidePayload[]
+}
+
+function getSlideContent(slide: SlidePayload) {
+  const content = slide.content ?? slide.bullet_points ?? slide.key_points ?? ''
+
+  if (Array.isArray(content)) {
+    return content.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+  }
+
+  if (typeof content === 'string' && content.trim().length > 0) {
+    return content.trim()
+  }
+
+  return ''
 }
 
 export async function POST(req: NextRequest) {
-  const data: PresentationPayload = await req.json()
+  try {
+    const { slides, topic }: PresentationPayload = await req.json()
 
-  const pptx = new pptxgen()
-  pptx.layout = 'LAYOUT_WIDE'
-  pptx.title = data.topic ?? 'Prezentace'
+    const pptx = new PptxGenJS()
+    pptx.layout = 'LAYOUT_16x9'
+    pptx.title = topic || 'RE:Agent Report'
 
-  for (const slide of data.slides) {
-    const s = pptx.addSlide()
-
-    s.background = { color: '0f172a' }
-
-    s.addShape(pptx.ShapeType.rect, {
-      x: 0, y: 0, w: '100%', h: 1.2,
-      fill: { color: '064e3b' },
-      line: { color: '064e3b' },
-    })
-
-    s.addText(slide.title, {
-      x: 0.4, y: 0, w: '90%', h: 1.2,
-      fontSize: 24,
+    const titleSlide = pptx.addSlide()
+    titleSlide.background = { color: '09090B' }
+    titleSlide.addText(topic || 'RE:Agent Report', {
+      x: 0.5,
+      y: 1.5,
+      w: 9,
+      h: 1.5,
+      fontSize: 36,
+      color: 'FFFFFF',
+      fontFace: 'Calibri',
+      align: 'center',
       bold: true,
-      color: 'ffffff',
-      valign: 'middle',
+    })
+    titleSlide.addText('RE:Agent | Back Office Operations', {
+      x: 0.5,
+      y: 3.5,
+      w: 9,
+      h: 0.5,
+      fontSize: 14,
+      color: '3B82F6',
+      fontFace: 'Calibri',
+      align: 'center',
+    })
+    titleSlide.addText(new Date().toLocaleDateString('cs-CZ'), {
+      x: 0.5,
+      y: 4.2,
+      w: 9,
+      h: 0.5,
+      fontSize: 12,
+      color: 'A1A1AA',
+      fontFace: 'Calibri',
+      align: 'center',
     })
 
-    s.addShape(pptx.ShapeType.rect, {
-      x: 0, y: 1.2, w: '100%', h: 0.06,
-      fill: { color: '10b981' },
-      line: { color: '10b981' },
-    })
+    if (slides && Array.isArray(slides)) {
+      for (const slide of slides) {
+        const content = getSlideContent(slide)
+        const deckSlide = pptx.addSlide()
+        deckSlide.background = { color: 'FFFFFF' }
 
-    const bullets = slide.content.map(c => ({
-      text: c,
-      options: { bullet: { type: 'bullet' as const }, color: 'cbd5e1', fontSize: 16, paraSpaceAfter: 6 },
-    }))
+        deckSlide.addShape('rect' as never, {
+          x: 0,
+          y: 0,
+          w: 10,
+          h: 1,
+          fill: { color: '09090B' },
+          line: { color: '09090B' },
+        })
 
-    if (bullets.length > 0) {
-      s.addText(bullets, { x: 0.4, y: 1.5, w: '92%', h: 4.5, valign: 'top' })
+        deckSlide.addText(slide.title || '', {
+          x: 0.5,
+          y: 0.15,
+          w: 9,
+          h: 0.7,
+          fontSize: 24,
+          color: 'FFFFFF',
+          fontFace: 'Calibri',
+          bold: true,
+        })
+
+        if (Array.isArray(content)) {
+          const bulletText = content.map((point) => ({
+            text: point,
+            options: {
+              fontSize: 16,
+              color: '27272A',
+              bullet: true,
+              breakLine: true,
+            },
+          }))
+
+          deckSlide.addText(bulletText, {
+            x: 0.5,
+            y: 1.3,
+            w: 9,
+            h: 4,
+            fontFace: 'Calibri',
+            paraSpaceAfter: 8,
+          })
+        } else if (typeof content === 'string') {
+          deckSlide.addText(content, {
+            x: 0.5,
+            y: 1.3,
+            w: 9,
+            h: 4,
+            fontSize: 16,
+            color: '27272A',
+            fontFace: 'Calibri',
+          })
+        }
+      }
     }
+
+    const buffer = await pptx.write({ outputType: 'nodebuffer' }) as Buffer
+    const file = new Uint8Array(buffer)
+
+    return new NextResponse(file, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'Content-Disposition': 'attachment; filename="re-agent-report.pptx"',
+      },
+    })
+  } catch (error) {
+    console.error('PPTX generation error:', error)
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Unknown PPTX error' },
+      { status: 500 }
+    )
   }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const result: any = await pptx.write({ outputType: 'arraybuffer' })
-
-  return new NextResponse(Buffer.from(result as ArrayBuffer), {
-    headers: {
-      'Content-Type': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-      'Content-Disposition': `attachment; filename="${encodeURIComponent(data.topic ?? 'prezentace')}.pptx"`,
-    },
-  })
 }

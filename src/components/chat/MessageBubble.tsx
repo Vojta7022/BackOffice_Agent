@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react'
 import ReactMarkdown from 'react-markdown'
-import { CheckCircle2, Bell, FileText, Presentation, Wrench, Download, Sparkles } from 'lucide-react'
+import { CheckCircle2, Bell, FileDown, FileText, Presentation, Wrench, Sparkles } from 'lucide-react'
 import InlineChart from './InlineChart'
 import InlineTable from './InlineTable'
 import EmailDraftCard from './EmailDraftCard'
@@ -10,7 +10,6 @@ import ComparisonCard from './ComparisonCard'
 import TimelineCard from './TimelineCard'
 import type { ChatMessage } from '@/lib/chat-store'
 import type { ChartConfig, ToolCallLogEntry } from '@/lib/agent/orchestrator'
-import { generatePPTX } from '@/lib/exports/generate-pptx'
 import { useTranslation } from '@/lib/useTranslation'
 
 const TOOL_SUGGESTIONS: Record<string, { cs: string[]; en: string[] }> = {
@@ -61,6 +60,18 @@ function formatTime(iso: string, language: 'cs' | 'en') {
 
 function formatMetricLabel(key: string, labels: Record<string, string>) {
   return labels[key] ?? key.replace(/_/g, ' ')
+}
+
+function normalizePresentationContent(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+  }
+
+  if (typeof value === 'string' && value.trim().length > 0) {
+    return [value.trim()]
+  }
+
+  return []
 }
 
 function sanitizeSuggestion(value: string) {
@@ -302,16 +313,43 @@ function ReportCard({ report }: { report: Record<string, unknown> }) {
 
 function PresentationCard({ data }: { data: Record<string, unknown> }) {
   const { t } = useTranslation()
-  const slides = (data.slides as { title: string; content: string[] }[]) ?? []
+  const slides = Array.isArray(data.slides)
+    ? (data.slides as Array<Record<string, unknown>>).map((slide) => ({
+        title: typeof slide.title === 'string' ? slide.title : '',
+        content: normalizePresentationContent(
+          slide.content ?? slide.bullet_points ?? slide.key_points ?? []
+        ),
+      }))
+    : []
 
-  async function handleDownload() {
-    const blob = await generatePPTX({ topic: String(data.topic ?? ''), slides })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${String(data.topic ?? t.chat.presentation)}.pptx`
-    a.click()
-    URL.revokeObjectURL(url)
+  async function handleDownloadPPTX() {
+    try {
+      const response = await fetch('/api/export/pptx', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topic: String(data.topic ?? 'RE:Agent Report'),
+          slides,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('PPTX generation failed')
+      }
+
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 're-agent-report.pptx'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Download failed:', error)
+      alert('Stažení prezentace selhalo. Zkuste to znovu.')
+    }
   }
 
   return (
@@ -326,7 +364,7 @@ function PresentationCard({ data }: { data: Record<string, unknown> }) {
           <div key={i} className="w-48 shrink-0 rounded-xl border border-border bg-background/70 p-3">
             <p className="mb-1 text-[10px] text-muted-foreground">{t.chat.slide} {i + 1}</p>
             <p className="text-xs font-semibold text-foreground leading-tight mb-2">{slide.title}</p>
-            {slide.content.slice(0, 3).map((c, j) => (
+            {slide.content.slice(0, 2).map((c, j) => (
               <p key={j} className="text-[11px] text-muted-foreground leading-tight truncate">• {c}</p>
             ))}
           </div>
@@ -339,10 +377,10 @@ function PresentationCard({ data }: { data: Record<string, unknown> }) {
       </div>
       <div className="border-t border-border px-4 py-2">
         <button
-          onClick={handleDownload}
-          className="button-smooth flex items-center gap-1.5 rounded-xl bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+          onClick={handleDownloadPPTX}
+          className="button-smooth flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
         >
-          <Download className="h-3.5 w-3.5" />
+          <FileDown className="h-4 w-4" />
           {t.chat.downloadPptx}
         </button>
       </div>
