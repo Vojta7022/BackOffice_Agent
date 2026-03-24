@@ -1,7 +1,19 @@
 'use client'
 
-import { useRef, useState, useCallback, useEffect, KeyboardEvent } from 'react'
-import { SendHorizontal, Mic } from 'lucide-react'
+import { useRef, useState, useCallback, useEffect, KeyboardEvent, useMemo } from 'react'
+import {
+  AlertTriangle,
+  BarChart3,
+  BellRing,
+  Building2,
+  FileText,
+  LayoutDashboard,
+  Mail,
+  Mic,
+  Presentation,
+  SendHorizontal,
+  Users,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTranslation } from '@/lib/useTranslation'
 
@@ -12,11 +24,25 @@ interface ChatInputProps {
   initialValue?: string
 }
 
+const QUICK_COMMANDS = [
+  { name: '/klienti', description: 'Zobraz prehled klientu', prompt: 'Zobraz prehled klientu', icon: Users },
+  { name: '/leady', description: 'Kolik mame novych leadu?', prompt: 'Kolik mame novych leadu?', icon: BarChart3 },
+  { name: '/nemovitosti', description: 'Zobraz dostupne nemovitosti', prompt: 'Zobraz dostupne nemovitosti', icon: Building2 },
+  { name: '/chybejici', description: 'Najdi nemovitosti s chybejicimi daty', prompt: 'Najdi nemovitosti s chybejicimi daty', icon: AlertTriangle },
+  { name: '/report', description: 'Generuj tydenni report', prompt: 'Generuj tydenni report', icon: FileText },
+  { name: '/prezentace', description: 'Vytvor prezentaci se 3 slidy', prompt: 'Vytvor prezentaci se 3 slidy', icon: Presentation },
+  { name: '/email', description: 'Napis email zajemci', prompt: 'Napis email zajemci', icon: Mail },
+  { name: '/monitoring', description: 'Nastav monitoring Holesovice', prompt: 'Nastav monitoring Holesovice', icon: BellRing },
+  { name: '/portfolio', description: 'Analyzuj portfolio nemovitosti', prompt: 'Analyzuj portfolio nemovitosti', icon: BarChart3 },
+  { name: '/dashboard', description: 'Zobraz aktualni metriky', prompt: 'Zobraz aktualni metriky', icon: LayoutDashboard },
+]
+
 export default function ChatInput({ onSend, disabled, showSuggestions, initialValue = '' }: ChatInputProps) {
   const { t, language } = useTranslation()
   const [value, setValue] = useState('')
   const [isListening, setIsListening] = useState(false)
   const [isSupported, setIsSupported] = useState(false)
+  const [activeCommandIndex, setActiveCommandIndex] = useState(0)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const recognitionRef = useRef<SpeechRecognition | null>(null)
 
@@ -70,17 +96,86 @@ export default function ChatInput({ onSend, disabled, showSuggestions, initialVa
     })
   }, [initialValue, resize])
 
+  const slashQuery = useMemo(() => {
+    const trimmed = value.trimStart()
+    if (!trimmed.startsWith('/')) return null
+    if (trimmed.includes(' ')) return null
+    return trimmed.slice(1).toLowerCase()
+  }, [value])
+
+  const filteredCommands = useMemo(() => {
+    if (slashQuery === null) return []
+    return QUICK_COMMANDS.filter((command) => {
+      const normalizedName = command.name.slice(1).toLowerCase()
+      return normalizedName.includes(slashQuery) || command.description.toLowerCase().includes(slashQuery)
+    })
+  }, [slashQuery])
+
+  const isCommandPaletteOpen = slashQuery !== null
+
+  useEffect(() => {
+    if (!isCommandPaletteOpen) {
+      setActiveCommandIndex(0)
+      return
+    }
+
+    setActiveCommandIndex((current) => Math.min(current, Math.max(filteredCommands.length - 1, 0)))
+  }, [filteredCommands.length, isCommandPaletteOpen])
+
+  const runCommand = useCallback((command: (typeof QUICK_COMMANDS)[number]) => {
+    if (disabled) return
+    setValue(command.prompt)
+    onSend(command.prompt)
+    setValue('')
+    setActiveCommandIndex(0)
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto'
+    }
+  }, [disabled, onSend])
+
   const send = useCallback(() => {
+    if (isCommandPaletteOpen && filteredCommands.length > 0) {
+      runCommand(filteredCommands[activeCommandIndex] ?? filteredCommands[0])
+      return
+    }
+
     const msg = value.trim()
     if (!msg || disabled) return
     onSend(msg)
     setValue('')
+    setActiveCommandIndex(0)
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
     }
-  }, [value, disabled, onSend])
+  }, [activeCommandIndex, disabled, filteredCommands, isCommandPaletteOpen, onSend, runCommand, value])
 
   const onKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (isCommandPaletteOpen && filteredCommands.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setActiveCommandIndex((current) => (current + 1) % filteredCommands.length)
+        return
+      }
+
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setActiveCommandIndex((current) => (current - 1 + filteredCommands.length) % filteredCommands.length)
+        return
+      }
+
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        runCommand(filteredCommands[activeCommandIndex] ?? filteredCommands[0])
+        return
+      }
+    }
+
+    if (isCommandPaletteOpen && e.key === 'Escape') {
+      e.preventDefault()
+      setValue('')
+      return
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       send()
@@ -101,8 +196,8 @@ export default function ChatInput({ onSend, disabled, showSuggestions, initialVa
   }, [isListening])
 
   return (
-    <div className="border-t border-border bg-background/95 px-4 py-3 backdrop-blur-sm">
-      {showSuggestions && (
+    <div className="relative border-t border-border bg-background/95 px-4 py-3 backdrop-blur-sm">
+      {showSuggestions && !isCommandPaletteOpen && (
         <div className="mb-2 flex gap-2 overflow-x-auto pb-1">
           {t.chat.composerSuggestions.map((s) => (
             <button
@@ -114,6 +209,45 @@ export default function ChatInput({ onSend, disabled, showSuggestions, initialVa
               {s}
             </button>
           ))}
+        </div>
+      )}
+
+      {isCommandPaletteOpen && (
+        <div className="absolute bottom-[calc(100%+8px)] left-4 right-4 z-20 overflow-hidden rounded-2xl border border-border bg-card shadow-xl dark:shadow-none">
+          <div className="border-b border-border px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground/70">
+            Quick commands
+          </div>
+          {filteredCommands.length > 0 ? (
+            <div className="max-h-72 overflow-y-auto p-2">
+              {filteredCommands.map((command, index) => {
+                const Icon = command.icon
+                const isActive = index === activeCommandIndex
+
+                return (
+                  <button
+                    key={command.name}
+                    type="button"
+                    onMouseEnter={() => setActiveCommandIndex(index)}
+                    onClick={() => runCommand(command)}
+                    className={cn(
+                      'button-smooth flex w-full items-start gap-3 rounded-2xl px-3 py-3 text-left',
+                      isActive ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted/60'
+                    )}
+                  >
+                    <div className={cn('mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl', isActive ? 'bg-primary/12 text-primary' : 'bg-muted text-muted-foreground')}>
+                      <Icon className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold">{command.name}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{command.description}</p>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="px-4 py-4 text-sm text-muted-foreground">Žádný příkaz nenalezen.</div>
+          )}
         </div>
       )}
 

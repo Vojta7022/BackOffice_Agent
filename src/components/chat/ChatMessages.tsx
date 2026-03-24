@@ -2,7 +2,16 @@
 
 import { useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Building2, Plus } from 'lucide-react'
+import {
+  BarChart3,
+  BellRing,
+  Building2,
+  FileText,
+  Mail,
+  Plus,
+  Search,
+  Sparkles,
+} from 'lucide-react'
 import { useChatStore } from '@/lib/chat-store'
 import { useTranslation } from '@/lib/useTranslation'
 import MessageBubble from './MessageBubble'
@@ -13,7 +22,58 @@ interface ChatMessagesProps {
 }
 
 function WelcomeScreen({ onSend }: { onSend: (msg: string) => void }) {
-  const { t } = useTranslation()
+  const { t, language } = useTranslation()
+  const starterGroups = language === 'cs'
+    ? [
+        {
+          title: '📊 Data a analýzy',
+          items: [
+            { icon: BarChart3, label: 'Novi klienti za Q1 2026 - graf podle zdroje' },
+            { icon: Sparkles, label: 'Vyvoj leadu a prodeju za 6 mesicu' },
+            { icon: Building2, label: 'Analyza portfolia nemovitosti' },
+          ],
+        },
+        {
+          title: '📧 Komunikace',
+          items: [
+            { icon: Mail, label: 'Napis email zajemci o nemovitost' },
+            { icon: FileText, label: 'Shrn vysledky tydne pro vedeni' },
+          ],
+        },
+        {
+          title: '🔍 Správa dat',
+          items: [
+            { icon: Search, label: 'Nemovitosti s chybejicimi udaji' },
+            { icon: BellRing, label: 'Monitoring nabidek v Holesovicich' },
+            { icon: Sparkles, label: 'Porovnej dve nejdrazsi nemovitosti' },
+          ],
+        },
+      ]
+    : [
+        {
+          title: '📊 Data & Analytics',
+          items: [
+            { icon: BarChart3, label: 'New clients in Q1 2026 - chart by source' },
+            { icon: Sparkles, label: 'Lead and sales trend for 6 months' },
+            { icon: Building2, label: 'Analyze the property portfolio' },
+          ],
+        },
+        {
+          title: '📧 Communication',
+          items: [
+            { icon: Mail, label: 'Write an email to a property lead' },
+            { icon: FileText, label: 'Summarize this week for leadership' },
+          ],
+        },
+        {
+          title: '🔍 Data Management',
+          items: [
+            { icon: Search, label: 'Properties with missing data' },
+            { icon: BellRing, label: 'Set up listing monitoring in Holesovice' },
+            { icon: Sparkles, label: 'Compare the two most expensive properties' },
+          ],
+        },
+      ]
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-8 px-4 py-12">
@@ -29,17 +89,46 @@ function WelcomeScreen({ onSend }: { onSend: (msg: string) => void }) {
         </div>
       </div>
 
-      <div className="grid w-full max-w-lg grid-cols-2 gap-2">
-        {t.chat.welcomeSuggestions.map((s) => (
-          <button
-            key={s}
-            onClick={() => onSend(s)}
-            className="button-smooth rounded-2xl border border-border bg-card px-4 py-3 text-left text-sm text-foreground/85 shadow-sm hover:-translate-y-0.5 hover:border-primary/20 hover:text-foreground dark:shadow-none"
-          >
-            {s}
-          </button>
+      <div className="w-full max-w-3xl space-y-5">
+        {starterGroups.map((group, groupIndex) => (
+          <section key={group.title}>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground/60">
+              {group.title}
+            </p>
+            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+              {group.items.map((item, itemIndex) => {
+                const Icon = item.icon
+                return (
+                  <button
+                    key={item.label}
+                    onClick={() => onSend(item.label)}
+                    className="button-smooth rounded-2xl border border-border bg-card px-4 py-3 text-left text-sm text-foreground/85 shadow-sm hover:-translate-y-0.5 hover:border-primary/20 hover:text-foreground dark:shadow-none"
+                    style={{
+                      opacity: 0,
+                      animation: 'starter-chip-in 420ms ease forwards',
+                      animationDelay: `${(groupIndex * 3 + itemIndex) * 80}ms`,
+                    }}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <span className="leading-6">{item.label}</span>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </section>
         ))}
       </div>
+
+      <style>{`
+        @keyframes starter-chip-in {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </div>
   )
 }
@@ -75,7 +164,7 @@ export default function ChatMessages({ onSend }: ChatMessagesProps) {
 
       <div className="mx-auto w-full max-w-3xl space-y-4 pt-8">
         {messages.map((msg) => (
-          <MessageBubble key={msg.id} message={msg} />
+          <MessageBubble key={msg.id} message={msg} onSend={onSend} />
         ))}
         {isLoading && (
           <div className="flex justify-start">

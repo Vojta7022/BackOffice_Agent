@@ -1,7 +1,8 @@
 'use client'
 
+import { useMemo } from 'react'
 import ReactMarkdown from 'react-markdown'
-import { CheckCircle2, Bell, FileText, Presentation, Wrench, Download } from 'lucide-react'
+import { CheckCircle2, Bell, FileText, Presentation, Wrench, Download, Sparkles } from 'lucide-react'
 import InlineChart from './InlineChart'
 import InlineTable from './InlineTable'
 import EmailDraftCard from './EmailDraftCard'
@@ -12,6 +13,45 @@ import type { ChartConfig, ToolCallLogEntry } from '@/lib/agent/orchestrator'
 import { generatePPTX } from '@/lib/exports/generate-pptx'
 import { useTranslation } from '@/lib/useTranslation'
 
+const TOOL_SUGGESTIONS: Record<string, { cs: string[]; en: string[] }> = {
+  query_clients: {
+    cs: ['Zobraz jako graf', 'Export do CSV', 'Rozdel podle typu'],
+    en: ['Show as chart', 'Export to CSV', 'Break down by type'],
+  },
+  query_leads: {
+    cs: ['Graf za 6 mesicu', 'Konverzni pomer', 'Nezkontaktovane leady'],
+    en: ['Chart for 6 months', 'Conversion rate', 'Uncontacted leads'],
+  },
+  query_properties: {
+    cs: ['Porovnej vybrane', 'Najdi chybejici data', 'Serad podle ceny za m²'],
+    en: ['Compare selected', 'Find missing data', 'Sort by price per m²'],
+  },
+  find_missing_data: {
+    cs: ['Export seznam', 'Prirad ukoly k doplneni'],
+    en: ['Export list', 'Assign tasks to fill in'],
+  },
+  generate_chart: {
+    cs: ['Jiny typ grafu', 'Pridej do reportu'],
+    en: ['Different chart type', 'Add to report'],
+  },
+  draft_email: {
+    cs: ['Uprav ton', 'Pridej termin prohlidky'],
+    en: ['Adjust tone', 'Add a viewing date'],
+  },
+  generate_report: {
+    cs: ['Vytvor prezentaci', 'Posli emailem'],
+    en: ['Create presentation', 'Send by email'],
+  },
+  generate_presentation: {
+    cs: ['Pridej dalsi slide', 'Stahnout PPTX'],
+    en: ['Add another slide', 'Download PPTX'],
+  },
+  setup_monitoring: {
+    cs: ['Nastav dalsi lokality', 'Zmen frekvenci'],
+    en: ['Set more locations', 'Change frequency'],
+  },
+}
+
 function formatTime(iso: string, language: 'cs' | 'en') {
   return new Date(iso).toLocaleTimeString(language === 'cs' ? 'cs-CZ' : 'en-US', {
     hour: '2-digit',
@@ -21,6 +61,76 @@ function formatTime(iso: string, language: 'cs' | 'en') {
 
 function formatMetricLabel(key: string, labels: Record<string, string>) {
   return labels[key] ?? key.replace(/_/g, ' ')
+}
+
+function sanitizeSuggestion(value: string) {
+  return value
+    .replace(/^[-*•]\s+/, '')
+    .replace(/^\d+\.\s+/, '')
+    .replace(/\*\*/g, '')
+    .replace(/`/g, '')
+    .trim()
+}
+
+function extractTextSuggestions(content: string) {
+  const lines = content.split(/\r?\n/).map((line) => line.trim())
+  const suggestions: string[] = []
+  let collecting = false
+
+  for (const line of lines) {
+    if (!collecting && /^(dalsi kroky|další kroky|next steps?)[:]?$/i.test(line)) {
+      collecting = true
+      continue
+    }
+
+    if (!collecting) continue
+
+    if (!line) {
+      if (suggestions.length > 0) break
+      continue
+    }
+
+    const isBullet = /^[-*•]\s+/.test(line) || /^\d+\.\s+/.test(line)
+    if (!isBullet) {
+      if (suggestions.length > 0) break
+      continue
+    }
+
+    const suggestion = sanitizeSuggestion(line)
+    if (suggestion) suggestions.push(suggestion)
+    if (suggestions.length >= 3) break
+  }
+
+  if (suggestions.length > 0) return suggestions
+
+  return lines
+    .filter((line) => /^[-*•]\s+/.test(line) || /^\d+\.\s+/.test(line))
+    .slice(-2)
+    .map(sanitizeSuggestion)
+    .filter(Boolean)
+}
+
+function getContextualSuggestions(steps: ToolCallLogEntry[] | undefined, language: 'cs' | 'en') {
+  if (!steps?.length) return []
+
+  const toolNames = [...steps]
+    .reverse()
+    .map((step) => step.name)
+    .filter((name, index, list) => list.indexOf(name) === index)
+
+  const suggestions: string[] = []
+
+  for (const toolName of toolNames) {
+    const toolSuggestions = TOOL_SUGGESTIONS[toolName]?.[language] ?? []
+    for (const suggestion of toolSuggestions) {
+      if (!suggestions.includes(suggestion)) {
+        suggestions.push(suggestion)
+      }
+    }
+    if (suggestions.length >= 6) break
+  }
+
+  return suggestions
 }
 
 // ─── ThinkingSteps ────────────────────────────────────────────────────────
@@ -191,9 +301,55 @@ function PresentationCard({ data }: { data: Record<string, unknown> }) {
   )
 }
 
+function SuggestionChips({
+  content,
+  steps,
+  language,
+  onSend,
+}: {
+  content: string
+  steps?: ToolCallLogEntry[]
+  language: 'cs' | 'en'
+  onSend: (message: string) => void
+}) {
+  const suggestions = useMemo(() => {
+    const merged = [...extractTextSuggestions(content), ...getContextualSuggestions(steps, language)]
+    return merged.filter((suggestion, index) => merged.findIndex((item) => item.toLowerCase() === suggestion.toLowerCase()) === index).slice(0, 6)
+  }, [content, language, steps])
+
+  if (suggestions.length === 0) return null
+
+  return (
+    <div className="mt-4">
+      <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/70">
+        <Sparkles className="h-3 w-3 text-primary" />
+        Pokračovat
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {suggestions.map((suggestion) => (
+          <button
+            key={suggestion}
+            type="button"
+            onClick={() => onSend(suggestion)}
+            className="button-smooth rounded-full border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground hover:border-primary/25 hover:text-primary"
+          >
+            {suggestion}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ─── Main component ────────────────────────────────────────────────────────
 
-export default function MessageBubble({ message }: { message: ChatMessage }) {
+export default function MessageBubble({
+  message,
+  onSend,
+}: {
+  message: ChatMessage
+  onSend: (message: string) => void
+}) {
   const { language } = useTranslation()
   const isUser = message.role === 'user'
 
@@ -270,6 +426,13 @@ export default function MessageBubble({ message }: { message: ChatMessage }) {
           {message.presentationData
             ? <PresentationCard data={message.presentationData as Record<string, unknown>} />
             : null}
+
+          <SuggestionChips
+            content={message.content}
+            steps={message.toolCallLog}
+            language={language}
+            onSend={onSend}
+          />
         </div>
         <p className="mt-1 text-[11px] text-muted-foreground/70">
           {formatTime(message.timestamp, language)}
