@@ -32,6 +32,8 @@ export interface AgentResponse {
   monitoringSet: unknown | null
   presentationData: unknown | null
   reportData: unknown | null
+  comparisonData: unknown | null
+  timelineData: unknown | null
   toolCallLog: ToolCallLogEntry[]
 }
 
@@ -46,6 +48,7 @@ const SYSTEM_PROMPT =
   'Vždy používej nástroje pro získání dat — nehádej. ' +
   'Když uživatel chce graf, VŽDY nejdřív zavolej datový nástroj (query_clients, query_leads, query_transactions) ' +
   'a pak IHNED zavolej generate_chart s konkrétními čísly z výsledku. ' +
+  'Pro porovnání nemovitostí použij compare_properties. Pro analýzu portfolia použij analyze_portfolio. Pro historii klienta použij client_activity_timeline. ' +
   'Formátuj částky v CZK (např. 8,5 mil. CZK). Datumy ve formátu DD.MM.YYYY. ' +
   'Po každé odpovědi navrhni 1-2 další kroky.'
 
@@ -58,11 +61,19 @@ function trimHistory(history: HistoryMessage[], maxMessages = 10): HistoryMessag
 }
 
 function toTableData(data: unknown, title: string): TableData | null {
-  if (!Array.isArray(data) || data.length === 0) return null
-  const first = data[0]
+  const rowsSource =
+    Array.isArray(data)
+      ? data
+      : typeof data === 'object' && data !== null && 'rows' in data && Array.isArray((data as { rows: unknown }).rows)
+      ? (data as { rows: unknown[] }).rows
+      : null
+
+  if (!rowsSource || rowsSource.length === 0) return null
+
+  const first = rowsSource[0]
   if (typeof first !== 'object' || first === null) return null
   const headers = Object.keys(first as object)
-  const rows = (data as Record<string, unknown>[]).map(row =>
+  const rows = (rowsSource as Record<string, unknown>[]).map(row =>
     headers.map(h => {
       const v = row[h]
       return v === null || v === undefined ? '—' : String(v)
@@ -91,6 +102,8 @@ function emptyResponse(message: string): AgentResponse {
     monitoringSet: null,
     presentationData: null,
     reportData: null,
+    comparisonData: null,
+    timelineData: null,
     toolCallLog: [],
   }
 }
@@ -228,6 +241,8 @@ export async function processMessage(
     monitoringSet: null,
     presentationData: null,
     reportData: null,
+    comparisonData: null,
+    timelineData: null,
     toolCallLog,
   }
 
@@ -261,6 +276,14 @@ export async function processMessage(
 
       case 'file_download':
         agentResponse.presentationData = result.data
+        break
+
+      case 'comparison':
+        agentResponse.comparisonData = result.data
+        break
+
+      case 'timeline':
+        agentResponse.timelineData = result.data
         break
 
       // 'text' hint — no structured output, skip

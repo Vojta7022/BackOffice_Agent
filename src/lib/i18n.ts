@@ -87,6 +87,12 @@ export interface Translations {
     highlights: string
     actionItems: string
     presentation: string
+    comparisonTitle: string
+    timelineTitle: string
+    noTimeline: string
+    timelineLead: string
+    timelineTransaction: string
+    timelineTask: string
     slides: string
     slide: string
     moreSlides: string
@@ -115,9 +121,12 @@ export interface Translations {
     noResults: string
     noResultsHint: string
     price: string
+    area: string
     status: string
     renovationStatus: string
     renovationYear: string
+    yearBuilt: string
+    pricePerSqm: string
     constructionNotes: string
     description: string
     saveEdit: string
@@ -250,6 +259,7 @@ export interface Translations {
     loading: string
     noData: string
     actions: string
+    parameter: string
     create: string
     edit: string
     delete: string
@@ -344,6 +354,11 @@ const cs: Translations = {
       setup_monitoring: 'Nastaveni monitoringu',
       get_dashboard_metrics: 'Nacitani metrik',
       get_weekly_summary: 'Tydenni prehled',
+      compare_properties: 'Porovnani nemovitosti',
+      generate_property_description: 'Popis nemovitosti',
+      analyze_portfolio: 'Analyza portfolia',
+      client_activity_timeline: 'Historie klienta',
+      market_overview: 'Prehled trhu',
     },
     taskCreated: 'Ukol vytvoren',
     dueDate: 'Termin',
@@ -357,6 +372,12 @@ const cs: Translations = {
     highlights: 'Highlights',
     actionItems: 'Akcni kroky',
     presentation: 'Prezentace',
+    comparisonTitle: 'Porovnani nemovitosti',
+    timelineTitle: 'Historie klienta',
+    noTimeline: 'Zatim nejsou k dispozici zadne udalosti.',
+    timelineLead: 'Lead',
+    timelineTransaction: 'Transakce',
+    timelineTask: 'Ukol',
     slides: 'snimku',
     slide: 'Snimek',
     moreSlides: 'dalsich',
@@ -396,9 +417,12 @@ const cs: Translations = {
     noResults: 'Zadne nemovitosti nenalezeny',
     noResultsHint: 'Zkuste upravit filtry nebo vyhledavaci dotaz',
     price: 'Cena',
+    area: 'Plocha',
     status: 'Stav',
     renovationStatus: 'Stav rekonstrukce',
     renovationYear: 'Rok rekonstrukce',
+    yearBuilt: 'Rok vystavby',
+    pricePerSqm: 'Cena za m²',
     constructionNotes: 'Stavebni poznamky',
     description: 'Popis',
     saveEdit: 'Ulozit zmeny',
@@ -588,6 +612,7 @@ const cs: Translations = {
     loading: 'Nacitam...',
     noData: 'Zadna data',
     actions: 'Akce',
+    parameter: 'Parametr',
     create: 'Vytvorit',
     edit: 'Upravit',
     delete: 'Smazat',
@@ -682,6 +707,11 @@ const en: Translations = {
       setup_monitoring: 'Monitoring setup',
       get_dashboard_metrics: 'Metrics loading',
       get_weekly_summary: 'Weekly summary',
+      compare_properties: 'Property comparison',
+      generate_property_description: 'Property description',
+      analyze_portfolio: 'Portfolio analysis',
+      client_activity_timeline: 'Client timeline',
+      market_overview: 'Market overview',
     },
     taskCreated: 'Task created',
     dueDate: 'Due date',
@@ -695,6 +725,12 @@ const en: Translations = {
     highlights: 'Highlights',
     actionItems: 'Action items',
     presentation: 'Presentation',
+    comparisonTitle: 'Property comparison',
+    timelineTitle: 'Client timeline',
+    noTimeline: 'No events available yet.',
+    timelineLead: 'Lead',
+    timelineTransaction: 'Transaction',
+    timelineTask: 'Task',
     slides: 'slides',
     slide: 'Slide',
     moreSlides: 'more',
@@ -734,9 +770,12 @@ const en: Translations = {
     noResults: 'No properties found',
     noResultsHint: 'Try adjusting filters or the search query',
     price: 'Price',
+    area: 'Area',
     status: 'Status',
     renovationStatus: 'Renovation status',
     renovationYear: 'Renovation year',
+    yearBuilt: 'Year built',
+    pricePerSqm: 'Price per m²',
     constructionNotes: 'Construction notes',
     description: 'Description',
     saveEdit: 'Save changes',
@@ -926,6 +965,7 @@ const en: Translations = {
     loading: 'Loading...',
     noData: 'No data',
     actions: 'Actions',
+    parameter: 'Parameter',
     create: 'Create',
     edit: 'Edit',
     delete: 'Delete',

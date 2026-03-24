@@ -5,6 +5,8 @@ import { CheckCircle2, Bell, FileText, Presentation, Wrench, Download } from 'lu
 import InlineChart from './InlineChart'
 import InlineTable from './InlineTable'
 import EmailDraftCard from './EmailDraftCard'
+import ComparisonCard from './ComparisonCard'
+import TimelineCard from './TimelineCard'
 import type { ChatMessage } from '@/lib/chat-store'
 import type { ChartConfig, ToolCallLogEntry } from '@/lib/agent/orchestrator'
 import { generatePPTX } from '@/lib/exports/generate-pptx'
@@ -255,6 +257,14 @@ export default function MessageBubble({ message }: { message: ChatMessage }) {
 
           {message.reportData
             ? <ReportCard report={message.reportData as Record<string, unknown>} />
+            : null}
+
+          {message.comparisonData
+            ? <ComparisonCard comparison={message.comparisonData as { properties: never[]; comparison_fields: string[] }} />
+            : null}
+
+          {message.timelineData
+            ? <TimelineCard timelineData={message.timelineData as { client: { id: string; name: string; email?: string } | null; timeline: never[] }} />
             : null}
 
           {message.presentationData

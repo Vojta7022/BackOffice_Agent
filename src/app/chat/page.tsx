@@ -49,6 +49,8 @@ function ChatPageInner() {
         monitoringSet: null,
         presentationData: null,
         reportData: null,
+        comparisonData: null,
+        timelineData: null,
         toolCallLog: [],
       })
     } finally {

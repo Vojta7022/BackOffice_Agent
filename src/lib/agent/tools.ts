@@ -15,6 +15,11 @@ export type ToolName =
   | 'generate_report'
   | 'generate_presentation'
   | 'setup_monitoring'
+  | 'compare_properties'
+  | 'generate_property_description'
+  | 'analyze_portfolio'
+  | 'client_activity_timeline'
+  | 'market_overview'
 
 export const agentTools: FunctionDeclaration[] = [
   {
@@ -229,6 +234,66 @@ export const agentTools: FunctionDeclaration[] = [
         frequency: { type: 'string', enum: ['daily', 'weekly'] },
       },
       required: ['location'],
+    },
+  },
+  {
+    name: 'compare_properties',
+    description: 'Compare 2+ properties side by side',
+    parametersJsonSchema: {
+      type: 'object',
+      properties: {
+        property_ids: {
+          type: 'array',
+          items: { type: 'string' },
+          minItems: 2,
+        },
+      },
+      required: ['property_ids'],
+    },
+  },
+  {
+    name: 'generate_property_description',
+    description: 'Generate marketing description for a property listing',
+    parametersJsonSchema: {
+      type: 'object',
+      properties: {
+        property_id: { type: 'string' },
+        tone: { type: 'string', enum: ['professional', 'casual', 'luxury'], default: 'professional' },
+        language: { type: 'string', enum: ['cs', 'en'], default: 'cs' },
+      },
+      required: ['property_id'],
+    },
+  },
+  {
+    name: 'analyze_portfolio',
+    description: 'Analyze the full property portfolio — distribution, performance, recommendations',
+    parametersJsonSchema: {
+      type: 'object',
+      properties: {
+        group_by: { type: 'string', enum: ['city', 'type', 'status', 'price_range'], default: 'type' },
+      },
+    },
+  },
+  {
+    name: 'client_activity_timeline',
+    description: 'Show full activity timeline for a specific client',
+    parametersJsonSchema: {
+      type: 'object',
+      properties: {
+        client_id: { type: 'string' },
+        client_name: { type: 'string' },
+      },
+    },
+  },
+  {
+    name: 'market_overview',
+    description: 'Generate market overview with key metrics and trends',
+    parametersJsonSchema: {
+      type: 'object',
+      properties: {
+        city: { type: 'string', description: 'Optional city filter, e.g. "Praha"' },
+        period_months: { type: 'number', default: 6 },
+      },
     },
   },
 ]

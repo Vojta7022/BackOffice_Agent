@@ -16,6 +16,8 @@ export interface ChatMessage {
   monitoringSet?: unknown | null
   presentationData?: unknown | null
   reportData?: unknown | null
+  comparisonData?: unknown | null
+  timelineData?: unknown | null
   toolCallLog?: ToolCallLogEntry[]
 }
 
@@ -70,6 +72,8 @@ export const useChatStore = create<ChatStore>()(
               monitoringSet: response.monitoringSet ?? undefined,
               presentationData: response.presentationData ?? undefined,
               reportData: response.reportData ?? undefined,
+              comparisonData: response.comparisonData ?? undefined,
+              timelineData: response.timelineData ?? undefined,
               toolCallLog: response.toolCallLog?.length ? response.toolCallLog : undefined,
             },
           ],

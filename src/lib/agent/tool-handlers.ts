@@ -1,5 +1,5 @@
 import { db } from '@/lib/database'
-import { MonitoringRule, Task, Lead, Client } from '@/types'
+import { MonitoringRule, Task, Lead, Client, Property } from '@/types'
 import { ToolName } from './tools'
 
 // ─── Result type ──────────────────────────────────────────────────────────────
@@ -7,13 +7,59 @@ import { ToolName } from './tools'
 export interface ToolResult {
   data: unknown
   summary: string
-  display_hint: 'text' | 'table' | 'chart' | 'email_draft' | 'file_download' | 'task_created' | 'monitoring_set'
+  display_hint: 'text' | 'table' | 'chart' | 'email_draft' | 'file_download' | 'task_created' | 'monitoring_set' | 'comparison' | 'timeline'
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function czk(amount: number): string {
   return new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 }).format(amount)
+}
+
+const NOW = '2026-03-22'
+
+function daysBetween(start: string, end: string): number {
+  const startDate = new Date(start)
+  const endDate = new Date(end)
+  return Math.max(0, Math.round((endDate.getTime() - startDate.getTime()) / 86_400_000))
+}
+
+function monthKey(dateStr: string): string {
+  return dateStr.slice(0, 7)
+}
+
+function subtractMonths(dateStr: string, months: number): string {
+  const date = new Date(dateStr)
+  date.setMonth(date.getMonth() - months)
+  return date.toISOString().split('T')[0]
+}
+
+function average(values: number[]): number {
+  if (!values.length) return 0
+  return values.reduce((sum, value) => sum + value, 0) / values.length
+}
+
+function pctChange(current: number, previous: number): number {
+  if (previous === 0) return current > 0 ? 100 : 0
+  return Math.round(((current - previous) / previous) * 1000) / 10
+}
+
+function pricePerSqm(property: Pick<Property, 'price' | 'area_sqm'>): number {
+  return property.area_sqm > 0 ? Math.round(property.price / property.area_sqm) : 0
+}
+
+function getPriceRangeLabel(price: number): string {
+  if (price < 5_000_000) return '<5M'
+  if (price < 10_000_000) return '5-10M'
+  if (price < 20_000_000) return '10-20M'
+  return '20M+'
+}
+
+function matchesCity(propertyId: string | null | undefined, city?: string): boolean {
+  if (!city) return true
+  if (!propertyId) return false
+  const property = db.getPropertyById(propertyId)
+  return property?.address.city.toLowerCase() === city.toLowerCase()
 }
 
 function parseQuarter(q: string): { year: number; quarter: number } | null {
@@ -326,8 +372,7 @@ function handleCreateTask(input: Record<string, unknown>): ToolResult {
   const { title, description, assigned_to, priority, due_date, related_property_id, related_client_id } =
     input as Record<string, string>
 
-  const task: Task = {
-    id: `task-${Date.now()}`,
+  const task = db.addTask({
     title,
     description,
     assigned_to: assigned_to ?? 'agent-001',
@@ -336,13 +381,305 @@ function handleCreateTask(input: Record<string, unknown>): ToolResult {
     status: 'todo',
     priority: (priority as Task['priority']) ?? 'medium',
     due_date: due_date ?? '2026-03-31',
-    created_at: '2026-03-22',
-  }
+  })
 
   return {
     data: task,
     summary: `Úkol „${title}" byl vytvořen s prioritou ${task.priority} a termínem ${task.due_date}.`,
     display_hint: 'task_created',
+  }
+}
+
+function handleCompareProperties(input: Record<string, unknown>): ToolResult {
+  const property_ids = Array.isArray(input.property_ids)
+    ? input.property_ids.filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
+    : []
+
+  const properties = property_ids
+    .map((id) => db.getPropertyById(id))
+    .filter((property): property is Property => Boolean(property))
+    .map((property) => ({
+      ...property,
+      price_per_sqm: pricePerSqm(property),
+    }))
+
+  const missing = property_ids.length - properties.length
+
+  return {
+    data: {
+      properties,
+      comparison_fields: ['price', 'area_sqm', 'rooms', 'renovation_status', 'year_built', 'price_per_sqm'],
+    },
+    summary:
+      properties.length >= 2
+        ? `Porovnání ${properties.length} nemovitostí je připravené${missing > 0 ? `, ${missing} ID nebylo nalezeno` : ''}.`
+        : 'Pro porovnání jsou potřeba alespoň 2 existující nemovitosti.',
+    display_hint: 'comparison',
+  }
+}
+
+function handleGeneratePropertyDescription(input: Record<string, unknown>): ToolResult {
+  const property_id = typeof input.property_id === 'string' ? input.property_id : ''
+  const tone = typeof input.tone === 'string' ? input.tone : 'professional'
+  const language = input.language === 'en' ? 'en' : 'cs'
+  const property = db.getPropertyById(property_id)
+
+  if (!property) {
+    return {
+      data: null,
+      summary: `Nemovitost s ID ${property_id} nebyla nalezena.`,
+      display_hint: 'text',
+    }
+  }
+
+  return {
+    data: { property, tone, language },
+    summary: `Podklady pro marketingový popis nemovitosti „${property.name}" jsou připravené.`,
+    display_hint: 'text',
+  }
+}
+
+function handleAnalyzePortfolio(input: Record<string, unknown>): ToolResult {
+  const group_by = (input.group_by as 'city' | 'type' | 'status' | 'price_range') ?? 'type'
+  const properties = db.getAllProperties()
+  const stale = db.getStaleListings(180)
+  const missing = db.getPropertiesWithMissingData()
+
+  const groups = new Map<string, Property[]>()
+
+  for (const property of properties) {
+    const key =
+      group_by === 'city'
+        ? property.address.city
+        : group_by === 'type'
+        ? property.type
+        : group_by === 'status'
+        ? property.status
+        : getPriceRangeLabel(property.price)
+
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key)!.push(property)
+  }
+
+  const rows = Array.from(groups.entries())
+    .map(([group, items]) => ({
+      Skupina: group,
+      Počet: items.length,
+      'Celková hodnota': czk(items.reduce((sum, property) => sum + property.price, 0)),
+      'Průměrná cena': czk(Math.round(average(items.map((property) => property.price)))),
+      'Průměrná plocha': `${Math.round(average(items.map((property) => property.area_sqm)))} m²`,
+    }))
+    .sort((a, b) => Number(b.Počet) - Number(a.Počet))
+
+  const onMarket = properties.filter((property) => property.status === 'available' || property.status === 'reserved')
+  const recommendations = [
+    missing.length > 0 ? `${missing.length} nemovitostí s chybějícími daty vyžaduje doplnění.` : null,
+    stale.length > 0 ? `${stale.length} nemovitostí je na trhu déle než 6 měsíců a zaslouží revizi ceny.` : null,
+    onMarket.filter((property) => property.status === 'available').length > properties.length / 2
+      ? 'Vysoký podíl volných jednotek naznačuje prostor pro aktivnější propagaci.'
+      : null,
+  ].filter(Boolean)
+
+  const priceRanges = ['<5M', '5-10M', '10-20M', '20M+'].map((range) => ({
+    range,
+    count: properties.filter((property) => getPriceRangeLabel(property.price) === range).length,
+  }))
+
+  const avgDaysOnMarket = Math.round(average(onMarket.map((property) => daysBetween(property.created_at, NOW))))
+  const vacancyRate = properties.length > 0
+    ? Math.round((properties.filter((property) => property.status === 'available').length / properties.length) * 1000) / 10
+    : 0
+
+  return {
+    data: {
+      rows,
+      overall: {
+        total_portfolio_value_czk: properties.reduce((sum, property) => sum + property.price, 0),
+        avg_days_on_market: avgDaysOnMarket,
+        vacancy_rate_pct: vacancyRate,
+      },
+      price_ranges: priceRanges,
+      recommendations,
+      group_by,
+    },
+    summary: `Portfolio obsahuje ${properties.length} nemovitostí v celkové hodnotě ${czk(properties.reduce((sum, property) => sum + property.price, 0))}. Průměrná doba na trhu je ${avgDaysOnMarket} dní a vacancy rate ${vacancyRate} %. ${recommendations.join(' ')}`.trim(),
+    display_hint: 'table',
+  }
+}
+
+function handleClientActivityTimeline(input: Record<string, unknown>): ToolResult {
+  const client_id = typeof input.client_id === 'string' ? input.client_id.trim() : ''
+  const client_name = typeof input.client_name === 'string' ? input.client_name.trim() : ''
+
+  let client = client_id ? db.getClientById(client_id) : undefined
+
+  if (!client && client_name) {
+    const matches = db.searchClients(client_name)
+    const exact = matches.find((item) => item.name.toLowerCase() === client_name.toLowerCase())
+    client = exact ?? matches[0]
+  }
+
+  if (!client) {
+    return {
+      data: { client: null, timeline: [] },
+      summary: 'Klient nebyl nalezen.',
+      display_hint: 'timeline',
+    }
+  }
+
+  const leads = db.getAllLeads().filter((lead) => lead.client_id === client!.id)
+  const transactions = db.getTransactions().filter((transaction) => transaction.client_id === client!.id)
+  const tasks = db.getAllTasks().filter((task) => task.related_client_id === client!.id)
+
+  const timeline = [
+    ...leads.map((lead) => {
+      const property = lead.property_id ? db.getPropertyById(lead.property_id) : undefined
+      return {
+        date: lead.created_at,
+        event_type: 'lead',
+        description: `Lead ${lead.type} (${lead.status})${property ? ` - ${property.name}` : ''}`,
+        description_cs: `Lead ${lead.type} (${lead.status})${property ? ` - ${property.name}` : ''}`,
+        description_en: `Lead ${lead.type} (${lead.status})${property ? ` - ${property.name}` : ''}`,
+      }
+    }),
+    ...transactions.map((transaction) => {
+      const property = db.getPropertyById(transaction.property_id)
+      return {
+        date: transaction.date,
+        event_type: 'transaction',
+        description: `Transakce ${transaction.type} (${transaction.status})${property ? ` - ${property.name}` : ''}, ${czk(transaction.amount)}`,
+        description_cs: `Transakce ${transaction.type} (${transaction.status})${property ? ` - ${property.name}` : ''}, ${czk(transaction.amount)}`,
+        description_en: `Transaction ${transaction.type} (${transaction.status})${property ? ` - ${property.name}` : ''}, ${czk(transaction.amount)}`,
+      }
+    }),
+    ...tasks.map((task) => ({
+      date: task.created_at,
+      event_type: 'task',
+      description: `Úkol ${task.title} (${task.status})`,
+      description_cs: `Úkol ${task.title} (${task.status})`,
+      description_en: `Task ${task.title} (${task.status})`,
+    })),
+  ].sort((a, b) => a.date.localeCompare(b.date))
+
+  return {
+    data: {
+      client: {
+        id: client.id,
+        name: client.name,
+        email: client.email,
+      },
+      timeline,
+    },
+    summary: `Časová osa klienta ${client.name} obsahuje ${timeline.length} událostí.`,
+    display_hint: 'timeline',
+  }
+}
+
+function handleMarketOverview(input: Record<string, unknown>): ToolResult {
+  const city = typeof input.city === 'string' && input.city.trim() ? input.city.trim() : undefined
+  const period_months = Number(input.period_months ?? 6)
+  const cutoff = subtractMonths(NOW, period_months)
+  const currentMonth = monthKey(NOW)
+  const previousMonth = monthKey(subtractMonths(NOW, 1))
+
+  const properties = db.getAllProperties().filter((property) => !city || property.address.city.toLowerCase() === city.toLowerCase())
+  const leads = db.getAllLeads().filter((lead) => lead.created_at >= cutoff && matchesCity(lead.property_id, city))
+  const transactions = db.getTransactions().filter((transaction) => transaction.date >= cutoff && matchesCity(transaction.property_id, city))
+
+  const saleTransactions = transactions.filter((transaction) => transaction.type === 'sale' && transaction.status === 'completed')
+  const avgPricePerSqmValues = saleTransactions
+    .map((transaction) => db.getPropertyById(transaction.property_id))
+    .filter((property): property is Property => Boolean(property))
+    .map((property) => pricePerSqm(property))
+
+  const closingDurations = saleTransactions
+    .map((transaction) => {
+      const relatedLead = db.getAllLeads()
+        .filter((lead) => lead.client_id === transaction.client_id && lead.property_id === transaction.property_id)
+        .sort((a, b) => a.created_at.localeCompare(b.created_at))[0]
+      return relatedLead ? daysBetween(relatedLead.created_at, transaction.date) : null
+    })
+    .filter((value): value is number => value !== null)
+
+  function metricsForMonth(month: string) {
+    const monthTransactions = saleTransactions.filter((transaction) => monthKey(transaction.date) === month)
+    const monthLeads = leads.filter((lead) => monthKey(lead.created_at) === month)
+    const monthPricePerSqm = monthTransactions
+      .map((transaction) => db.getPropertyById(transaction.property_id))
+      .filter((property): property is Property => Boolean(property))
+      .map((property) => pricePerSqm(property))
+    const monthClosingDurations = monthTransactions
+      .map((transaction) => {
+        const relatedLead = db.getAllLeads()
+          .filter((lead) => lead.client_id === transaction.client_id && lead.property_id === transaction.property_id)
+          .sort((a, b) => a.created_at.localeCompare(b.created_at))[0]
+        return relatedLead ? daysBetween(relatedLead.created_at, transaction.date) : null
+      })
+      .filter((value): value is number => value !== null)
+
+    return {
+      avg_sale_price: Math.round(average(monthTransactions.map((transaction) => transaction.amount))),
+      avg_price_per_sqm: Math.round(average(monthPricePerSqm)),
+      total_volume: monthTransactions.reduce((sum, transaction) => sum + transaction.amount, 0),
+      conversion_rate: monthLeads.length > 0
+        ? Math.round((monthLeads.filter((lead) => lead.status === 'closed_won').length / monthLeads.length) * 1000) / 10
+        : 0,
+      avg_days_to_close: Math.round(average(monthClosingDurations)),
+    }
+  }
+
+  const currentMetrics = metricsForMonth(currentMonth)
+  const previousMetrics = metricsForMonth(previousMonth)
+
+  const rows = [
+    {
+      Metrika: 'Průměrná prodejní cena',
+      Hodnota: czk(Math.round(average(saleTransactions.map((transaction) => transaction.amount)))),
+      'Tento měsíc': czk(currentMetrics.avg_sale_price),
+      'Minulý měsíc': czk(previousMetrics.avg_sale_price),
+      'Změna m/m': `${pctChange(currentMetrics.avg_sale_price, previousMetrics.avg_sale_price)} %`,
+    },
+    {
+      Metrika: 'Průměrná cena za m²',
+      Hodnota: `${new Intl.NumberFormat('cs-CZ').format(Math.round(average(avgPricePerSqmValues)))} CZK`,
+      'Tento měsíc': `${new Intl.NumberFormat('cs-CZ').format(currentMetrics.avg_price_per_sqm)} CZK`,
+      'Minulý měsíc': `${new Intl.NumberFormat('cs-CZ').format(previousMetrics.avg_price_per_sqm)} CZK`,
+      'Změna m/m': `${pctChange(currentMetrics.avg_price_per_sqm, previousMetrics.avg_price_per_sqm)} %`,
+    },
+    {
+      Metrika: 'Celkový objem',
+      Hodnota: czk(transactions.filter((transaction) => transaction.status === 'completed').reduce((sum, transaction) => sum + transaction.amount, 0)),
+      'Tento měsíc': czk(currentMetrics.total_volume),
+      'Minulý měsíc': czk(previousMetrics.total_volume),
+      'Změna m/m': `${pctChange(currentMetrics.total_volume, previousMetrics.total_volume)} %`,
+    },
+    {
+      Metrika: 'Konverzní poměr',
+      Hodnota: `${leads.length > 0 ? Math.round((leads.filter((lead) => lead.status === 'closed_won').length / leads.length) * 1000) / 10 : 0} %`,
+      'Tento měsíc': `${currentMetrics.conversion_rate} %`,
+      'Minulý měsíc': `${previousMetrics.conversion_rate} %`,
+      'Změna m/m': `${pctChange(currentMetrics.conversion_rate, previousMetrics.conversion_rate)} %`,
+    },
+    {
+      Metrika: 'Průměrná délka uzavření',
+      Hodnota: `${Math.round(average(closingDurations))} dní`,
+      'Tento měsíc': `${currentMetrics.avg_days_to_close} dní`,
+      'Minulý měsíc': `${previousMetrics.avg_days_to_close} dní`,
+      'Změna m/m': `${pctChange(currentMetrics.avg_days_to_close, previousMetrics.avg_days_to_close)} %`,
+    },
+  ]
+
+  return {
+    data: {
+      rows,
+      city: city ?? 'all',
+      period_months,
+      properties_in_scope: properties.length,
+      leads_in_scope: leads.length,
+      transactions_in_scope: transactions.length,
+    },
+    summary: `Přehled trhu${city ? ` pro ${city}` : ''} za posledních ${period_months} měsíců: průměrná prodejní cena ${rows[0].Hodnota}, objem ${rows[2].Hodnota}, konverze ${rows[3].Hodnota}.`,
+    display_hint: 'table',
   }
 }
 
@@ -556,5 +893,10 @@ export async function handleToolCall(
     case 'generate_report':        return handleGenerateReport(toolInput)
     case 'generate_presentation':  return handleGeneratePresentation(toolInput)
     case 'setup_monitoring':       return handleSetupMonitoring(toolInput)
+    case 'compare_properties':     return handleCompareProperties(toolInput)
+    case 'generate_property_description': return handleGeneratePropertyDescription(toolInput)
+    case 'analyze_portfolio':      return handleAnalyzePortfolio(toolInput)
+    case 'client_activity_timeline': return handleClientActivityTimeline(toolInput)
+    case 'market_overview':        return handleMarketOverview(toolInput)
   }
 }
