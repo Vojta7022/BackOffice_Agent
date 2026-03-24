@@ -11,7 +11,13 @@ export interface ChatMessage {
   timestamp: string
   charts?: ChartConfig[]
   tables?: TableData[]
-  emailDraft?: { to: string; subject: string; body: string } | null
+  emailDraft?: {
+    to: string
+    subject: string
+    body: string
+    gmail_draft?: string | null
+    google_connected?: boolean
+  } | null
   taskCreated?: unknown | null
   monitoringSet?: unknown | null
   presentationData?: unknown | null

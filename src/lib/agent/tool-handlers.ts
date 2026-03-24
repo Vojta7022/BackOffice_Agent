@@ -1,6 +1,9 @@
 import { db } from '@/lib/database'
 import { MonitoringRule, Task, Lead, Client, Property, PropertyType, Transaction } from '@/types'
 import { ToolName } from './tools'
+import { getAvailableSlots } from '@/lib/google/calendar'
+import { createDraft } from '@/lib/google/gmail'
+import { hasGoogleRefreshToken } from '@/lib/google/auth'
 
 // ─── Result type ──────────────────────────────────────────────────────────────
 
@@ -8,6 +11,10 @@ export interface ToolResult {
   data: unknown
   summary: string
   display_hint: 'text' | 'table' | 'chart' | 'email_draft' | 'file_download' | 'task_created' | 'monitoring_set' | 'comparison' | 'timeline' | 'report'
+}
+
+export interface ToolCallContext {
+  userMessage?: string
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -25,15 +32,6 @@ const PROPERTY_TYPE_LABELS_CS: Record<PropertyType, string> = {
   commercial: 'Komerce',
   office: 'Kancelář',
 }
-const WEEKDAY_NAMES_CS = ['neděle', 'pondělí', 'úterý', 'středa', 'čtvrtek', 'pátek', 'sobota'] as const
-const WEEKDAY_NAMES_EN = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as const
-const CALENDAR_SLOT_TEMPLATES = [
-  ['09:00-10:00', '14:00-15:00', '16:30-17:15'],
-  ['10:00-11:00', '13:30-14:30'],
-  ['14:00-15:00', '16:00-17:00'],
-  ['09:30-10:30', '11:30-12:15', '15:00-16:00'],
-  ['08:30-09:15', '12:00-13:00'],
-]
 
 function daysBetween(start: string, end: string): number {
   const startDate = new Date(start)
@@ -132,14 +130,6 @@ function propertyTypeLabel(type: PropertyType): string {
   return PROPERTY_TYPE_LABELS_CS[type]
 }
 
-function formatDotDate(date: Date): string {
-  return [
-    String(date.getDate()).padStart(2, '0'),
-    String(date.getMonth() + 1).padStart(2, '0'),
-    date.getFullYear(),
-  ].join('.')
-}
-
 function formatChartMonthLabel(month: string): string {
   const [year, rawMonth] = month.split('-').map(Number)
   const monthLabels = ['Led', 'Úno', 'Bře', 'Dub', 'Kvě', 'Čvn', 'Čvc', 'Srp', 'Zář', 'Říj', 'Lis', 'Pro']
@@ -147,36 +137,70 @@ function formatChartMonthLabel(month: string): string {
   return Number.isFinite(year) ? `${label} ${year}` : month
 }
 
-function getNextBusinessDaySlots() {
-  const slots: Array<{ date: string; day: string; day_en: string; slots: string[] }> = []
-  const cursor = new Date(`${NOW}T00:00:00`)
-  cursor.setDate(cursor.getDate() + 1)
+function inferQuarterFromDateRange(dateFrom?: string, dateTo?: string): { year: number; quarter: number } | null {
+  if (!dateFrom || !dateTo) return null
 
-  while (slots.length < 5) {
-    const dayOfWeek = cursor.getDay()
-    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-      const template = CALENDAR_SLOT_TEMPLATES[slots.length % CALENDAR_SLOT_TEMPLATES.length]
-      slots.push({
-        date: formatDotDate(cursor),
-        day: WEEKDAY_NAMES_CS[dayOfWeek],
-        day_en: WEEKDAY_NAMES_EN[dayOfWeek],
-        slots: template,
-      })
-    }
-    cursor.setDate(cursor.getDate() + 1)
+  const quarterRanges = [
+    { quarter: 1, from: '01-01', to: '03-31' },
+    { quarter: 2, from: '04-01', to: '06-30' },
+    { quarter: 3, from: '07-01', to: '09-30' },
+    { quarter: 4, from: '10-01', to: '12-31' },
+  ]
+
+  const fromMatch = dateFrom.match(/^(\d{4})-(\d{2}-\d{2})$/)
+  const toMatch = dateTo.match(/^(\d{4})-(\d{2}-\d{2})$/)
+  if (!fromMatch || !toMatch || fromMatch[1] !== toMatch[1]) return null
+
+  const match = quarterRanges.find((range) => range.from === fromMatch[2] && range.to === toMatch[2])
+  if (!match) return null
+
+  return { year: Number(fromMatch[1]), quarter: match.quarter }
+}
+
+function inferQuarterFromMessage(message?: string): { year: number; quarter: number } | null {
+  if (!message) return null
+
+  const normalized = normalizeQuery(message)
+  const explicit = parseQuarter(normalized)
+  if (explicit) return explicit
+
+  const mentionsQuarter = /kvartal|ctvrtleti|za prvni|q1/.test(normalized)
+  if (!mentionsQuarter) return null
+
+  if (/druhy|2\.?\s*(kvartal|ctvrtleti)|q2/.test(normalized)) return { year: 2026, quarter: 2 }
+  if (/treti|3\.?\s*(kvartal|ctvrtleti)|q3/.test(normalized)) return { year: 2026, quarter: 3 }
+  if (/ctvrty|4\.?\s*(kvartal|ctvrtleti)|q4/.test(normalized)) return { year: 2026, quarter: 4 }
+
+  return { year: 2026, quarter: 1 }
+}
+
+function resolveQuarter(
+  quarter: string | undefined,
+  dateFrom: string | undefined,
+  dateTo: string | undefined,
+  userMessage?: string
+): { year: number; quarter: number } | null {
+  if (quarter) {
+    const parsedQuarter = parseQuarter(quarter)
+    if (parsedQuarter) return parsedQuarter
   }
 
-  return slots
+  const fromDates = inferQuarterFromDateRange(dateFrom, dateTo)
+  if (fromDates) return fromDates
+
+  return inferQuarterFromMessage(userMessage)
 }
 
 // ─── Handlers ─────────────────────────────────────────────────────────────────
 
-function handleQueryClients(input: Record<string, unknown>): ToolResult {
+function handleQueryClients(input: Record<string, unknown>, context?: ToolCallContext): ToolResult {
   const { date_from, date_to, source, type, status, quarter, group_by } = input as Record<string, string>
+  console.log('query_clients params:', JSON.stringify(input))
 
   // Quarter mode
-  if (quarter) {
-    const parsed = parseQuarter(quarter)
+  const resolvedQuarter = resolveQuarter(quarter, date_from, date_to, context?.userMessage)
+  if (resolvedQuarter) {
+    const parsed = resolvedQuarter
     if (!parsed) return { data: [], summary: 'Nepodařilo se rozpoznat čtvrtletí.', display_hint: 'text' }
     const grouped = db.getNewClientsByQuarter(parsed.year, parsed.quarter)
     const total = grouped.reduce((s, g) => s + g.count, 0)
@@ -485,40 +509,65 @@ function handleGenerateChart(input: Record<string, unknown>): ToolResult {
   }
 }
 
-function handleDraftEmail(input: Record<string, unknown>): ToolResult {
+async function handleDraftEmail(input: Record<string, unknown>): Promise<ToolResult> {
   const { to, subject, body, context } = input as Record<string, string>
+  const resolvedTo = to?.trim() || 'zajemce@email.cz'
+  const resolvedSubject = subject?.trim() || 'Navrh terminu prohlidky'
+  const resolvedBody = body?.trim() || ''
   const normalizedContext = `${subject ?? ''} ${body ?? ''} ${context ?? ''}`
   const isViewingEmail = /zájemce|zajemce|prohl[ií]dk|viewing/i.test(normalizedContext)
+  const draftResult = await createDraft(resolvedTo, resolvedSubject, resolvedBody)
+
   return {
     data: {
-      to,
-      subject,
-      body,
+      to: resolvedTo,
+      subject: resolvedSubject,
+      body: resolvedBody,
       context: context ?? '',
       email_type: isViewingEmail ? 'property_viewing' : 'general',
+      gmail_draft: draftResult.created ? 'Koncept ulozen do Gmail' : null,
+      google_connected: hasGoogleRefreshToken(),
     },
     summary: isViewingEmail
       ? `Email zájemci s návrhem termínů prohlídky je připraven k odeslání.`
-      : `Email pro „${to}“ s předmětem „${subject}“ je připraven k odeslání.`,
+      : `Email pro „${resolvedTo}“ s předmětem „${resolvedSubject}“ je připraven k odeslání.`,
     display_hint: 'email_draft',
   }
 }
 
-function handleCheckCalendar(input: Record<string, unknown>): ToolResult {
+async function handleCheckCalendar(input: Record<string, unknown>): Promise<ToolResult> {
   const { date_from, date_to, duration_minutes } = input as Record<string, string>
   const duration = Number(duration_minutes ?? 60)
-  const slots = getNextBusinessDaySlots()
+  const resolvedFrom = date_from ?? '2026-03-23'
+  const resolvedTo = date_to ?? '2026-03-27'
+  const availability = await getAvailableSlots(resolvedFrom, resolvedTo, duration)
+  const groupedSlots = availability.slots.reduce<Array<{ date: string; day: string; slots: string[] }>>((acc, slot) => {
+    const existing = acc.find((item) => item.date === slot.date && item.day === slot.day)
+    if (existing) {
+      existing.slots.push(slot.time)
+      return acc
+    }
+
+    acc.push({
+      date: slot.date,
+      day: slot.day,
+      slots: [slot.time],
+    })
+    return acc
+  }, [])
 
   return {
     data: {
       requested_range: {
-        date_from: date_from ?? NOW,
-        date_to: date_to ?? '2026-03-27',
+        date_from: resolvedFrom,
+        date_to: resolvedTo,
       },
       duration_minutes: duration,
-      slots,
+      slots: groupedSlots,
+      raw_slots: availability.slots,
+      source: availability.source,
     },
-    summary: `Volné termíny pro příštích 5 pracovních dní od 23.03.2026 do 27.03.2026 jsou připravené.`,
+    summary: `Volné termíny od ${resolvedFrom} do ${resolvedTo} jsou připravené (${availability.source === 'google_calendar' ? 'Google Calendar' : 'simulace'}).`,
     display_hint: 'table',
   }
 }
@@ -1020,10 +1069,11 @@ function handleSetupMonitoring(input: Record<string, unknown>): ToolResult {
 
 export async function handleToolCall(
   toolName: ToolName,
-  toolInput: Record<string, unknown>
+  toolInput: Record<string, unknown>,
+  context?: ToolCallContext
 ): Promise<ToolResult> {
   switch (toolName) {
-    case 'query_clients':          return handleQueryClients(toolInput)
+    case 'query_clients':          return handleQueryClients(toolInput, context)
     case 'query_leads':            return handleQueryLeads(toolInput)
     case 'query_properties':       return handleQueryProperties(toolInput)
     case 'find_missing_data':      return handleFindMissingData(toolInput)

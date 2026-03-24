@@ -21,6 +21,8 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "googleapis": "^171.4.0",
+    "groq-sdk": "^1.1.1",
     "lucide-react": "^0.577.0",
     "next": "14.2.35",
     "papaparse": "^5.5.3",

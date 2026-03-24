@@ -1,8 +1,9 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Bell, Plus, MapPin, Clock, Zap, MessageSquare } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, fetchJson } from '@/lib/utils'
 import { useTranslation } from '@/lib/useTranslation'
 import type { MonitoringRule } from '@/types'
 
@@ -91,7 +92,16 @@ function RuleCard({ rule }: { rule: typeof EXAMPLE_RULES[0] }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function MonitoringPage() {
-  const { t } = useTranslation()
+  const { t, language } = useTranslation()
+  const [googleStatus, setGoogleStatus] = useState<{ connected: boolean; hasOAuthConfig: boolean } | null>(null)
+
+  useEffect(() => {
+    fetchJson<{ connected: boolean; hasOAuthConfig: boolean }>('/api/google/status')
+      .then(setGoogleStatus)
+      .catch((error) => {
+        console.error('Google status load failed:', error)
+      })
+  }, [])
 
   return (
     <div className="flex flex-col gap-8 p-4 md:p-6 max-w-4xl">
@@ -110,6 +120,41 @@ export default function MonitoringPage() {
           <Plus className="h-4 w-4" />
           {t.monitoring.newRule}
         </Link>
+      </div>
+
+      <div className="rounded-2xl border border-border bg-card p-4 shadow-sm dark:shadow-none">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-foreground">
+              {language === 'en' ? 'Google Integration' : 'Google integrace'}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {googleStatus?.connected
+                ? language === 'en'
+                  ? 'Google Calendar is connected and Gmail drafts/sending are available.'
+                  : 'Google Calendar je pripojen a Gmail drafty i odesilani jsou k dispozici.'
+                : language === 'en'
+                  ? 'Connect Google to use your real calendar and Gmail.'
+                  : 'Propojte Google pro praci s realnym kalendarem a Gmailem.'}
+            </p>
+          </div>
+          {googleStatus?.connected ? (
+            <div className="rounded-full bg-green-500/10 px-3 py-1 text-sm font-medium text-green-600 dark:text-green-400">
+              Google Calendar ✅ Gmail ✅
+            </div>
+          ) : googleStatus?.hasOAuthConfig === false ? (
+            <div className="rounded-full bg-amber-500/10 px-3 py-1 text-sm font-medium text-amber-600 dark:text-amber-300">
+              {language === 'en' ? 'Google OAuth is not configured' : 'Google OAuth neni nakonfigurovan'}
+            </div>
+          ) : (
+            <Link
+              href="/api/auth/google"
+              className="button-smooth inline-flex items-center justify-center rounded-2xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              {language === 'en' ? 'Connect Google account' : 'Propojit Google ucet'}
+            </Link>
+          )}
+        </div>
       </div>
 
       <div className="flex items-start gap-3 rounded-2xl border border-violet-500/20 bg-violet-500/5 p-4 shadow-sm dark:shadow-none">

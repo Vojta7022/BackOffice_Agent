@@ -1,6 +1,7 @@
 import { GoogleGenAI } from '@google/genai'
 import { agentTools, ToolName } from './tools'
 import { handleToolCall, ToolResult } from './tool-handlers'
+import { buildGroqToolResult, callGroq, parseGroqResponse } from './groq-provider'
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
@@ -29,7 +30,13 @@ export interface AgentResponse {
   message: string
   charts: ChartConfig[]
   tables: TableData[]
-  emailDraft: { to: string; subject: string; body: string } | null
+  emailDraft: {
+    to: string
+    subject: string
+    body: string
+    gmail_draft?: string | null
+    google_connected?: boolean
+  } | null
   taskCreated: unknown | null
   monitoringSet: unknown | null
   presentationData: unknown | null
@@ -41,7 +48,8 @@ export interface AgentResponse {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const MODEL = 'gemini-2.5-flash-lite'
+const PROVIDERS = ['gemini', 'groq'] as const
+const GEMINI_MODELS = ['gemini-3.1-flash-lite-preview', 'gemini-2.5-flash-lite', 'gemini-2.5-flash'] as const
 const MAX_TOKENS = 2048
 const MAX_ITERATIONS = 5
 const RETRY_DELAYS_MS = [5000, 15000, 30000] as const
@@ -51,10 +59,11 @@ const SYSTEM_PROMPT = `Jsi back-office asistent české realitní firmy RE:Agent
 JAZYK: Odpovídej VŽDY ve stejném jazyce jako uživatel.
 
 GRAFY: Pokud uživatel žádá graf/vizualizaci/znázornění, MUSÍŠ: 1) zavolat datový nástroj, 2) IHNED zavolat generate_chart s reálnými čísly. Nikdy neříkej "mohu vytvořit graf" — prostě ho vytvoř. Pro dvě časové řady na jednom grafu nejdřív získej oba datasety a pak je spoj do jednoho generate_chart s položkami { label, value, secondary_value }.
+Když vytváříš DVA grafy (např. leady a prodeje), dej každému JINÝ název. Například: "Vývoj počtu leadů (říjen 2025 – březen 2026)" a "Vývoj prodaných nemovitostí (říjen 2025 – březen 2026)". NIKDY nedávej dvěma grafům stejný nadpis.
 
-IDENTIFIKACE: DŮLEŽITÉ: Uživatel nezná ID nemovitostí ani klientů. Pokud uživatel zmíní nemovitost podle názvu nebo adresy, NEJDŘÍV zavolej query_properties se search_query a najdi nemovitost. Pokud zmíní klienta jménem, zavolej query_clients. NIKDY se neptej na ID.
+VYHLEDÁVÁNÍ: Uživatel NIKDY nezná ID. Když zmíní nemovitost ("Loftový byt", "byt v Holešovicích", "Komunardů 32"), IHNED zavolej query_properties s search_query. Když zmíní klienta jménem, zavolej query_clients. NIKDY se NEPTEJ na ID — vždy hledej podle jména nebo adresy.
 
-EMAIL + KALENDÁŘ: Pro email zájemci: 1) pokud uživatel zmíní nemovitost, najdi ji přes query_properties, 2) zavolej check_calendar pro dostupné termíny, 3) zavolej draft_email s informacemi o nemovitosti a termíny v těle emailu. Emailový kontakt si vymysli jako zajemce@email.cz, pokud není specifikován.
+EMAIL PRO ZÁJEMCE: 1) Zavolej query_properties s názvem nebo adresou nemovitosti z uživatelova dotazu, 2) zavolej check_calendar, 3) zavolej draft_email s údaji o nemovitosti a termíny. Pokud uživatel zmínil email zájemce, použij ho. Pokud ne, použij "zajemce@email.cz".
 
 REPORT + PREZENTACE: Pro report s prezentací: 1) zavolej generate_report, 2) zavolej generate_presentation.
 
@@ -120,12 +129,30 @@ function emptyResponse(message: string): AgentResponse {
   }
 }
 
+function isDuplicateStructuredResult(existingResults: ToolResult[], candidate: ToolResult) {
+  return existingResults.some(
+    (result) => result.display_hint === candidate.display_hint && result.summary === candidate.summary
+  )
+}
+
 // ─── Gemini content helpers ───────────────────────────────────────────────────
 
 // We use loose types here because the Gemini Part type is a large union and
 // we only need a small subset. The API accepts these shapes correctly at runtime.
 type GeminiPart = Record<string, unknown>
 type GeminiContent = { role: 'user' | 'model'; parts: GeminiPart[] }
+type ProviderName = typeof PROVIDERS[number]
+type GroqConversationMessage = {
+  role: 'user' | 'assistant' | 'tool'
+  content: string
+  tool_call_id?: string
+  tool_calls?: unknown[]
+}
+type ParsedProviderResponse = {
+  text: string
+  toolCalls: Array<{ name: string; args: Record<string, unknown>; id?: string }>
+  raw: unknown
+}
 
 class GeminiQuotaError extends Error {}
 class GeminiOverloadedError extends Error {}
@@ -135,6 +162,55 @@ function historyToGemini(history: HistoryMessage[]): GeminiContent[] {
     role: m.role === 'assistant' ? 'model' : 'user',
     parts: [{ text: m.content }],
   }))
+}
+
+function historyToGroq(history: HistoryMessage[]): GroqConversationMessage[] {
+  return history.map((message) => ({
+    role: message.role === 'assistant' ? 'assistant' : 'user',
+    content: message.content,
+  }))
+}
+
+function extractGeminiParts(response: unknown): GeminiPart[] {
+  return ((response as { candidates?: Array<{ content?: { parts?: GeminiPart[] } }> })?.candidates?.[0]?.content?.parts ?? [])
+}
+
+function parseGeminiResponse(response: unknown): ParsedProviderResponse {
+  const parts = extractGeminiParts(response)
+  const text = parts
+    .filter((part) => typeof part.text === 'string' && part.text)
+    .map((part) => part.text as string)
+    .join('\n')
+    .trim()
+
+  const toolCalls = parts
+    .filter((part) => part.functionCall != null)
+    .map((part, index) => {
+      const functionCall = part.functionCall as { name?: string; args?: Record<string, unknown> }
+      return {
+        name: functionCall?.name ?? '',
+        args: functionCall?.args ?? {},
+        id: `gemini-tool-${Date.now()}-${index}`,
+      }
+    })
+
+  return { text, toolCalls, raw: response }
+}
+
+function extractGroqToolCalls(response: unknown): unknown[] {
+  return ((response as { choices?: Array<{ message?: { tool_calls?: unknown[] } }> })?.choices?.[0]?.message?.tool_calls ?? [])
+}
+
+function rememberToolResult(
+  name: string,
+  result: ToolResult,
+  allToolResults: ToolResult[],
+  toolCallLog: ToolCallLogEntry[]
+) {
+  if (!isDuplicateStructuredResult(allToolResults, result)) {
+    allToolResults.push(result)
+    toolCallLog.push({ name, timestamp: Date.now() })
+  }
 }
 
 function sleep(ms: number) {
@@ -308,121 +384,223 @@ async function generateContentWithRetry(
   }
 }
 
+async function callWithProvider(
+  provider: ProviderName,
+  systemPrompt: string,
+  messages: GeminiContent[] | GroqConversationMessage[],
+  tools: typeof agentTools
+): Promise<ParsedProviderResponse> {
+  if (provider === 'gemini') {
+    if (!process.env.GEMINI_API_KEY) {
+      throw new Error('GEMINI_API_KEY not set')
+    }
+
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
+    const geminiConfig = {
+      systemInstruction: systemPrompt,
+      tools: [{ functionDeclarations: tools }],
+      maxOutputTokens: MAX_TOKENS,
+    }
+
+    let lastError: unknown = null
+
+    for (const model of GEMINI_MODELS) {
+      try {
+        const response = await generateContentWithRetry(ai, {
+          model,
+          contents: messages as GeminiContent[],
+          config: geminiConfig,
+        })
+        return parseGeminiResponse(response)
+      } catch (error) {
+        lastError = error
+        console.log(`Gemini ${model} failed:`, getErrorMessage(error))
+      }
+    }
+
+    throw lastError ?? new Error('All Gemini models failed')
+  }
+
+  if (provider === 'groq') {
+    if (!process.env.GROQ_API_KEY) {
+      throw new Error('GROQ_API_KEY not set')
+    }
+
+    const response = await callGroq(systemPrompt, messages as GroqConversationMessage[], tools)
+    const parsed = parseGroqResponse(response)
+    return {
+      text: parsed.text,
+      toolCalls: parsed.toolCalls,
+      raw: response,
+    }
+  }
+
+  throw new Error(`Unknown provider: ${provider}`)
+}
+
+async function runGeminiConversation(
+  userMessage: string,
+  conversationHistory: HistoryMessage[],
+  allToolResults: ToolResult[],
+  toolCallLog: ToolCallLogEntry[]
+) {
+  const contents: GeminiContent[] = [
+    ...historyToGemini(trimHistory(conversationHistory)),
+    { role: 'user', parts: [{ text: userMessage }] },
+  ]
+
+  let iterations = 0
+  let response = await callWithProvider('gemini', SYSTEM_PROMPT, contents, agentTools)
+
+  while (iterations < MAX_ITERATIONS) {
+    if (response.toolCalls.length === 0) break
+    iterations += 1
+
+    console.log(`[Agent] Gemini iteration ${iterations}/${MAX_ITERATIONS} — ${response.toolCalls.length} tool(s)`)
+
+    const fnResponseParts = await Promise.all(
+      response.toolCalls.map(async (toolCall): Promise<GeminiPart> => {
+        console.log(`[Agent]  → ${toolCall.name}`, JSON.stringify(toolCall.args))
+
+        try {
+          const result = await handleToolCall(toolCall.name as ToolName, toolCall.args, { userMessage })
+          console.log(`[Agent]  ✓ ${toolCall.name}: ${result.summary}`)
+          rememberToolResult(toolCall.name, result, allToolResults, toolCallLog)
+          return {
+            functionResponse: {
+              name: toolCall.name,
+              response: { summary: result.summary, data: result.data },
+            },
+          }
+        } catch (error) {
+          const message = getErrorMessage(error)
+          console.error(`[Agent]  ✗ ${toolCall.name}: ${message}`)
+          return {
+            functionResponse: {
+              name: toolCall.name,
+              response: { error: `Chyba nástroje: ${message}` },
+            },
+          }
+        }
+      })
+    )
+
+    contents.push({ role: 'model', parts: extractGeminiParts(response.raw) })
+    contents.push({ role: 'user', parts: fnResponseParts })
+    response = await callWithProvider('gemini', SYSTEM_PROMPT, contents, agentTools)
+  }
+
+  return response.text || 'Hotovo.'
+}
+
+async function runGroqConversation(
+  userMessage: string,
+  conversationHistory: HistoryMessage[],
+  allToolResults: ToolResult[],
+  toolCallLog: ToolCallLogEntry[]
+) {
+  const messages: GroqConversationMessage[] = [
+    ...historyToGroq(trimHistory(conversationHistory)),
+    { role: 'user', content: userMessage },
+  ]
+
+  let iterations = 0
+  let response = await callWithProvider('groq', SYSTEM_PROMPT, messages, agentTools)
+
+  while (iterations < MAX_ITERATIONS) {
+    if (response.toolCalls.length === 0) break
+    iterations += 1
+
+    console.log(`[Agent] Groq iteration ${iterations}/${MAX_ITERATIONS} — ${response.toolCalls.length} tool(s)`)
+
+    messages.push({
+      role: 'assistant',
+      content: response.text,
+      tool_calls: extractGroqToolCalls(response.raw),
+    })
+
+    const toolResultMessages = await Promise.all(
+      response.toolCalls.map(async (toolCall) => {
+        console.log(`[Agent]  → ${toolCall.name}`, JSON.stringify(toolCall.args))
+
+        try {
+          const result = await handleToolCall(toolCall.name as ToolName, toolCall.args, { userMessage })
+          console.log(`[Agent]  ✓ ${toolCall.name}: ${result.summary}`)
+          rememberToolResult(toolCall.name, result, allToolResults, toolCallLog)
+          return buildGroqToolResult(
+            toolCall.id ?? `groq-tool-${Date.now()}`,
+            JSON.stringify({ summary: result.summary, data: result.data })
+          )
+        } catch (error) {
+          const message = getErrorMessage(error)
+          console.error(`[Agent]  ✗ ${toolCall.name}: ${message}`)
+          return buildGroqToolResult(
+            toolCall.id ?? `groq-tool-${Date.now()}`,
+            JSON.stringify({ error: `Chyba nástroje: ${message}` })
+          )
+        }
+      })
+    )
+
+    messages.push(...toolResultMessages)
+    response = await callWithProvider('groq', SYSTEM_PROMPT, messages, agentTools)
+  }
+
+  return response.text || 'Hotovo.'
+}
+
 // ─── Main export ──────────────────────────────────────────────────────────────
 
 export async function processMessage(
   userMessage: string,
   conversationHistory: HistoryMessage[]
 ): Promise<AgentResponse> {
-  if (!process.env.GEMINI_API_KEY) {
+  if (!process.env.GEMINI_API_KEY && !process.env.GROQ_API_KEY) {
     return emptyResponse(
-      'API klíč není nakonfigurován. Nastavte prosím proměnnou prostředí `GEMINI_API_KEY`.'
+      'API klíč není nakonfigurován. Nastavte prosím proměnné prostředí `GEMINI_API_KEY` nebo `GROQ_API_KEY`.'
     )
-  }
-
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
-
-  const contents: GeminiContent[] = [
-    ...historyToGemini(trimHistory(conversationHistory)),
-    { role: 'user', parts: [{ text: userMessage }] },
-  ]
-
-  const geminiConfig = {
-    systemInstruction: SYSTEM_PROMPT,
-    tools: [{ functionDeclarations: agentTools }],
-    maxOutputTokens: MAX_TOKENS,
   }
 
   // Accumulate all tool results and call log for post-processing
   const allToolResults: ToolResult[] = []
   const toolCallLog: ToolCallLogEntry[] = []
-  let iterations = 0
+  const providerErrors: Partial<Record<ProviderName, unknown>> = {}
+  let message = ''
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let response: any
+  for (const provider of PROVIDERS) {
+    if (provider === 'gemini' && !process.env.GEMINI_API_KEY) continue
+    if (provider === 'groq' && !process.env.GROQ_API_KEY) continue
 
-  try {
-    response = await generateContentWithRetry(ai, {
-      model: MODEL,
-      contents,
-      config: geminiConfig,
-    })
+    try {
+      message =
+        provider === 'gemini'
+          ? await runGeminiConversation(userMessage, conversationHistory, allToolResults, toolCallLog)
+          : await runGroqConversation(userMessage, conversationHistory, allToolResults, toolCallLog)
 
-    // ── Tool-use loop ───────────────────────────────────────────────────────
-    while (iterations < MAX_ITERATIONS) {
-      const parts: GeminiPart[] = response?.candidates?.[0]?.content?.parts ?? []
-      const fnCallParts = parts.filter(p => p.functionCall != null)
-
-      if (fnCallParts.length === 0) break
-      iterations++
-
-      console.log(`[Agent] Iteration ${iterations}/${MAX_ITERATIONS} — ${fnCallParts.length} tool(s)`)
-
-      // Execute tools in parallel
-      const fnResponseParts = await Promise.all(
-        fnCallParts.map(async (part): Promise<GeminiPart> => {
-          const fc = part.functionCall as { name?: string; args?: Record<string, unknown> }
-          const name = fc?.name ?? ''
-          const args = fc?.args ?? {}
-
-          console.log(`[Agent]  → ${name}`, JSON.stringify(args))
-
-          try {
-            const result = await handleToolCall(name as ToolName, args)
-            console.log(`[Agent]  ✓ ${name}: ${result.summary}`)
-            allToolResults.push(result)
-            toolCallLog.push({ name, timestamp: Date.now() })
-            return {
-              functionResponse: {
-                name,
-                response: { summary: result.summary, data: result.data },
-              },
-            }
-          } catch (err) {
-            const msg = err instanceof Error ? err.message : String(err)
-            console.error(`[Agent]  ✗ ${name}: ${msg}`)
-            return {
-              functionResponse: {
-                name,
-                response: { error: `Chyba nástroje: ${msg}` },
-              },
-            }
-          }
-        })
-      )
-
-      // Append model turn (with function call parts) and user turn (with results)
-      contents.push({ role: 'model', parts })
-      contents.push({ role: 'user', parts: fnResponseParts })
-
-      response = await generateContentWithRetry(ai, {
-        model: MODEL,
-        contents,
-        config: geminiConfig,
-      })
+      console.log(`[Agent] Provider used: ${provider}`)
+      break
+    } catch (error) {
+      providerErrors[provider] = error
+      console.error(`[Agent] ${provider} failed:`, getErrorMessage(error))
     }
-  } catch (err) {
-    const msg = getErrorMessage(err)
-    console.error('[Agent] API error:', msg)
+  }
 
-    if (err instanceof GeminiQuotaError || isQuotaError(err)) {
-      return emptyResponse('Byl překročen denní limit AI dotazů. Zkuste to prosím později nebo kontaktujte administrátora.')
-    }
+  if (!message) {
+    const geminiError = providerErrors.gemini
+    const groqError = providerErrors.groq
 
-    if (err instanceof GeminiOverloadedError || getErrorStatus(err) === 429) {
-      return emptyResponse('AI služba je dočasně přetížená. Zkuste to prosím za minutu.')
+    if (!groqError && geminiError) {
+      if (geminiError instanceof GeminiQuotaError || isQuotaError(geminiError)) {
+        return emptyResponse('Byl překročen denní limit AI dotazů. Zkuste to prosím později nebo kontaktujte administrátora.')
+      }
+
+      if (geminiError instanceof GeminiOverloadedError || getErrorStatus(geminiError) === 429) {
+        return emptyResponse('AI služba je dočasně přetížená. Zkuste to prosím za minutu.')
+      }
     }
 
     return emptyResponse('Při komunikaci s AI došlo k chybě. Zkuste to prosím znovu.')
   }
-
-  // ── Extract final text ──────────────────────────────────────────────────
-  const finalParts: GeminiPart[] = response?.candidates?.[0]?.content?.parts ?? []
-  const message = finalParts
-    .filter(p => typeof p.text === 'string' && p.text)
-    .map(p => p.text as string)
-    .join('\n')
-    .trim()
 
   // ── Categorise tool results ─────────────────────────────────────────────
   const agentResponse: AgentResponse = {

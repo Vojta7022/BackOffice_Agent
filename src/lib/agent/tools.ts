@@ -123,7 +123,7 @@ export const agentTools: FunctionDeclaration[] = [
   },
   {
     name: 'generate_chart',
-    description: 'Renders a chart in the UI. Call this after querying data when a visual would help. Always provide meaningful title.',
+    description: 'Renders a chart in the UI. Call this after querying data when a visual would help. Always provide meaningful title. Pro dva datasety v jednom grafu použij pole secondary_value v datech. Nevolej generate_chart dvakrát — použij jeden graf se dvěma řadami.',
     parametersJsonSchema: {
       type: 'object',
       properties: {
