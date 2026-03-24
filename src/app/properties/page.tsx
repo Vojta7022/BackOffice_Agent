@@ -199,6 +199,13 @@ export default function PropertiesPage() {
   }, [search, status, type, city])
 
   useEffect(() => {
+    const initialSearch = new URLSearchParams(window.location.search).get('search')
+    if (initialSearch) {
+      setSearch(initialSearch)
+    }
+  }, [])
+
+  useEffect(() => {
     const timeout = setTimeout(fetchProperties, search ? 300 : 0)
     return () => clearTimeout(timeout)
   }, [fetchProperties, search])

@@ -21,6 +21,7 @@ export interface Translations {
     tasks: string
     monitoring: string
     newChat: string
+    history: string
     collapse: string
     appCaption: string
     userRole: string
@@ -48,6 +49,18 @@ export interface Translations {
     leadsSeries: string
     transactionsSeries: string
     valueSeries: string
+    portfolioChart: string
+    topProperties: string
+    aiRecommendations: string
+    availableNow: string
+    recommendationMissingData: string
+    recommendationStaleListings: string
+    recommendationNewLeads: string
+    recommendationConversion: string
+    recommendationPromptMissingData: string
+    recommendationPromptStaleListings: string
+    recommendationPromptNewLeads: string
+    recommendationPromptConversion: string
     recentActivity: string
     tasks: string
     quickActions: string
@@ -302,6 +315,7 @@ const cs: Translations = {
     tasks: 'Ukoly',
     monitoring: 'Monitoring',
     newChat: 'Novy chat',
+    history: 'Historie',
     collapse: 'Sbalit',
     appCaption: 'Back Office',
     userRole: 'Back Office Manager',
@@ -329,6 +343,18 @@ const cs: Translations = {
     leadsSeries: 'Leady',
     transactionsSeries: 'Transakce',
     valueSeries: 'Hodnota',
+    portfolioChart: 'Rozlozeni portfolia',
+    topProperties: 'Top nemovitosti',
+    aiRecommendations: 'Agent AI doporuceni',
+    availableNow: 'Aktualne v nabidce',
+    recommendationMissingData: '{count} nemovitosti s chybejicimi udaji',
+    recommendationStaleListings: '{count} stagnujicich inzeratu (>90 dni)',
+    recommendationNewLeads: '{count} nezkontaktovanych leadu',
+    recommendationConversion: 'Konverzni pomer: {rate}%',
+    recommendationPromptMissingData: 'Ukaz mi nemovitosti s chybejicimi udaji a navrhni dalsi kroky',
+    recommendationPromptStaleListings: 'Analyzuj stagnujici inzeraty starsi nez 90 dni a navrhni plan oziveni',
+    recommendationPromptNewLeads: 'Vyhodnot nezkontaktovane leady a navrhni prioritu follow-upu',
+    recommendationPromptConversion: 'Vysvetli konverzni pomer leadu a navrhni jak ho zlepsit',
     recentActivity: 'Posledni aktivita',
     tasks: 'Ukoly',
     quickActions: 'Rychle akce',
@@ -681,6 +707,7 @@ const en: Translations = {
     tasks: 'Tasks',
     monitoring: 'Monitoring',
     newChat: 'New chat',
+    history: 'History',
     collapse: 'Collapse',
     appCaption: 'Back Office',
     userRole: 'Back Office Manager',
@@ -708,6 +735,18 @@ const en: Translations = {
     leadsSeries: 'Leads',
     transactionsSeries: 'Transactions',
     valueSeries: 'Value',
+    portfolioChart: 'Portfolio distribution',
+    topProperties: 'Top properties',
+    aiRecommendations: 'Agent AI recommendations',
+    availableNow: 'Currently available',
+    recommendationMissingData: '{count} properties with missing data',
+    recommendationStaleListings: '{count} stale listings (>90 days)',
+    recommendationNewLeads: '{count} uncontacted leads',
+    recommendationConversion: 'Conversion rate: {rate}%',
+    recommendationPromptMissingData: 'Show me properties with missing data and suggest next steps',
+    recommendationPromptStaleListings: 'Analyze stale listings older than 90 days and suggest a recovery plan',
+    recommendationPromptNewLeads: 'Evaluate uncontacted leads and suggest follow-up priorities',
+    recommendationPromptConversion: 'Explain the lead conversion rate and suggest how to improve it',
     recentActivity: 'Recent activity',
     tasks: 'Tasks',
     quickActions: 'Quick actions',

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { Building2, Plus } from 'lucide-react'
 import { useChatStore } from '@/lib/chat-store'
 import { useTranslation } from '@/lib/useTranslation'
@@ -44,8 +45,11 @@ function WelcomeScreen({ onSend }: { onSend: (msg: string) => void }) {
 }
 
 export default function ChatMessages({ onSend }: ChatMessagesProps) {
+  const router = useRouter()
   const { t } = useTranslation()
-  const { messages, isLoading, clearMessages } = useChatStore()
+  const messages = useChatStore((state) => state.getActiveMessages())
+  const isLoading = useChatStore((state) => state.isLoading)
+  const createNewConversation = useChatStore((state) => state.createNewConversation)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -59,7 +63,10 @@ export default function ChatMessages({ onSend }: ChatMessagesProps) {
   return (
     <div className="relative flex flex-1 flex-col overflow-y-auto px-4 py-4">
       <button
-        onClick={clearMessages}
+        onClick={() => {
+          createNewConversation()
+          router.push('/chat')
+        }}
         className="button-smooth absolute right-4 top-3 z-10 flex items-center gap-1.5 rounded-xl border border-border bg-card/95 px-2.5 py-1.5 text-xs text-muted-foreground shadow-sm backdrop-blur-sm hover:border-primary/20 hover:text-primary dark:shadow-none"
       >
         <Plus className="h-3.5 w-3.5" />

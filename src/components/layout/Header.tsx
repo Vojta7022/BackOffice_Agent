@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { Menu, Sun, Moon, Bell } from 'lucide-react'
+import { useHydrated } from '@/hooks/useHydrated'
+import { translations } from '@/lib/i18n'
 import { useAppStore } from '@/lib/store'
 import { useNotificationStore } from '@/lib/notification-store'
 import { cn, relativeTime } from '@/lib/utils'
@@ -12,30 +13,28 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuSeparator, DropdownMenuT
 export default function Header() {
   const pathname = usePathname()
   const { t, language } = useTranslation()
+  const hydrated = useHydrated()
   const { toggleSidebar, theme, toggleTheme, setLanguage } = useAppStore()
   const notifications = useNotificationStore((state) => state.notifications)
   const unreadCount = useNotificationStore((state) => state.unreadCount)
   const markAsRead = useNotificationStore((state) => state.markAsRead)
   const markAllAsRead = useNotificationStore((state) => state.markAllAsRead)
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+  const currentT = hydrated ? t : translations.cs
+  const currentLanguage = hydrated ? language : 'cs'
 
   const pageTitles: Record<string, string> = {
-    '/': t.nav.dashboard,
-    '/chat': t.nav.chat,
-    '/properties': t.nav.properties,
-    '/clients': t.nav.clients,
-    '/tasks': t.nav.tasks,
-    '/monitoring': t.nav.monitoring,
+    '/': currentT.nav.dashboard,
+    '/chat': currentT.nav.chat,
+    '/properties': currentT.nav.properties,
+    '/clients': currentT.nav.clients,
+    '/tasks': currentT.nav.tasks,
+    '/monitoring': currentT.nav.monitoring,
   }
 
   const title = pageTitles[pathname] ?? pageTitles[
     Object.keys(pageTitles).find((key) => key !== '/' && pathname.startsWith(key)) ?? '/'
   ]
-  const visibleNotifications = mounted ? notifications : []
+  const visibleNotifications = hydrated ? notifications : []
 
   const typeStyles = {
     info: 'border-primary/70',
@@ -48,7 +47,7 @@ export default function Header() {
       <button
         onClick={toggleSidebar}
         className="button-smooth rounded-xl border border-transparent p-2 text-muted-foreground hover:border-border hover:bg-card hover:text-foreground md:hidden"
-        aria-label={t.header.toggleMenu}
+        aria-label={currentT.header.toggleMenu}
       >
         <Menu className="h-5 w-5" />
       </button>
@@ -59,19 +58,19 @@ export default function Header() {
 
       <div className="flex items-center gap-2">
         <button
-          onClick={() => setLanguage(language === 'cs' ? 'en' : 'cs')}
+          onClick={() => setLanguage(currentLanguage === 'cs' ? 'en' : 'cs')}
           className="button-smooth inline-flex h-10 min-w-10 items-center justify-center rounded-xl border border-border bg-card px-2 text-xs font-semibold text-muted-foreground shadow-sm hover:border-primary/30 hover:text-primary dark:shadow-none"
-          aria-label={t.header.toggleLanguage}
+          aria-label={currentT.header.toggleLanguage}
         >
-          {language.toUpperCase()}
+          {currentLanguage.toUpperCase()}
         </button>
 
         <button
           onClick={toggleTheme}
           className="button-smooth inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground shadow-sm hover:border-primary/30 hover:text-primary dark:shadow-none"
-          aria-label={t.header.toggleTheme}
+          aria-label={currentT.header.toggleTheme}
         >
-          {!mounted ? (
+          {!hydrated ? (
             <span className="h-4 w-4 rounded-full bg-muted" />
           ) : theme === 'dark' ? (
             <Sun className="h-4 w-4" />
@@ -84,10 +83,10 @@ export default function Header() {
           <DropdownMenuTrigger asChild>
             <button
               className="button-smooth relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground shadow-sm hover:border-primary/30 hover:text-primary dark:shadow-none"
-              aria-label={t.header.notifications}
+              aria-label={currentT.header.notifications}
             >
               <Bell className="h-4 w-4" />
-              {mounted && unreadCount > 0 ? (
+              {hydrated && unreadCount > 0 ? (
                 <span className="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">
                   {unreadCount}
                 </span>
@@ -100,26 +99,26 @@ export default function Header() {
           >
             <div className="flex items-center justify-between border-b border-border px-4 py-3">
               <div>
-                <p className="text-sm font-semibold text-foreground">{t.header.notifications}</p>
+                <p className="text-sm font-semibold text-foreground">{currentT.header.notifications}</p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {visibleNotifications.length === 0
-                    ? t.header.noNotifications
+                    ? currentT.header.noNotifications
                     : unreadCount > 0
-                      ? `${unreadCount} ${t.header.unread}`
-                      : t.header.allRead}
+                      ? `${unreadCount} ${currentT.header.unread}`
+                      : currentT.header.allRead}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={markAllAsRead}
-                disabled={!mounted || unreadCount === 0}
+                disabled={!hydrated || unreadCount === 0}
                 className="button-smooth text-xs font-medium text-primary disabled:cursor-not-allowed disabled:text-muted-foreground"
               >
-                {t.header.markAllRead}
+                {currentT.header.markAllRead}
               </button>
             </div>
             {visibleNotifications.length === 0 ? (
-              <div className="px-4 py-5 text-sm text-muted-foreground">{t.header.noNotifications}</div>
+              <div className="px-4 py-5 text-sm text-muted-foreground">{currentT.header.noNotifications}</div>
             ) : (
               <div className="max-h-[420px] overflow-y-auto p-2">
                 {visibleNotifications.map((notification, index) => (
@@ -139,7 +138,7 @@ export default function Header() {
                           <p className="mt-1 text-xs leading-5 text-muted-foreground">{notification.message}</p>
                         </div>
                         <span className="shrink-0 text-[11px] text-muted-foreground/80">
-                          {relativeTime(notification.timestamp, language)}
+                          {relativeTime(notification.timestamp, currentLanguage)}
                         </span>
                       </div>
                     </button>

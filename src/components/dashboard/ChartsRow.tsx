@@ -4,16 +4,19 @@ import {
   ResponsiveContainer,
   AreaChart, Area,
   BarChart, Bar,
+  PieChart, Pie, Cell, Legend,
   XAxis, YAxis,
   Tooltip,
 } from 'recharts'
 import { formatCZK, formatMonthLabel } from '@/lib/utils'
 import type { MonthlyLeadCount, MonthlyTransactionSummary } from '@/lib/database'
+import type { PropertyType } from '@/types'
 import { useTranslation } from '@/lib/useTranslation'
 
 interface ChartsRowProps {
   leadsByMonth: MonthlyLeadCount[]
   transactionsByMonth: MonthlyTransactionSummary[]
+  propertyTypeDistribution: { type: PropertyType; count: number }[]
 }
 
 function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
@@ -28,8 +31,8 @@ function ChartCard({ title, children }: { title: string; children: React.ReactNo
 function ChartSkeleton() {
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-      {[0, 1].map((i) => (
-        <div key={i} className="surface-card animate-pulse p-5">
+      {[0, 1, 2].map((i) => (
+        <div key={i} className={i === 2 ? 'surface-card animate-pulse p-5 lg:col-span-2' : 'surface-card animate-pulse p-5'}>
           <div className="mb-4 h-4 w-32 rounded bg-muted" />
           <div className="h-48 rounded-lg bg-muted" />
         </div>
@@ -47,6 +50,7 @@ const TOOLTIP_STYLE = {
   boxShadow: '0 10px 24px rgba(15, 23, 42, 0.08)',
 }
 const TOOLTIP_LABEL_STYLE = { color: 'var(--muted-foreground)' }
+const PIE_COLORS = ['#3b82f6', '#8b5cf6', '#14b8a6', '#f59e0b', '#f43f5e']
 
 function LeadsChart({ data }: { data: MonthlyLeadCount[] }) {
   const { t, language } = useTranslation()
@@ -111,7 +115,49 @@ function TransactionsChart({ data }: { data: MonthlyTransactionSummary[] }) {
   )
 }
 
-export default function ChartsRow({ leadsByMonth, transactionsByMonth }: ChartsRowProps) {
+function PortfolioChart({ data }: { data: { type: PropertyType; count: number }[] }) {
+  const { t } = useTranslation()
+  const chartData = data.map((item) => ({
+    label: t.properties.typeLabels[item.type],
+    value: item.count,
+  }))
+
+  return (
+    <ResponsiveContainer width="100%" height={260}>
+      <PieChart>
+        <Pie
+          data={chartData}
+          dataKey="value"
+          nameKey="label"
+          cx="50%"
+          cy="50%"
+          innerRadius={68}
+          outerRadius={110}
+          paddingAngle={3}
+          stroke="transparent"
+        >
+          {chartData.map((entry, index) => (
+            <Cell key={entry.label} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+          ))}
+        </Pie>
+        <Tooltip
+          contentStyle={TOOLTIP_STYLE}
+          labelStyle={TOOLTIP_LABEL_STYLE}
+          itemStyle={{ color: 'var(--foreground)' }}
+          formatter={(value) => [Number(value), t.nav.properties]}
+        />
+        <Legend
+          verticalAlign="middle"
+          align="right"
+          layout="vertical"
+          formatter={(value) => <span style={{ color: 'var(--muted-foreground)', fontSize: 12 }}>{value}</span>}
+        />
+      </PieChart>
+    </ResponsiveContainer>
+  )
+}
+
+export default function ChartsRow({ leadsByMonth, transactionsByMonth, propertyTypeDistribution }: ChartsRowProps) {
   const { t } = useTranslation()
 
   return (
@@ -122,6 +168,11 @@ export default function ChartsRow({ leadsByMonth, transactionsByMonth }: ChartsR
       <ChartCard title={t.dashboard.transactionsChart}>
         <TransactionsChart data={transactionsByMonth} />
       </ChartCard>
+      <div className="lg:col-span-2">
+        <ChartCard title={t.dashboard.portfolioChart}>
+          <PortfolioChart data={propertyTypeDistribution} />
+        </ChartCard>
+      </div>
     </div>
   )
 }

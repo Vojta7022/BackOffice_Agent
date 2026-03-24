@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import type { DashboardStatsResult, MonthlyLeadCount, MonthlyTransactionSummary, TasksByStatus } from '@/lib/database'
-import type { LeadStatus, LeadType, TransactionStatus, TransactionType } from '@/types'
+import type { Client, LeadStatus, LeadType, Property, PropertyType, TransactionStatus, TransactionType } from '@/types'
 import { useTranslation } from '@/lib/useTranslation'
 import KPICards from './KPICards'
 import ChartsRow from './ChartsRow'
+import DashboardInsights from './DashboardInsights'
 import RecentActivity from './RecentActivity'
 import QuickActions from './QuickActions'
 
@@ -28,10 +29,30 @@ interface RecentTransactionActivity {
   property_name: string
 }
 
+interface PropertyTypeDistribution {
+  type: PropertyType
+  count: number
+}
+
+interface TopPropertyItem {
+  property: Property
+  owner: Pick<Client, 'id' | 'name' | 'email' | 'phone'> | null
+}
+
+interface RecommendationMetrics {
+  missingDataCount: number
+  staleListingsCount: number
+  uncontactedLeadsCount: number
+  conversionRate: number
+}
+
 interface DashboardData {
   stats: DashboardStatsResult
   leadsByMonth: MonthlyLeadCount[]
   transactionsByMonth: MonthlyTransactionSummary[]
+  propertyTypeDistribution: PropertyTypeDistribution[]
+  topProperties: TopPropertyItem[]
+  recommendationMetrics: RecommendationMetrics
   tasksByStatus: TasksByStatus
   recentLeads: RecentLeadActivity[]
   recentTransactions: RecentTransactionActivity[]
@@ -64,8 +85,24 @@ export default function DashboardContent() {
 
       {/* Charts */}
       {data
-        ? <ChartsRow leadsByMonth={data.leadsByMonth} transactionsByMonth={data.transactionsByMonth} />
+        ? (
+          <ChartsRow
+            leadsByMonth={data.leadsByMonth}
+            transactionsByMonth={data.transactionsByMonth}
+            propertyTypeDistribution={data.propertyTypeDistribution}
+          />
+        )
         : <ChartsRow.Skeleton />
+      }
+
+      {data
+        ? (
+          <DashboardInsights
+            topProperties={data.topProperties}
+            recommendationMetrics={data.recommendationMetrics}
+          />
+        )
+        : null
       }
 
       {/* Activity + tasks */}

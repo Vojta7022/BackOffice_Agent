@@ -11,26 +11,32 @@ import ChatInput from '@/components/chat/ChatInput'
 function ChatPageInner() {
   const { t } = useTranslation()
   const searchParams = useSearchParams()
-  const { messages, isLoading, addUserMessage, addAssistantMessage, setLoading } = useChatStore()
+  const activeConversationId = useChatStore((state) => state.activeConversationId)
+  const messages = useChatStore((state) => state.getActiveMessages())
+  const isLoading = useChatStore((state) => state.isLoading)
+  const addUserMessage = useChatStore((state) => state.addUserMessage)
+  const addAssistantMessage = useChatStore((state) => state.addAssistantMessage)
+  const setLoading = useChatStore((state) => state.setLoading)
+  const createNewConversation = useChatStore((state) => state.createNewConversation)
   const prompt = searchParams.get('prompt')
-  const autoSentPromptRef = useRef(false)
+  const processedPromptRef = useRef<string | null>(null)
 
   const send = useCallback(async (text: string) => {
-    if (!text.trim() || isLoading) return
+    const message = text.trim()
+    if (!message || useChatStore.getState().isLoading) return
 
-    addUserMessage(text)
+    addUserMessage(message)
     setLoading(true)
 
-    // Build history from last 10 messages (role + content only)
-    const history = [...messages, { role: 'user' as const, content: text }]
+    const history = useChatStore.getState().getActiveMessages()
       .slice(-10)
-      .map(m => ({ role: m.role, content: m.content }))
+      .map((entry) => ({ role: entry.role, content: entry.content }))
 
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, history: history.slice(0, -1) }),
+        body: JSON.stringify({ message, history: history.slice(0, -1) }),
       })
 
       if (!res.ok) {
@@ -58,27 +64,31 @@ function ChatPageInner() {
     } finally {
       setLoading(false)
     }
-  }, [isLoading, messages, addUserMessage, addAssistantMessage, setLoading])
+  }, [addAssistantMessage, addUserMessage, setLoading, t])
 
-  // Auto-send from URL ?prompt= param (e.g. from dashboard quick actions)
   useEffect(() => {
-    if (prompt && messages.length === 0 && !autoSentPromptRef.current) {
-      autoSentPromptRef.current = true
-      send(decodeURIComponent(prompt))
+    if (!prompt && !activeConversationId) {
+      createNewConversation()
     }
-  }, [messages.length, prompt, send])
+  }, [activeConversationId, createNewConversation, prompt])
+
+  useEffect(() => {
+    if (!prompt) return
+
+    const decodedPrompt = decodeURIComponent(prompt)
+    if (processedPromptRef.current === decodedPrompt) return
+
+    processedPromptRef.current = decodedPrompt
+    createNewConversation()
+    void send(decodedPrompt)
+  }, [createNewConversation, prompt, send])
 
   const showSuggestions = messages.length > 0 && !isLoading
 
   return (
     <div className="flex h-full flex-col">
       <ChatMessages onSend={send} />
-      <ChatInput
-        onSend={send}
-        disabled={isLoading}
-        showSuggestions={showSuggestions}
-        initialValue={messages.length > 0 && prompt && !autoSentPromptRef.current ? decodeURIComponent(prompt) : ''}
-      />
+      <ChatInput onSend={send} disabled={isLoading} showSuggestions={showSuggestions} />
     </div>
   )
 }

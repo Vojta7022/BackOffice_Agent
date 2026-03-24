@@ -1,13 +1,46 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/database'
+import type { PropertyType } from '@/types'
 
 export async function GET() {
   try {
     const recentLeadCutoff = '2026-03-15'
+    const propertyTypes: PropertyType[] = ['apartment', 'house', 'commercial', 'office', 'land']
+    const allProperties = db.getAllProperties()
+    const allLeads = db.getAllLeads()
     const stats = db.getDashboardStats()
     const leadsByMonth = db.getLeadsByMonth(6)
     const transactionsByMonth = db.getTransactionsByMonth(6)
     const tasksByStatus = db.getTasksByStatus()
+    const propertyTypeDistribution = propertyTypes.map((type) => ({
+      type,
+      count: allProperties.filter((property) => property.type === type).length,
+    }))
+    const topProperties = db
+      .getAllProperties({ status: 'available' })
+      .sort((a, b) => b.price - a.price)
+      .slice(0, 5)
+      .map((property) => ({
+        property,
+        owner: (() => {
+          const owner = db.getClientById(property.owner_id)
+          return owner
+            ? {
+                id: owner.id,
+                name: owner.name,
+                email: owner.email,
+                phone: owner.phone,
+              }
+            : null
+        })(),
+      }))
+    const closedWonLeads = allLeads.filter((lead) => lead.status === 'closed_won').length
+    const recommendationMetrics = {
+      missingDataCount: db.getPropertiesWithMissingData().length,
+      staleListingsCount: db.getStaleListings(90).length,
+      uncontactedLeadsCount: allLeads.filter((lead) => lead.status === 'new').length,
+      conversionRate: allLeads.length > 0 ? Math.round((closedWonLeads / allLeads.length) * 1000) / 10 : 0,
+    }
     const recentLeads = db
       .getAllLeads({ date_from: recentLeadCutoff, date_to: '2026-03-22' })
       .sort((a, b) => b.created_at.localeCompare(a.created_at))
@@ -38,6 +71,9 @@ export async function GET() {
       stats,
       leadsByMonth,
       transactionsByMonth,
+      propertyTypeDistribution,
+      topProperties,
+      recommendationMetrics,
       tasksByStatus,
       recentLeads,
       recentTransactions,
