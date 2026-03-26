@@ -11,6 +11,7 @@ import ChartsRow from './ChartsRow'
 import DashboardInsights from './DashboardInsights'
 import RecentActivity from './RecentActivity'
 import QuickActions from './QuickActions'
+import ProactiveGreeting from '@/components/agent/ProactiveGreeting'
 
 interface RecentLeadActivity {
   id: string
@@ -94,6 +95,8 @@ export default function DashboardContent() {
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6">
+      <ProactiveGreeting />
+
       {/* KPI row */}
       {data ? <KPICards stats={data.stats} /> : <KPICards.Skeleton />}
 

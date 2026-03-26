@@ -16,6 +16,7 @@ import { useHydrated } from '@/hooks/useHydrated'
 import { selectActiveMessages, useChatStore } from '@/lib/chat-store'
 import { translations } from '@/lib/i18n'
 import { useTranslation } from '@/lib/useTranslation'
+import ProactiveGreeting from '@/components/agent/ProactiveGreeting'
 import MessageBubble from './MessageBubble'
 import TypingIndicator from './TypingIndicator'
 
@@ -42,6 +43,10 @@ function WelcomeScreen({ onSend }: { onSend: (msg: string) => void }) {
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-8 px-4 py-12">
+      <div className="w-full max-w-4xl">
+        <ProactiveGreeting />
+      </div>
+
       <div className="flex flex-col items-center gap-4 text-center">
         <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
           <Building2 className="h-8 w-8" />
