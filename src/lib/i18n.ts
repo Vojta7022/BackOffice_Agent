@@ -122,6 +122,11 @@ export interface Translations {
     errorIntro: string
     errorRetry: string
     providersUnavailable: string
+    proactiveGreetingText: string
+    proactiveGreetingBadge: string
+    proactiveGreetingSendDrafts: string
+    proactiveGreetingRequestLabel: string
+    proactiveGreetingResolveLater: string
     toolLabels: Record<string, string>
     toolSuggestions: Record<string, string[]>
     taskCreated: string
@@ -530,6 +535,11 @@ const cs: Translations = {
     errorIntro: 'Omlouvám se, nastala chyba:',
     errorRetry: 'Zkuste to prosím znovu.',
     providersUnavailable: 'AI poskytovatelé jsou momentálně nedostupní. Zkuste to prosím znovu za chvíli.',
+    proactiveGreetingText: 'Dobré ráno. Přes noc přišlo několik poptávek na ten loft v Holešovicích. Rovnou jsem zkontroloval tvůj kalendář a připravil do Gmailu koncepty s návrhem volných oken na úterý a středu. Mám je odeslat? A mimochodem, u včerejší nabrané nemovitosti chybí energetický štítek, mám vyžádat doplnění od majitele?',
+    proactiveGreetingBadge: 'Připraveno přes noc',
+    proactiveGreetingSendDrafts: 'Odeslat koncepty',
+    proactiveGreetingRequestLabel: 'Vyžádat štítek',
+    proactiveGreetingResolveLater: 'Vyřešit později',
     toolLabels: {
       query_clients: 'Vyhledávání klientů',
       query_leads: 'Analýza leadů',
@@ -1044,6 +1054,11 @@ const en: Translations = {
     errorIntro: 'Sorry, an error occurred:',
     errorRetry: 'Please try again.',
     providersUnavailable: 'All AI providers are temporarily unavailable. Please try again in a moment.',
+    proactiveGreetingText: 'Good morning. Several inquiries came in overnight for that loft in Holešovice. I already checked your calendar and prepared Gmail drafts proposing open slots for Tuesday and Wednesday. Should I send them? Also, the property we onboarded yesterday is missing the energy label. Should I request it from the owner?',
+    proactiveGreetingBadge: 'Prepared overnight',
+    proactiveGreetingSendDrafts: 'Send drafts',
+    proactiveGreetingRequestLabel: 'Request label',
+    proactiveGreetingResolveLater: 'Handle later',
     toolLabels: {
       query_clients: 'Client search',
       query_leads: 'Lead analysis',

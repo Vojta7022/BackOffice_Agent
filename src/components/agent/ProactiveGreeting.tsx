@@ -5,12 +5,11 @@ import { Bot, Check, Clock3, FileWarning, Loader2, Send, Sparkles } from 'lucide
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { useTranslation } from '@/lib/useTranslation'
 
 interface ProactiveGreetingProps {
   className?: string
 }
-
-const greetingText = 'Dobré ráno. Přes noc přišlo několik poptávek na ten loft v Holešovicích. Rovnou jsem zkontroloval tvůj kalendář a připravil do Gmailu koncepty s návrhem volných oken na úterý a středu. Mám je odeslat? A mimochodem, u včerejší nabrané nemovitosti chybí energetický štítek, mám vyžádat doplnění od majitele?'
 
 async function postHiddenPrompt(message: string) {
   const response = await fetch('/api/chat', {
@@ -35,6 +34,7 @@ async function postHiddenPrompt(message: string) {
 }
 
 export default function ProactiveGreeting({ className }: ProactiveGreetingProps) {
+  const { t } = useTranslation()
   const [isSending, setIsSending] = useState(false)
   const [isSent, setIsSent] = useState(false)
   const [isRequesting, setIsRequesting] = useState(false)
@@ -137,12 +137,12 @@ export default function ProactiveGreeting({ className }: ProactiveGreetingProps)
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="inline-flex items-center gap-1 rounded-full border border-sky-300/20 bg-sky-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-100/90">
                       <Sparkles className="h-3.5 w-3.5" />
-                      Připraveno přes noc
+                      {t.chat.proactiveGreetingBadge}
                     </span>
                     <span className="text-xs font-medium text-slate-300">RE:Agent</span>
                   </div>
                   <p className="mt-3 max-w-4xl text-[15px] leading-7 text-slate-50 md:text-base">
-                    {greetingText}
+                    {t.chat.proactiveGreetingText}
                   </p>
                 </div>
               </div>
@@ -161,7 +161,7 @@ export default function ProactiveGreeting({ className }: ProactiveGreetingProps)
                 )}
               >
                 {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : isSent ? <Check className="h-4 w-4" /> : <Send className="h-4 w-4" />}
-                <span>{isSent ? 'Hotovo' : 'Odeslat koncepty'}</span>
+                <span>{isSent ? t.chat.done : t.chat.proactiveGreetingSendDrafts}</span>
               </Button>
 
               <Button
@@ -176,7 +176,7 @@ export default function ProactiveGreeting({ className }: ProactiveGreetingProps)
                 )}
               >
                 {isRequesting ? <Loader2 className="h-4 w-4 animate-spin" /> : isRequested ? <Check className="h-4 w-4" /> : <FileWarning className="h-4 w-4" />}
-                <span>{isRequested ? 'Hotovo' : 'Vyžádat štítek'}</span>
+                <span>{isRequested ? t.chat.done : t.chat.proactiveGreetingRequestLabel}</span>
               </Button>
 
               <Button
@@ -187,7 +187,7 @@ export default function ProactiveGreeting({ className }: ProactiveGreetingProps)
                 className="h-11 rounded-2xl border-white/12 bg-white/5 px-4 text-sm text-slate-100 backdrop-blur-sm hover:border-white/20 hover:bg-white/10 hover:text-white"
               >
                 <Clock3 className="h-4 w-4" />
-                <span>Vyřešit později</span>
+                <span>{t.chat.proactiveGreetingResolveLater}</span>
               </Button>
             </div>
           </div>
