@@ -1,4 +1,7 @@
 import { google } from 'googleapis'
+import { cookies } from 'next/headers'
+
+export const GOOGLE_REFRESH_TOKEN_COOKIE = 'google_refresh_token'
 
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID,
@@ -10,8 +13,26 @@ export function hasGoogleOAuthConfig() {
   return Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET)
 }
 
-export function hasValidGoogleRefreshToken() {
+function getRefreshTokenFromCookie() {
+  try {
+    return cookies().get(GOOGLE_REFRESH_TOKEN_COOKIE)?.value ?? null
+  } catch {
+    return null
+  }
+}
+
+export function getGoogleRefreshToken() {
+  const cookieToken = getRefreshTokenFromCookie()
+  if (cookieToken && cookieToken !== 'your-refresh-token') {
+    return cookieToken
+  }
+
   const refreshToken = process.env.GOOGLE_REFRESH_TOKEN
+  return refreshToken && refreshToken !== 'your-refresh-token' ? refreshToken : null
+}
+
+export function hasValidGoogleRefreshToken() {
+  const refreshToken = getGoogleRefreshToken()
   return Boolean(refreshToken && refreshToken !== 'your-refresh-token')
 }
 
@@ -36,7 +57,7 @@ export function getAuthUrl() {
 }
 
 export function getOAuth2Client() {
-  const refreshToken = process.env.GOOGLE_REFRESH_TOKEN
+  const refreshToken = getGoogleRefreshToken()
   if (hasValidGoogleRefreshToken() && refreshToken) {
     oauth2Client.setCredentials({ refresh_token: refreshToken })
   }

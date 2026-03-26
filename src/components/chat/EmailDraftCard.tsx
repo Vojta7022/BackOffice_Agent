@@ -20,12 +20,37 @@ export default function EmailDraftCard({ draft }: { draft: EmailDraft }) {
   const [sending, setSending] = useState(false)
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const [body, setBody] = useState(draft.body)
+  const [googleConnected, setGoogleConnected] = useState(Boolean(draft.google_connected))
 
   useEffect(() => {
     if (!notice) return
     const timer = window.setTimeout(() => setNotice(null), 3000)
     return () => window.clearTimeout(timer)
   }, [notice])
+
+  useEffect(() => {
+    let active = true
+
+    fetch('/api/google/status')
+      .then(async (response) => {
+        const result = await response.json().catch(() => null)
+        if (!response.ok || !result || typeof result.connected !== 'boolean') {
+          throw new Error('Google status check failed')
+        }
+        if (active) {
+          setGoogleConnected(result.connected)
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setGoogleConnected(Boolean(draft.google_connected))
+        }
+      })
+
+    return () => {
+      active = false
+    }
+  }, [draft.google_connected])
 
   const copy = async () => {
     await navigator.clipboard.writeText(`${t.chat.to}: ${draft.to}\n${t.chat.subject}: ${draft.subject}\n\n${body}`)
@@ -34,7 +59,7 @@ export default function EmailDraftCard({ draft }: { draft: EmailDraft }) {
   }
 
   const send = async () => {
-    if (!draft.google_connected) {
+    if (!googleConnected) {
       setNotice({ type: 'error', message: t.chat.emailGoogleRequired })
       return
     }
@@ -96,7 +121,7 @@ export default function EmailDraftCard({ draft }: { draft: EmailDraft }) {
             <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">{body}</p>
           )}
         </div>
-        {!draft.google_connected ? (
+        {!googleConnected ? (
           <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
             <p>{t.chat.emailGoogleRequired}</p>
             <Link href="/api/auth/google" className="mt-1 inline-flex font-medium underline underline-offset-2">
