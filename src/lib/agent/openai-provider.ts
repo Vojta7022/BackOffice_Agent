@@ -33,7 +33,8 @@ export async function callOpenAI(
   systemPrompt: string,
   messages: Array<{ role: string; content: string }>,
   maxIterations: number = 5,
-  currentUserMessage?: string
+  currentUserMessage?: string,
+  deadlineMs?: number
 ): Promise<{
   text: string
   toolResults: Array<{ name: string; result: ToolResult }>
@@ -57,6 +58,24 @@ export async function callOpenAI(
     })),
   ]
 
+  const getRequestOptions = () => {
+    if (!deadlineMs) {
+      return { maxRetries: 0 }
+    }
+
+    const remainingMs = deadlineMs - Date.now() - 1000
+    const timeoutMs = Math.min(12_000, remainingMs)
+    if (timeoutMs < 2_000) {
+      throw new Error('Agent request deadline exceeded')
+    }
+
+    return {
+      maxRetries: 0,
+      timeout: timeoutMs,
+      signal: AbortSignal.timeout(timeoutMs),
+    }
+  }
+
   for (let i = 0; i < maxIterations; i += 1) {
     const response = await openai.chat.completions.create({
       model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
@@ -64,7 +83,7 @@ export async function callOpenAI(
       tools: tools as never,
       tool_choice: 'auto',
       max_tokens: 2048,
-    })
+    }, getRequestOptions())
 
     const message = response.choices[0]?.message
     if (!message) {
@@ -93,6 +112,10 @@ export async function callOpenAI(
 
     const results: Array<Record<string, unknown>> = []
     for (const toolCall of orderedToolCalls) {
+      if (deadlineMs && deadlineMs - Date.now() < 2_000) {
+        throw new Error('Agent request deadline exceeded')
+      }
+
       const name = toolCall.function.name
       const parsedArgs = parseArgs(toolCall.function.arguments || '{}')
       const args = resolveToolInput(name as ToolName, parsedArgs, toolResults.map((entry) => entry.result))
@@ -126,7 +149,7 @@ export async function callOpenAI(
     model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
     messages: openaiMessages as never,
     max_tokens: 2048,
-  })
+  }, getRequestOptions())
 
   return {
     text: finalResponse.choices[0]?.message?.content || '',

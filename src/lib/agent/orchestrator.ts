@@ -50,11 +50,14 @@ export interface AgentResponse {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const PROVIDERS = ['openai', 'groq', 'gemini'] as const
-const GROQ_MODELS = ['llama-3.3-70b-versatile', 'llama-3.1-70b-versatile'] as const
-const GEMINI_MODELS = ['gemini-3.1-flash-lite-preview', 'gemini-2.5-flash-lite', 'gemini-2.5-flash'] as const
-const MAX_TOKENS = 2048
-const MAX_ITERATIONS = 5
-const RETRY_DELAYS_MS = [5000, 15000, 30000] as const
+const GROQ_MODELS = ['llama-3.3-70b-versatile'] as const
+const GEMINI_MODELS = ['gemini-2.5-flash-lite'] as const
+const MAX_TOKENS = 1536
+const MAX_ITERATIONS = 3
+const RETRY_DELAYS_MS = [1000, 3000] as const
+const REQUEST_BUDGET_MS = 45_000
+const MIN_REMAINING_TIME_MS = 2_500
+const MIN_PROVIDER_WINDOW_MS = 8_000
 
 const SYSTEM_PROMPT = `Jsi RE:Agent — inteligentní back-office asistent české realitní firmy. Tvoje jméno je takové, jaké je nastavené v aplikaci, momentálně Pepa Novotný, takže když se podepisuješ v emailu, podepisuj se jako jméno agenta nastavené v aplikaci.
 
@@ -204,6 +207,7 @@ type ParsedProviderResponse = {
 
 class GeminiQuotaError extends Error {}
 class GeminiOverloadedError extends Error {}
+class AgentTimeoutError extends Error {}
 
 function historyToGemini(history: HistoryMessage[]): GeminiContent[] {
   return history.map(m => ({
@@ -288,6 +292,28 @@ function getErrorStatus(error: unknown): number | null {
   if (typeof code === 'number') return code
 
   return null
+}
+
+function isTimeoutError(error: unknown): boolean {
+  if (error instanceof AgentTimeoutError) return true
+
+  const message = getErrorMessage(error).toLowerCase()
+  return (
+    message.includes('deadline exceeded') ||
+    message.includes('timed out') ||
+    message.includes('timeout') ||
+    message.includes('abort')
+  )
+}
+
+function getRemainingTimeMs(deadlineMs: number): number {
+  return deadlineMs - Date.now()
+}
+
+function assertTimeRemaining(deadlineMs: number, minRemainingMs: number = MIN_REMAINING_TIME_MS) {
+  if (getRemainingTimeMs(deadlineMs) < minRemainingMs) {
+    throw new AgentTimeoutError('Agent request deadline exceeded')
+  }
 }
 
 function isQuotaError(error: unknown): boolean {
@@ -394,6 +420,7 @@ async function generateContentWithRetry(
   params: {
     model: string
     contents: GeminiContent[]
+    deadlineMs: number
     config: {
       systemInstruction: string
       tools: { functionDeclarations: typeof agentTools }[]
@@ -405,6 +432,7 @@ async function generateContentWithRetry(
 
   while (true) {
     try {
+      assertTimeRemaining(params.deadlineMs)
       return await ai.models.generateContent({
         model: params.model,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -425,6 +453,7 @@ async function generateContentWithRetry(
       }
 
       const retryDelay = extractRetryDelayMs(error) ?? RETRY_DELAYS_MS[retryCount]
+      assertTimeRemaining(params.deadlineMs, retryDelay + 1000)
       retryCount += 1
       console.warn(`[Agent] 429 from Gemini, retrying in ${Math.round(retryDelay / 1000)}s (${retryCount}/${RETRY_DELAYS_MS.length})`)
       await sleep(retryDelay)
@@ -436,8 +465,11 @@ async function callWithProvider(
   provider: ProviderName,
   systemPrompt: string,
   messages: GeminiContent[] | GroqConversationMessage[],
-  tools: typeof agentTools
+  tools: typeof agentTools,
+  deadlineMs: number
 ): Promise<ParsedProviderResponse> {
+  assertTimeRemaining(deadlineMs, MIN_PROVIDER_WINDOW_MS)
+
   if (provider === 'gemini') {
     if (!process.env.GEMINI_API_KEY) {
       throw new Error('GEMINI_API_KEY not set')
@@ -457,6 +489,7 @@ async function callWithProvider(
         const response = await generateContentWithRetry(ai, {
           model,
           contents: messages as GeminiContent[],
+          deadlineMs,
           config: geminiConfig,
         })
         return parseGeminiResponse(response)
@@ -478,7 +511,7 @@ async function callWithProvider(
 
     for (const model of GROQ_MODELS) {
       try {
-        const response = await callGroq(model, systemPrompt, messages as GroqConversationMessage[], tools)
+        const response = await callGroq(model, systemPrompt, messages as GroqConversationMessage[], tools, deadlineMs)
         const parsed = parseGroqResponse(response)
         return {
           text: parsed.text,
@@ -501,7 +534,8 @@ async function runGeminiConversation(
   userMessage: string,
   conversationHistory: HistoryMessage[],
   allToolResults: ToolResult[],
-  toolCallLog: ToolCallLogEntry[]
+  toolCallLog: ToolCallLogEntry[],
+  deadlineMs: number
 ) {
   const modelUserMessage = enrichUserMessage(userMessage)
   const contents: GeminiContent[] = [
@@ -511,9 +545,10 @@ async function runGeminiConversation(
   const executedToolResults: ToolResult[] = []
 
   let iterations = 0
-  let response = await callWithProvider('gemini', SYSTEM_PROMPT, contents, agentTools)
+  let response = await callWithProvider('gemini', SYSTEM_PROMPT, contents, agentTools, deadlineMs)
 
   while (iterations < MAX_ITERATIONS) {
+    assertTimeRemaining(deadlineMs)
     if (response.toolCalls.length === 0) break
     iterations += 1
 
@@ -525,6 +560,7 @@ async function runGeminiConversation(
     ]
     const fnResponseParts: GeminiPart[] = []
     for (const toolCall of orderedToolCalls) {
+      assertTimeRemaining(deadlineMs)
       const args = resolveToolInput(toolCall.name as ToolName, toolCall.args, executedToolResults)
       console.log(`[Agent]  → ${toolCall.name}`, JSON.stringify(args))
 
@@ -553,7 +589,7 @@ async function runGeminiConversation(
 
     contents.push({ role: 'model', parts: extractGeminiParts(response.raw) })
     contents.push({ role: 'user', parts: fnResponseParts })
-    response = await callWithProvider('gemini', SYSTEM_PROMPT, contents, agentTools)
+    response = await callWithProvider('gemini', SYSTEM_PROMPT, contents, agentTools, deadlineMs)
   }
 
   return response.text || 'Hotovo.'
@@ -563,8 +599,10 @@ async function runOpenAIConversation(
   userMessage: string,
   conversationHistory: HistoryMessage[],
   allToolResults: ToolResult[],
-  toolCallLog: ToolCallLogEntry[]
+  toolCallLog: ToolCallLogEntry[],
+  deadlineMs: number
 ) {
+  assertTimeRemaining(deadlineMs, MIN_PROVIDER_WINDOW_MS)
   const response = await callOpenAI(
     SYSTEM_PROMPT,
     [
@@ -572,7 +610,8 @@ async function runOpenAIConversation(
       { role: 'user', content: enrichUserMessage(userMessage) },
     ],
     MAX_ITERATIONS,
-    userMessage
+    userMessage,
+    deadlineMs
   )
 
   for (const toolResult of response.toolResults) {
@@ -586,7 +625,8 @@ async function runGroqConversation(
   userMessage: string,
   conversationHistory: HistoryMessage[],
   allToolResults: ToolResult[],
-  toolCallLog: ToolCallLogEntry[]
+  toolCallLog: ToolCallLogEntry[],
+  deadlineMs: number
 ) {
   const modelUserMessage = enrichUserMessage(userMessage)
   const messages: GroqConversationMessage[] = [
@@ -596,9 +636,10 @@ async function runGroqConversation(
   const executedToolResults: ToolResult[] = []
 
   let iterations = 0
-  let response = await callWithProvider('groq', SYSTEM_PROMPT, messages, agentTools)
+  let response = await callWithProvider('groq', SYSTEM_PROMPT, messages, agentTools, deadlineMs)
 
   while (iterations < MAX_ITERATIONS) {
+    assertTimeRemaining(deadlineMs)
     if (response.toolCalls.length === 0) break
     iterations += 1
 
@@ -616,6 +657,7 @@ async function runGroqConversation(
     ]
     const toolResultMessages: GroqConversationMessage[] = []
     for (const toolCall of orderedToolCalls) {
+      assertTimeRemaining(deadlineMs)
       const args = resolveToolInput(toolCall.name as ToolName, toolCall.args, executedToolResults)
       console.log(`[Agent]  → ${toolCall.name}`, JSON.stringify(args))
 
@@ -643,7 +685,7 @@ async function runGroqConversation(
     }
 
     messages.push(...toolResultMessages)
-    response = await callWithProvider('groq', SYSTEM_PROMPT, messages, agentTools)
+    response = await callWithProvider('groq', SYSTEM_PROMPT, messages, agentTools, deadlineMs)
   }
 
   return response.text || 'Hotovo.'
@@ -666,8 +708,14 @@ export async function processMessage(
   const toolCallLog: ToolCallLogEntry[] = []
   const providerErrors: Partial<Record<ProviderName, unknown>> = {}
   let message = ''
+  const deadlineMs = Date.now() + REQUEST_BUDGET_MS
 
   for (const provider of PROVIDERS) {
+    if (getRemainingTimeMs(deadlineMs) < MIN_PROVIDER_WINDOW_MS) {
+      providerErrors[provider] = new AgentTimeoutError('Agent request deadline exceeded')
+      break
+    }
+
     if (provider === 'openai' && !process.env.OPENAI_API_KEY) continue
     if (provider === 'gemini' && !process.env.GEMINI_API_KEY) continue
     if (provider === 'groq' && !process.env.GROQ_API_KEY) continue
@@ -675,10 +723,10 @@ export async function processMessage(
     try {
       message =
         provider === 'openai'
-          ? await runOpenAIConversation(userMessage, conversationHistory, allToolResults, toolCallLog)
+          ? await runOpenAIConversation(userMessage, conversationHistory, allToolResults, toolCallLog, deadlineMs)
           : provider === 'gemini'
-          ? await runGeminiConversation(userMessage, conversationHistory, allToolResults, toolCallLog)
-          : await runGroqConversation(userMessage, conversationHistory, allToolResults, toolCallLog)
+          ? await runGeminiConversation(userMessage, conversationHistory, allToolResults, toolCallLog, deadlineMs)
+          : await runGroqConversation(userMessage, conversationHistory, allToolResults, toolCallLog, deadlineMs)
 
       console.log(`[Agent] Provider used: ${provider}`)
       break
@@ -689,6 +737,10 @@ export async function processMessage(
   }
 
   if (!message) {
+    if (Object.values(providerErrors).some((error) => isTimeoutError(error))) {
+      return emptyResponse('Zpracování dotazu trvalo příliš dlouho. Zkuste kratší dotaz nebo požadavek zopakujte prosím znovu.')
+    }
+
     const geminiError = providerErrors.gemini
     const groqError = providerErrors.groq
 

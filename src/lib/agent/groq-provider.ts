@@ -57,7 +57,8 @@ export async function callGroq(
   model: string,
   systemPrompt: string,
   messages: Array<Record<string, unknown>>,
-  tools: FunctionDeclaration[]
+  tools: FunctionDeclaration[],
+  deadlineMs?: number
 ): Promise<unknown> {
   const groq = getGroqClient()
   const openaiTools = tools.map((tool) => ({
@@ -69,6 +70,24 @@ export async function callGroq(
     },
   })).filter((tool) => tool.function.name.length > 0)
 
+  const getRequestOptions = () => {
+    if (!deadlineMs) {
+      return { maxRetries: 0 }
+    }
+
+    const remainingMs = deadlineMs - Date.now() - 1000
+    const timeoutMs = Math.min(10_000, remainingMs)
+    if (timeoutMs < 2_000) {
+      throw new Error('Agent request deadline exceeded')
+    }
+
+    return {
+      maxRetries: 0,
+      timeout: timeoutMs,
+      signal: AbortSignal.timeout(timeoutMs),
+    }
+  }
+
   const execute = (prompt: string) =>
     groq.chat.completions.create({
       model,
@@ -76,7 +95,7 @@ export async function callGroq(
       tools: openaiTools,
       tool_choice: 'auto',
       max_tokens: 2048,
-    })
+    }, getRequestOptions())
 
   try {
     return await execute(systemPrompt)
