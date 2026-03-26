@@ -1,6 +1,6 @@
 import OpenAI from 'openai'
 import { agentTools, ToolName } from './tools'
-import { handleToolCall, ToolResult } from './tool-handlers'
+import { handleToolCall, resolveToolInput, ToolResult } from './tool-handlers'
 
 function getOpenAIClient() {
   if (!process.env.OPENAI_API_KEY) {
@@ -80,6 +80,10 @@ export async function callOpenAI(
       type: 'function'
       function: { name: string; arguments: string }
     }>
+    const orderedToolCalls = [
+      ...functionToolCalls.filter((toolCall) => toolCall.function.name !== 'generate_chart'),
+      ...functionToolCalls.filter((toolCall) => toolCall.function.name === 'generate_chart'),
+    ]
 
     openaiMessages.push({
       role: 'assistant',
@@ -87,33 +91,33 @@ export async function callOpenAI(
       tool_calls: message.tool_calls,
     })
 
-    const results = await Promise.all(
-      functionToolCalls.map(async (toolCall) => {
-        const name = toolCall.function.name
-        const args = parseArgs(toolCall.function.arguments || '{}')
-        toolCallLog.push({ name, timestamp: Date.now() })
+    const results: Array<Record<string, unknown>> = []
+    for (const toolCall of orderedToolCalls) {
+      const name = toolCall.function.name
+      const parsedArgs = parseArgs(toolCall.function.arguments || '{}')
+      const args = resolveToolInput(name as ToolName, parsedArgs, toolResults.map((entry) => entry.result))
+      toolCallLog.push({ name, timestamp: Date.now() })
 
-        try {
-          console.log(`[Agent]  → ${name}`, JSON.stringify(args))
-          const result = await handleToolCall(name as ToolName, args, { userMessage: latestUserMessage })
-          console.log(`[Agent]  ✓ ${name}: ${result.summary}`)
-          toolResults.push({ name, result })
-          return {
-            role: 'tool',
-            tool_call_id: toolCall.id,
-            content: JSON.stringify({ summary: result.summary, data: result.data }),
-          }
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error)
-          console.error(`[Agent]  ✗ ${name}: ${message}`)
-          return {
-            role: 'tool',
-            tool_call_id: toolCall.id,
-            content: JSON.stringify({ error: message }),
-          }
-        }
-      })
-    )
+      try {
+        console.log(`[Agent]  → ${name}`, JSON.stringify(args))
+        const result = await handleToolCall(name as ToolName, args, { userMessage: latestUserMessage })
+        console.log(`[Agent]  ✓ ${name}: ${result.summary}`)
+        toolResults.push({ name, result })
+        results.push({
+          role: 'tool',
+          tool_call_id: toolCall.id,
+          content: JSON.stringify({ summary: result.summary, data: result.data }),
+        })
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        console.error(`[Agent]  ✗ ${name}: ${message}`)
+        results.push({
+          role: 'tool',
+          tool_call_id: toolCall.id,
+          content: JSON.stringify({ error: message }),
+        })
+      }
+    }
 
     openaiMessages.push(...results)
   }

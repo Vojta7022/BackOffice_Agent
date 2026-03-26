@@ -1,6 +1,6 @@
 import { GoogleGenAI } from '@google/genai'
 import { agentTools, ToolName } from './tools'
-import { handleToolCall, ToolResult } from './tool-handlers'
+import { handleToolCall, resolveToolInput, ToolResult } from './tool-handlers'
 import { buildGroqToolResult, callGroq, parseGroqResponse } from './groq-provider'
 import { callOpenAI } from './openai-provider'
 
@@ -508,6 +508,7 @@ async function runGeminiConversation(
     ...historyToGemini(trimHistory(conversationHistory)),
     { role: 'user', parts: [{ text: modelUserMessage }] },
   ]
+  const executedToolResults: ToolResult[] = []
 
   let iterations = 0
   let response = await callWithProvider('gemini', SYSTEM_PROMPT, contents, agentTools)
@@ -518,32 +519,37 @@ async function runGeminiConversation(
 
     console.log(`[Agent] Gemini iteration ${iterations}/${MAX_ITERATIONS} — ${response.toolCalls.length} tool(s)`)
 
-    const fnResponseParts = await Promise.all(
-      response.toolCalls.map(async (toolCall): Promise<GeminiPart> => {
-        console.log(`[Agent]  → ${toolCall.name}`, JSON.stringify(toolCall.args))
+    const orderedToolCalls = [
+      ...response.toolCalls.filter((toolCall) => toolCall.name !== 'generate_chart'),
+      ...response.toolCalls.filter((toolCall) => toolCall.name === 'generate_chart'),
+    ]
+    const fnResponseParts: GeminiPart[] = []
+    for (const toolCall of orderedToolCalls) {
+      const args = resolveToolInput(toolCall.name as ToolName, toolCall.args, executedToolResults)
+      console.log(`[Agent]  → ${toolCall.name}`, JSON.stringify(args))
 
-        try {
-          const result = await handleToolCall(toolCall.name as ToolName, toolCall.args, { userMessage })
-          console.log(`[Agent]  ✓ ${toolCall.name}: ${result.summary}`)
-          rememberToolResult(toolCall.name, result, allToolResults, toolCallLog)
-          return {
-            functionResponse: {
-              name: toolCall.name,
-              response: { summary: result.summary, data: result.data },
-            },
-          }
-        } catch (error) {
-          const message = getErrorMessage(error)
-          console.error(`[Agent]  ✗ ${toolCall.name}: ${message}`)
-          return {
-            functionResponse: {
-              name: toolCall.name,
-              response: { error: `Chyba nástroje: ${message}` },
-            },
-          }
-        }
-      })
-    )
+      try {
+        const result = await handleToolCall(toolCall.name as ToolName, args, { userMessage })
+        console.log(`[Agent]  ✓ ${toolCall.name}: ${result.summary}`)
+        executedToolResults.push(result)
+        rememberToolResult(toolCall.name, result, allToolResults, toolCallLog)
+        fnResponseParts.push({
+          functionResponse: {
+            name: toolCall.name,
+            response: { summary: result.summary, data: result.data },
+          },
+        })
+      } catch (error) {
+        const message = getErrorMessage(error)
+        console.error(`[Agent]  ✗ ${toolCall.name}: ${message}`)
+        fnResponseParts.push({
+          functionResponse: {
+            name: toolCall.name,
+            response: { error: `Chyba nástroje: ${message}` },
+          },
+        })
+      }
+    }
 
     contents.push({ role: 'model', parts: extractGeminiParts(response.raw) })
     contents.push({ role: 'user', parts: fnResponseParts })
@@ -587,6 +593,7 @@ async function runGroqConversation(
     ...historyToGroq(trimHistory(conversationHistory)),
     { role: 'user', content: modelUserMessage },
   ]
+  const executedToolResults: ToolResult[] = []
 
   let iterations = 0
   let response = await callWithProvider('groq', SYSTEM_PROMPT, messages, agentTools)
@@ -603,28 +610,37 @@ async function runGroqConversation(
       tool_calls: extractGroqToolCalls(response.raw),
     })
 
-    const toolResultMessages = await Promise.all(
-      response.toolCalls.map(async (toolCall) => {
-        console.log(`[Agent]  → ${toolCall.name}`, JSON.stringify(toolCall.args))
+    const orderedToolCalls = [
+      ...response.toolCalls.filter((toolCall) => toolCall.name !== 'generate_chart'),
+      ...response.toolCalls.filter((toolCall) => toolCall.name === 'generate_chart'),
+    ]
+    const toolResultMessages: GroqConversationMessage[] = []
+    for (const toolCall of orderedToolCalls) {
+      const args = resolveToolInput(toolCall.name as ToolName, toolCall.args, executedToolResults)
+      console.log(`[Agent]  → ${toolCall.name}`, JSON.stringify(args))
 
-        try {
-          const result = await handleToolCall(toolCall.name as ToolName, toolCall.args, { userMessage })
-          console.log(`[Agent]  ✓ ${toolCall.name}: ${result.summary}`)
-          rememberToolResult(toolCall.name, result, allToolResults, toolCallLog)
-          return buildGroqToolResult(
+      try {
+        const result = await handleToolCall(toolCall.name as ToolName, args, { userMessage })
+        console.log(`[Agent]  ✓ ${toolCall.name}: ${result.summary}`)
+        executedToolResults.push(result)
+        rememberToolResult(toolCall.name, result, allToolResults, toolCallLog)
+        toolResultMessages.push(
+          buildGroqToolResult(
             toolCall.id ?? `groq-tool-${Date.now()}`,
             JSON.stringify({ summary: result.summary, data: result.data })
           )
-        } catch (error) {
-          const message = getErrorMessage(error)
-          console.error(`[Agent]  ✗ ${toolCall.name}: ${message}`)
-          return buildGroqToolResult(
+        )
+      } catch (error) {
+        const message = getErrorMessage(error)
+        console.error(`[Agent]  ✗ ${toolCall.name}: ${message}`)
+        toolResultMessages.push(
+          buildGroqToolResult(
             toolCall.id ?? `groq-tool-${Date.now()}`,
             JSON.stringify({ error: `Chyba nástroje: ${message}` })
           )
-        }
-      })
-    )
+        )
+      }
+    }
 
     messages.push(...toolResultMessages)
     response = await callWithProvider('groq', SYSTEM_PROMPT, messages, agentTools)

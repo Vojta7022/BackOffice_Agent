@@ -22,6 +22,48 @@ export interface ToolCallContext {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+function chartToolHasUsableData(toolInput: Record<string, unknown>): boolean {
+  return Array.isArray(toolInput.data) && toolInput.data.some((item) => typeof item === 'object' && item !== null)
+}
+
+function extractChartRows(data: unknown): Record<string, unknown>[] | null {
+  const rowsSource =
+    Array.isArray(data)
+      ? data
+      : typeof data === 'object' && data !== null && 'rows' in data && Array.isArray((data as { rows: unknown }).rows)
+      ? (data as { rows: unknown[] }).rows
+      : typeof data === 'object' && data !== null && 'listings' in data && Array.isArray((data as { listings: unknown }).listings)
+      ? (data as { listings: unknown[] }).listings
+      : null
+
+  if (!rowsSource || rowsSource.length === 0) return null
+
+  const rows = rowsSource.filter((item): item is Record<string, unknown> => typeof item === 'object' && item !== null)
+  return rows.length > 0 ? rows : null
+}
+
+export function resolveToolInput(
+  toolName: ToolName,
+  toolInput: Record<string, unknown>,
+  previousResults: ToolResult[]
+): Record<string, unknown> {
+  if (toolName !== 'generate_chart' || chartToolHasUsableData(toolInput)) {
+    return toolInput
+  }
+
+  const fallbackRows = [...previousResults]
+    .reverse()
+    .map((result) => extractChartRows(result.data))
+    .find((rows): rows is Record<string, unknown>[] => Array.isArray(rows) && rows.length > 0)
+
+  if (!fallbackRows) return toolInput
+
+  return {
+    ...toolInput,
+    data: fallbackRows,
+  }
+}
+
 function czk(amount: number): string {
   return new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 }).format(amount)
 }
