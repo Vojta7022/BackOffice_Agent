@@ -20,7 +20,7 @@ export function formatCZK(amount: number, language: AppLanguage = 'cs'): string 
 }
 
 const MONTHS: Record<AppLanguage, string[]> = {
-  cs: ['led', 'uno', 'bre', 'dub', 'kve', 'cvn', 'cvc', 'srp', 'zar', 'rij', 'lis', 'pro'],
+  cs: ['led', 'úno', 'bře', 'dub', 'kvě', 'čvn', 'čvc', 'srp', 'zář', 'říj', 'lis', 'pro'],
   en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
 }
 
@@ -44,8 +44,8 @@ export function relativeTime(dateStr: string, language: AppLanguage = 'cs'): str
       if (hours < 24) return `${hours} hours ago`
     } else {
       if (hours <= 0) return 'dnes'
-      if (hours === 1) return 'pred hodinou'
-      if (hours < 24) return `pred ${hours} hodinami`
+      if (hours === 1) return 'před hodinou'
+      if (hours < 24) return `před ${hours} hodinami`
     }
   }
 
@@ -61,11 +61,11 @@ export function relativeTime(dateStr: string, language: AppLanguage = 'cs'): str
   }
 
   if (days <= 0) return 'dnes'
-  if (days === 1) return 'vcera'
-  if (days < 7) return `pred ${days} dny`
-  if (days < 14) return 'pred tydnem'
-  if (days < 30) return `pred ${Math.round(days / 7)} tydny`
-  return `pred ${Math.round(days / 30)} mesici`
+  if (days === 1) return 'včera'
+  if (days < 7) return `před ${days} dny`
+  if (days < 14) return 'před týdnem'
+  if (days < 30) return `před ${Math.round(days / 7)} týdny`
+  return `před ${Math.round(days / 30)} měsíci`
 }
 
 export async function fetchJson<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T> {

@@ -6,6 +6,7 @@ import { createDraft } from '@/lib/google/gmail'
 import { hasGoogleRefreshToken } from '@/lib/google/auth'
 import { searchWeb } from './web-search'
 import { fetchAllListings } from '@/lib/monitoring/fetcher'
+import { monitoringStore } from '@/lib/monitoring/store'
 
 // ─── Result type ──────────────────────────────────────────────────────────────
 
@@ -1132,8 +1133,10 @@ async function handleSetupMonitoring(input: Record<string, unknown>): Promise<To
     },
     frequency: resolvedFrequency,
     active: true,
-    created_at: '2026-03-22',
+    created_at: new Date().toISOString(),
   }
+
+  monitoringStore.addRule(rule)
 
   const filterDesc: string[] = [`lokalita: ${normalizedLocation}`]
   if (property_type) filterDesc.push(`typ: ${property_type}`)

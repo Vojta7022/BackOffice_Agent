@@ -13,6 +13,7 @@ import {
   Presentation,
   SendHorizontal,
   Users,
+  type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTranslation } from '@/lib/useTranslation'
@@ -24,18 +25,19 @@ interface ChatInputProps {
   initialValue?: string
 }
 
-const QUICK_COMMANDS = [
-  { name: '/klienti', description: 'Zobraz prehled klientu', prompt: 'Zobraz prehled klientu', icon: Users },
-  { name: '/leady', description: 'Kolik mame novych leadu?', prompt: 'Kolik mame novych leadu?', icon: BarChart3 },
-  { name: '/nemovitosti', description: 'Zobraz dostupne nemovitosti', prompt: 'Zobraz dostupne nemovitosti', icon: Building2 },
-  { name: '/chybejici', description: 'Najdi nemovitosti s chybejicimi daty', prompt: 'Najdi nemovitosti s chybejicimi daty', icon: AlertTriangle },
-  { name: '/report', description: 'Generuj tydenni report', prompt: 'Generuj tydenni report', icon: FileText },
-  { name: '/prezentace', description: 'Vytvor prezentaci se 3 slidy', prompt: 'Vytvor prezentaci se 3 slidy', icon: Presentation },
-  { name: '/email', description: 'Napis email zajemci', prompt: 'Napis email zajemci', icon: Mail },
-  { name: '/monitoring', description: 'Nastav monitoring Holesovice', prompt: 'Nastav monitoring Holesovice', icon: BellRing },
-  { name: '/portfolio', description: 'Analyzuj portfolio nemovitosti', prompt: 'Analyzuj portfolio nemovitosti', icon: BarChart3 },
-  { name: '/dashboard', description: 'Zobraz aktualni metriky', prompt: 'Zobraz aktualni metriky', icon: LayoutDashboard },
-]
+interface QuickCommand {
+  name: string
+  description: string
+  prompt: string
+  icon: LucideIcon
+}
+
+function normalizeCommandQuery(value: string) {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+}
 
 export default function ChatInput({ onSend, disabled, showSuggestions, initialValue = '' }: ChatInputProps) {
   const { t, language } = useTranslation()
@@ -45,6 +47,36 @@ export default function ChatInput({ onSend, disabled, showSuggestions, initialVa
   const [activeCommandIndex, setActiveCommandIndex] = useState(0)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const recognitionRef = useRef<SpeechRecognition | null>(null)
+
+  const quickCommands = useMemo<QuickCommand[]>(() => {
+    if (language === 'en') {
+      return [
+        { name: '/clients', description: 'Show client overview', prompt: 'Show client overview', icon: Users },
+        { name: '/leads', description: 'How many new leads do we have?', prompt: 'How many new leads do we have?', icon: BarChart3 },
+        { name: '/properties', description: 'Show available properties', prompt: 'Show available properties', icon: Building2 },
+        { name: '/missing', description: 'Find properties with missing data', prompt: 'Find properties with missing data', icon: AlertTriangle },
+        { name: '/report', description: 'Generate weekly report', prompt: 'Generate weekly report', icon: FileText },
+        { name: '/presentation', description: 'Create a 3-slide presentation', prompt: 'Create a 3-slide presentation', icon: Presentation },
+        { name: '/email', description: 'Write an email to a prospect', prompt: 'Write an email to a prospect', icon: Mail },
+        { name: '/monitoring', description: 'Set up monitoring for Holešovice', prompt: 'Set up monitoring for Holešovice', icon: BellRing },
+        { name: '/portfolio', description: 'Analyze property portfolio', prompt: 'Analyze property portfolio', icon: BarChart3 },
+        { name: '/dashboard', description: 'Show current metrics', prompt: 'Show current metrics', icon: LayoutDashboard },
+      ]
+    }
+
+    return [
+      { name: '/klienti', description: 'Zobraz přehled klientů', prompt: 'Zobraz přehled klientů', icon: Users },
+      { name: '/leady', description: 'Kolik máme nových leadů?', prompt: 'Kolik máme nových leadů?', icon: BarChart3 },
+      { name: '/nemovitosti', description: 'Zobraz dostupné nemovitosti', prompt: 'Zobraz dostupné nemovitosti', icon: Building2 },
+      { name: '/chybejici', description: 'Najdi nemovitosti s chybějícími daty', prompt: 'Najdi nemovitosti s chybějícími daty', icon: AlertTriangle },
+      { name: '/report', description: 'Generuj týdenní report', prompt: 'Generuj týdenní report', icon: FileText },
+      { name: '/prezentace', description: 'Vytvoř prezentaci se 3 slidy', prompt: 'Vytvoř prezentaci se 3 slidy', icon: Presentation },
+      { name: '/email', description: 'Napiš email zájemci', prompt: 'Napiš email zájemci', icon: Mail },
+      { name: '/monitoring', description: 'Nastav monitoring pro Holešovice', prompt: 'Nastav monitoring pro Holešovice', icon: BellRing },
+      { name: '/portfolio', description: 'Analyzuj portfolio nemovitostí', prompt: 'Analyzuj portfolio nemovitostí', icon: BarChart3 },
+      { name: '/dashboard', description: 'Zobraz aktuální metriky', prompt: 'Zobraz aktuální metriky', icon: LayoutDashboard },
+    ]
+  }, [language])
 
   // Check Web Speech API support on mount
   useEffect(() => {
@@ -105,11 +137,13 @@ export default function ChatInput({ onSend, disabled, showSuggestions, initialVa
 
   const filteredCommands = useMemo(() => {
     if (slashQuery === null) return []
-    return QUICK_COMMANDS.filter((command) => {
-      const normalizedName = command.name.slice(1).toLowerCase()
-      return normalizedName.includes(slashQuery) || command.description.toLowerCase().includes(slashQuery)
+    const normalizedQuery = normalizeCommandQuery(slashQuery)
+    return quickCommands.filter((command) => {
+      const normalizedName = normalizeCommandQuery(command.name.slice(1))
+      const normalizedDescription = normalizeCommandQuery(command.description)
+      return normalizedName.includes(normalizedQuery) || normalizedDescription.includes(normalizedQuery)
     })
-  }, [slashQuery])
+  }, [quickCommands, slashQuery])
 
   const isCommandPaletteOpen = slashQuery !== null
 
@@ -122,7 +156,7 @@ export default function ChatInput({ onSend, disabled, showSuggestions, initialVa
     setActiveCommandIndex((current) => Math.min(current, Math.max(filteredCommands.length - 1, 0)))
   }, [filteredCommands.length, isCommandPaletteOpen])
 
-  const runCommand = useCallback((command: (typeof QUICK_COMMANDS)[number]) => {
+  const runCommand = useCallback((command: QuickCommand) => {
     if (disabled) return
     setValue(command.prompt)
     onSend(command.prompt)
@@ -215,7 +249,7 @@ export default function ChatInput({ onSend, disabled, showSuggestions, initialVa
       {isCommandPaletteOpen && (
         <div className="absolute bottom-[calc(100%+8px)] left-4 right-4 z-20 overflow-hidden rounded-2xl border border-border bg-card shadow-xl dark:shadow-none">
           <div className="border-b border-border px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground/70">
-            Quick commands
+            {language === 'en' ? 'Quick commands' : 'Rychlé příkazy'}
           </div>
           {filteredCommands.length > 0 ? (
             <div className="max-h-72 overflow-y-auto p-2">
@@ -246,7 +280,9 @@ export default function ChatInput({ onSend, disabled, showSuggestions, initialVa
               })}
             </div>
           ) : (
-            <div className="px-4 py-4 text-sm text-muted-foreground">Žádný příkaz nenalezen.</div>
+            <div className="px-4 py-4 text-sm text-muted-foreground">
+              {language === 'en' ? 'No command found.' : 'Žádný příkaz nenalezen.'}
+            </div>
           )}
         </div>
       )}

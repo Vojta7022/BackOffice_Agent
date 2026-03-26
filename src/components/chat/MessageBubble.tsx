@@ -15,65 +15,41 @@ import { formatCZK } from '@/lib/utils'
 
 const TOOL_SUGGESTIONS: Record<string, { cs: string[]; en: string[] }> = {
   query_clients: {
-    cs: ['Zobraz jako graf', 'Export do CSV', 'Rozdel podle typu'],
+    cs: ['Zobraz jako graf', 'Export do CSV', 'Rozděl podle typu'],
     en: ['Show as chart', 'Export to CSV', 'Break down by type'],
   },
   query_leads: {
-    cs: ['Graf za 6 mesicu', 'Konverzni pomer', 'Nezkontaktovane leady'],
+    cs: ['Graf za 6 měsíců', 'Konverzní poměr', 'Nezkontaktované leady'],
     en: ['Chart for 6 months', 'Conversion rate', 'Uncontacted leads'],
   },
   query_properties: {
-    cs: ['Porovnej vybrane', 'Najdi chybejici data', 'Serad podle ceny za m²'],
+    cs: ['Porovnej vybrané', 'Najdi chybějící data', 'Seřaď podle ceny za m²'],
     en: ['Compare selected', 'Find missing data', 'Sort by price per m²'],
   },
   find_missing_data: {
-    cs: ['Export seznam', 'Prirad ukoly k doplneni'],
+    cs: ['Export seznam', 'Přiřaď úkoly k doplnění'],
     en: ['Export list', 'Assign tasks to fill in'],
   },
   generate_chart: {
-    cs: ['Jiny typ grafu', 'Pridej do reportu'],
+    cs: ['Jiný typ grafu', 'Přidej do reportu'],
     en: ['Different chart type', 'Add to report'],
   },
   draft_email: {
-    cs: ['Uprav ton', 'Pridej termin prohlidky'],
+    cs: ['Uprav tón', 'Přidej termín prohlídky'],
     en: ['Adjust tone', 'Add a viewing date'],
   },
   generate_report: {
-    cs: ['Vytvor prezentaci', 'Posli emailem'],
+    cs: ['Vytvoř prezentaci', 'Pošli emailem'],
     en: ['Create presentation', 'Send by email'],
   },
   generate_presentation: {
-    cs: ['Pridej dalsi slide', 'Stahnout PPTX'],
+    cs: ['Přidej další slide', 'Stáhnout PPTX'],
     en: ['Add another slide', 'Download PPTX'],
   },
   setup_monitoring: {
-    cs: ['Nastav dalsi lokality', 'Zmen frekvenci'],
+    cs: ['Nastav další lokality', 'Změň frekvenci'],
     en: ['Set more locations', 'Change frequency'],
   },
-}
-
-const TOOL_STEP_LABELS_CS: Record<string, string> = {
-  query_clients: 'Vyhledavani klientu',
-  query_leads: 'Analyza leadu',
-  query_properties: 'Hledani nemovitosti',
-  query_transactions: 'Analyza transakci',
-  find_missing_data: 'Hledani chybejicich dat',
-  generate_chart: 'Tvorba grafu',
-  draft_email: 'Priprava emailu',
-  check_calendar: 'Kontrola kalendare',
-  create_task: 'Vytvareni ukolu',
-  generate_report: 'Generovani reportu',
-  generate_presentation: 'Priprava prezentace',
-  setup_monitoring: 'Nastaveni monitoringu',
-  get_dashboard_metrics: 'Nacitani metrik',
-  get_weekly_summary: 'Tydenni prehled',
-  compare_properties: 'Porovnani nemovitosti',
-  generate_property_description: 'Tvorba popisu nemovitosti',
-  analyze_portfolio: 'Analyza portfolia',
-  client_activity_timeline: 'Historie klienta',
-  market_overview: 'Prehled trhu',
-  web_search: 'Webove vyhledavani',
-  search_listings: 'Vyhledavani nabidek',
 }
 
 const MONITORING_SOURCE_STYLES: Record<string, string> = {
@@ -204,6 +180,8 @@ function getContextualSuggestions(steps: ToolCallLogEntry[] | undefined, languag
 // ─── ThinkingSteps ────────────────────────────────────────────────────────
 
 function ThinkingSteps({ steps }: { steps: ToolCallLogEntry[] }) {
+  const { t } = useTranslation()
+
   if (!steps.length) return null
   return (
     <div className="mb-3 flex flex-wrap gap-1.5">
@@ -213,7 +191,7 @@ function ThinkingSteps({ steps }: { steps: ToolCallLogEntry[] }) {
           className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[11px] text-primary/90"
         >
           <Wrench className="h-2.5 w-2.5" />
-          {TOOL_STEP_LABELS_CS[step.name] ?? step.name}
+          {t.chat.toolLabels[step.name] ?? step.name}
         </span>
       ))}
     </div>

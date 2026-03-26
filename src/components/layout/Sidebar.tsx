@@ -6,7 +6,6 @@ import { useEffect, useState } from 'react'
 import {
   Building2,
   LayoutDashboard,
-  MessageSquare,
   Home,
   Users,
   CheckSquare,
@@ -28,15 +27,15 @@ function formatConversationTime(timestamp: string, language: 'cs' | 'en') {
   const hours = Math.max(0, Math.floor(diffMs / 3_600_000))
 
   if (hours < 1) {
-    return language === 'en' ? 'just now' : 'prave ted'
+    return language === 'en' ? 'just now' : 'právě teď'
   }
 
   if (hours < 24) {
-    return language === 'en' ? `${hours}h ago` : `pred ${hours}h`
+    return language === 'en' ? `${hours}h ago` : `před ${hours} h`
   }
 
   const days = Math.max(1, Math.floor(hours / 24))
-  return language === 'en' ? `${days}d ago` : `pred ${days}d`
+  return language === 'en' ? `${days}d ago` : `před ${days} d`
 }
 
 export default function Sidebar() {
@@ -57,12 +56,24 @@ export default function Sidebar() {
 
   const navItems = [
     { href: '/', label: currentT.nav.dashboard, icon: LayoutDashboard },
-    { href: '/chat', label: currentT.nav.chat, icon: MessageSquare },
     { href: '/properties', label: currentT.nav.properties, icon: Home },
     { href: '/clients', label: currentT.nav.clients, icon: Users },
     { href: '/tasks', label: currentT.nav.tasks, icon: CheckSquare },
     { href: '/monitoring', label: currentT.nav.monitoring, icon: Bell },
   ]
+
+  const activeNavPath =
+    pathname === '/'
+      ? '/'
+      : pathname === '/properties'
+      ? '/properties'
+      : pathname === '/clients'
+      ? '/clients'
+      : pathname === '/tasks'
+      ? '/tasks'
+      : pathname === '/monitoring'
+      ? '/monitoring'
+      : null
 
   const handleNewChat = () => {
     createNewConversation()
@@ -199,7 +210,7 @@ export default function Sidebar() {
         <nav className="flex-1 overflow-y-auto overflow-x-hidden py-4">
           <ul className="space-y-1 px-2">
             {navItems.map(({ href, label, icon: Icon }) => {
-              const isActive = href === '/' ? pathname === '/' : pathname.startsWith(href)
+              const isActive = href === activeNavPath
               return (
                 <li key={href}>
                   <Link
