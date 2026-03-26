@@ -25,6 +25,7 @@
     "groq-sdk": "^1.1.1",
     "lucide-react": "^0.577.0",
     "next": "14.2.35",
+    "openai": "^6.32.0",
     "papaparse": "^5.5.3",
     "pptxgenjs": "^4.0.1",
     "react": "^18",

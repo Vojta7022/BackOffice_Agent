@@ -37,6 +37,19 @@ function monthOf(dateStr: string): string {
   return dateStr.substring(0, 7)
 }
 
+function normalizeSearch(str: string): string {
+  return str
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+}
+
+function buildSearchWords(query: string): string[] {
+  return normalizeSearch(query)
+    .split(/\s+/)
+    .filter((word) => word.length > 2)
+}
+
 function lastNMonths(n: number): string[] {
   const months: string[] = []
   for (let i = n - 1; i >= 0; i--) {
@@ -401,25 +414,50 @@ class Database {
   // ── 13. Search properties ─────────────────────────────────────────────────
 
   searchProperties(query: string): Property[] {
-    const q = query.toLowerCase()
-    return this.properties.filter(p =>
-      p.name.toLowerCase().includes(q) ||
-      p.address.street.toLowerCase().includes(q) ||
-      p.address.city.toLowerCase().includes(q) ||
-      p.address.district.toLowerCase().includes(q) ||
-      p.description.toLowerCase().includes(q)
-    )
+    const normalizedQuery = normalizeSearch(query).trim()
+    const words = buildSearchWords(query)
+
+    return this.properties.filter((property) => {
+      const propertyText = normalizeSearch(
+        [
+          property.name,
+          property.address.street,
+          property.address.city,
+          property.address.district,
+          property.description,
+        ].join(' ')
+      )
+
+      if (words.length > 0) {
+        return words.every((word) => propertyText.includes(word))
+      }
+
+      return propertyText.includes(normalizedQuery)
+    })
   }
 
   // ── 14. Search clients ────────────────────────────────────────────────────
 
   searchClients(query: string): Client[] {
-    const q = query.toLowerCase()
-    return this.clients.filter(c =>
-      c.name.toLowerCase().includes(q) ||
-      c.email.toLowerCase().includes(q) ||
-      c.notes.toLowerCase().includes(q)
-    )
+    const normalizedQuery = normalizeSearch(query).trim()
+    const words = buildSearchWords(query)
+
+    return this.clients.filter((client) => {
+      const clientText = normalizeSearch(
+        [
+          client.name,
+          client.email,
+          client.phone,
+          client.notes,
+        ].join(' ')
+      )
+
+      if (words.length > 0) {
+        return words.every((word) => clientText.includes(word))
+      }
+
+      return clientText.includes(normalizedQuery)
+    })
   }
 
   // ── 15. Dashboard stats ───────────────────────────────────────────────────

@@ -4,6 +4,8 @@ import { ToolName } from './tools'
 import { getAvailableSlots } from '@/lib/google/calendar'
 import { createDraft } from '@/lib/google/gmail'
 import { hasGoogleRefreshToken } from '@/lib/google/auth'
+import { searchWeb } from './web-search'
+import { fetchAllListings } from '@/lib/monitoring/fetcher'
 
 // ─── Result type ──────────────────────────────────────────────────────────────
 
@@ -538,8 +540,15 @@ async function handleDraftEmail(input: Record<string, unknown>): Promise<ToolRes
 async function handleCheckCalendar(input: Record<string, unknown>): Promise<ToolResult> {
   const { date_from, date_to, duration_minutes } = input as Record<string, string>
   const duration = Number(duration_minutes ?? 60)
-  const resolvedFrom = date_from ?? '2026-03-23'
-  const resolvedTo = date_to ?? '2026-03-27'
+  let resolvedFrom = date_from ?? '2026-03-24'
+  let resolvedTo = date_to ?? '2026-03-28'
+
+  const inputYear = Number.parseInt(resolvedFrom.split('-')[0] ?? '2026', 10)
+  if (inputYear < 2026) {
+    resolvedFrom = '2026-03-24'
+    resolvedTo = '2026-03-28'
+  }
+
   const availability = await getAvailableSlots(resolvedFrom, resolvedTo, duration)
   const groupedSlots = availability.slots.reduce<Array<{ date: string; day: string; slots: string[] }>>((acc, slot) => {
     const existing = acc.find((item) => item.date === slot.date && item.day === slot.day)
@@ -887,6 +896,32 @@ function handleMarketOverview(input: Record<string, unknown>): ToolResult {
   }
 }
 
+async function handleWebSearch(input: Record<string, unknown>): Promise<ToolResult> {
+  const query = typeof input.query === 'string' ? input.query.trim() : ''
+  const results = query ? await searchWeb(query) : []
+
+  return {
+    data: results,
+    summary: results.length > 0
+      ? `Nalezeno ${results.length} výsledků pro "${query}".`
+      : `Žádné výsledky pro "${query}".`,
+    display_hint: 'text',
+  }
+}
+
+async function handleSearchListings(input: Record<string, unknown>): Promise<ToolResult> {
+  const location = typeof input.location === 'string' ? input.location.trim() : ''
+  const listingData = location
+    ? await fetchAllListings(location)
+    : { listings: [], sources: [], fetchedAt: new Date().toISOString() }
+
+  return {
+    data: { ...listingData, location },
+    summary: `Nalezeno ${listingData.listings.length} nabídek v lokalitě ${location} ze 4 realitních portálů.`,
+    display_hint: 'table',
+  }
+}
+
 function handleGenerateReport(input: Record<string, unknown>): ToolResult {
   const { period, format } = input as { period: 'week' | 'month' | 'quarter'; format?: string }
 
@@ -955,10 +990,12 @@ function handleGenerateReport(input: Record<string, unknown>): ToolResult {
 }
 
 function handleGeneratePresentation(input: Record<string, unknown>): ToolResult {
-  const { topic, num_slides, key_points } = input as {
+  const { topic, num_slides, key_points, existing_content, existing_slides } = input as {
     topic: string
     num_slides: number
     key_points?: string[]
+    existing_content?: string
+    existing_slides?: Array<{ title?: string; content?: string | string[] }>
   }
 
   const resolvedTopic = topic?.trim() || 'Týdenní report pro vedení'
@@ -979,7 +1016,7 @@ function handleGeneratePresentation(input: Record<string, unknown>): ToolResult 
   const conversionRate = allLeads.length > 0
     ? Math.round((allLeads.filter((lead) => lead.status === 'closed_won').length / allLeads.length) * 1000) / 10
     : 0
-  const requestedSlides = Math.max(1, Math.min(Number(num_slides) || 3, 3))
+  const requestedSlides = Math.max(1, Math.min(Number(num_slides) || 3, 10))
   const leadTrend = `${dash.monthly_changes.leads > 0 ? '+' : ''}${dash.monthly_changes.leads} % vs. minulý měsíc`
   const actionItems = [
     `Kontaktovat ${newLeadCount} nových leadů`,
@@ -988,8 +1025,21 @@ function handleGeneratePresentation(input: Record<string, unknown>): ToolResult 
     `Dokončit ${metrics.pending_deals} rozpracovaných obchodů`,
     ...(key_points?.length ? key_points : []),
   ]
+  const normalizedExistingSlides = Array.isArray(existing_slides)
+    ? existing_slides
+        .filter((slide): slide is { title?: string; content?: string | string[] } => Boolean(slide))
+        .map((slide, index) => ({
+          title: slide.title?.trim() || `Slide ${index + 1}`,
+          content: Array.isArray(slide.content)
+            ? slide.content.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+            : typeof slide.content === 'string' && slide.content.trim().length > 0
+            ? [slide.content.trim()]
+            : [],
+        }))
+        .filter((slide) => slide.content.length > 0)
+    : []
 
-  const slides = [
+  const baseSlides = [
     {
       title: 'Přehled výsledků',
       content: [
@@ -1013,7 +1063,46 @@ function handleGeneratePresentation(input: Record<string, unknown>): ToolResult 
       title: 'Doporučené kroky',
       content: actionItems.slice(0, 4),
     },
-  ].slice(0, requestedSlides)
+  ]
+
+  const additionalSlides = [
+    {
+      title: 'Rozšířený kontext',
+      content: [
+        existing_content?.trim() ? `Zachovat z předchozí verze: ${existing_content.trim()}` : null,
+        key_points?.[0] ? `Nový důraz: ${key_points[0]}` : null,
+        key_points?.[1] ? `Další bod: ${key_points[1]}` : null,
+        `Top obchod: ${topDeals[0] ?? 'Bez výrazného obchodu v datech.'}`,
+      ].filter((item): item is string => Boolean(item)),
+    },
+    {
+      title: 'Další příležitosti',
+      content: [
+        `Nové leady čekající na kontakt: ${newLeadCount}`,
+        `Aktivní portfolio: ${dash.active_properties} nemovitostí`,
+        `Stagnující inzeráty: ${stale.length}`,
+        `Nemovitosti s neúplnými daty: ${missingData.length}`,
+      ],
+    },
+    {
+      title: 'Rozšířené doporučení',
+      content: actionItems.slice(0, 4),
+    },
+  ]
+
+  const slidePool = normalizedExistingSlides.length > 0
+    ? [...normalizedExistingSlides]
+    : [...baseSlides]
+
+  if (requestedSlides > slidePool.length) {
+    const missingCount = requestedSlides - slidePool.length
+    const candidates = normalizedExistingSlides.length > 0
+      ? additionalSlides
+      : [...baseSlides.slice(slidePool.length), ...additionalSlides]
+    slidePool.push(...candidates.slice(0, missingCount))
+  }
+
+  const slides = slidePool.slice(0, requestedSlides)
 
   return {
     data: { topic: resolvedTopic, slides },
@@ -1022,7 +1111,7 @@ function handleGeneratePresentation(input: Record<string, unknown>): ToolResult 
   }
 }
 
-function handleSetupMonitoring(input: Record<string, unknown>): ToolResult {
+async function handleSetupMonitoring(input: Record<string, unknown>): Promise<ToolResult> {
   const { location, property_type, price_min, price_max, frequency } =
     input as Record<string, string>
   const normalizedLocation = location && /holešovice|holesovice/i.test(location)
@@ -1050,17 +1139,21 @@ function handleSetupMonitoring(input: Record<string, unknown>): ToolResult {
   if (property_type) filterDesc.push(`typ: ${property_type}`)
   if (price_min) filterDesc.push(`od ${czk(Number(price_min))}`)
   if (price_max) filterDesc.push(`do ${czk(Number(price_max))}`)
+  const listingData = await fetchAllListings(normalizedLocation)
 
   return {
     data: {
       ...rule,
+      initialResults: listingData.listings,
+      sources: listingData.sources,
+      fetchedAt: listingData.fetchedAt,
       status: 'aktivní',
-      next_check: '23.03.2026 v 07:00',
+      next_check: '27.03.2026 v 07:00',
       next_check_relative_cs: 'zítra v 7:00',
       next_check_relative_en: 'tomorrow at 7:00',
-      message: 'Monitoring nastaven. Budete informováni o nových nabídkách.',
+      message: `Monitoring nastaven. Prohledal jsem Sreality.cz, Bezrealitky.cz, Reality.iDNES.cz a České reality.cz a nalezl ${listingData.listings.length} aktuálních nabídek v ${normalizedLocation}. Další automatická kontrola proběhne ${rule.frequency === 'daily' ? 'zítra v 7:00' : 'příští týden'}.`,
     },
-    summary: `Monitoring nastaven — ${filterDesc.join(', ')}. Frekvence: ${rule.frequency === 'daily' ? 'denně' : 'týdně'}. Další kontrola zítra v 7:00.`,
+    summary: `Monitoring pro ${normalizedLocation} nastaven. Nalezeno ${listingData.listings.length} nabídek ze 4 portálů.`,
     display_hint: 'monitoring_set',
   }
 }
@@ -1092,5 +1185,7 @@ export async function handleToolCall(
     case 'analyze_portfolio':      return handleAnalyzePortfolio(toolInput)
     case 'client_activity_timeline': return handleClientActivityTimeline(toolInput)
     case 'market_overview':        return handleMarketOverview(toolInput)
+    case 'web_search':            return handleWebSearch(toolInput)
+    case 'search_listings':       return handleSearchListings(toolInput)
   }
 }

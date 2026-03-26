@@ -147,6 +147,8 @@ export interface Translations {
     monitoringActive: string
     monitoringNoPriceLimit: string
     monitoringConfirmation: string
+    monitoringInitialResults: string
+    openOnPortal: string
     reportMetrics: Record<string, string>
   }
   properties: {
@@ -438,6 +440,8 @@ const cs: Translations = {
       analyze_portfolio: 'Analyza portfolia',
       client_activity_timeline: 'Historie klienta',
       market_overview: 'Prehled trhu',
+      web_search: 'Webove vyhledavani',
+      search_listings: 'Vyhledavani nabidek',
     },
     taskCreated: 'Ukol vytvoren',
     dueDate: 'Termin',
@@ -483,6 +487,8 @@ const cs: Translations = {
     monitoringActive: 'aktivni',
     monitoringNoPriceLimit: 'Bez cenoveho omezeni',
     monitoringConfirmation: 'Monitoring nastaven. Budete informovani o novych nabidkach.',
+    monitoringInitialResults: 'Aktualni nabidky z portalu',
+    openOnPortal: 'Otevrit na portalu',
     reportMetrics: {
       revenue: 'Trzby',
       commission: 'Provize',
@@ -843,6 +849,8 @@ const en: Translations = {
       analyze_portfolio: 'Portfolio analysis',
       client_activity_timeline: 'Client timeline',
       market_overview: 'Market overview',
+      web_search: 'Web search',
+      search_listings: 'Listing search',
     },
     taskCreated: 'Task created',
     dueDate: 'Due date',
@@ -888,6 +896,8 @@ const en: Translations = {
     monitoringActive: 'active',
     monitoringNoPriceLimit: 'No price limit',
     monitoringConfirmation: 'Monitoring is active. You will be informed about new listings.',
+    monitoringInitialResults: 'Current listings from portals',
+    openOnPortal: 'Open on portal',
     reportMetrics: {
       revenue: 'Revenue',
       commission: 'Commission',

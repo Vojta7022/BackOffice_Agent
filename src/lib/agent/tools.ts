@@ -20,6 +20,8 @@ export type ToolName =
   | 'analyze_portfolio'
   | 'client_activity_timeline'
   | 'market_overview'
+  | 'web_search'
+  | 'search_listings'
 
 export const agentTools: FunctionDeclaration[] = [
   {
@@ -208,7 +210,7 @@ export const agentTools: FunctionDeclaration[] = [
   },
   {
     name: 'generate_presentation',
-    description: 'Create a PowerPoint presentation. When paired with generate_report, build a short deck based on the report findings.',
+    description: 'Create or extend a PowerPoint presentation. When paired with generate_report, build a short deck based on the report findings. When adding slides to an existing presentation, preserve the prior slide content and add only the new material.',
     parametersJsonSchema: {
       type: 'object',
       properties: {
@@ -218,6 +220,29 @@ export const agentTools: FunctionDeclaration[] = [
           type: 'array',
           items: { type: 'string' },
           description: 'Main points to cover',
+        },
+        existing_content: {
+          type: 'string',
+          description: 'Summary of existing slides to keep when adding more',
+        },
+        existing_slides: {
+          type: 'array',
+          description: 'Existing slide objects to preserve when extending a previous presentation',
+          items: {
+            type: 'object',
+            properties: {
+              title: { type: 'string' },
+              content: {
+                anyOf: [
+                  { type: 'string' },
+                  {
+                    type: 'array',
+                    items: { type: 'string' },
+                  },
+                ],
+              },
+            },
+          },
         },
       },
       required: ['topic', 'num_slides'],
@@ -296,6 +321,33 @@ export const agentTools: FunctionDeclaration[] = [
         city: { type: 'string', description: 'Optional city filter, e.g. "Praha"' },
         period_months: { type: 'number', default: 6 },
       },
+    },
+  },
+  {
+    name: 'web_search',
+    description: 'Search the web for any information. Use for general questions, current events, or anything not in the internal database.',
+    parametersJsonSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Search query' },
+      },
+      required: ['query'],
+    },
+  },
+  {
+    name: 'search_listings',
+    description: 'Search Czech real estate portals (Sreality, Bezrealitky, Reality.iDNES, České reality) for current property listings in a specific location. Use when user asks about monitoring listings or finding properties on the market.',
+    parametersJsonSchema: {
+      type: 'object',
+      properties: {
+        location: { type: 'string', description: 'Location to search, e.g. Praha Holešovice' },
+        property_type: {
+          type: 'string',
+          description: 'Type: byt, dům, komerční, pozemek',
+          enum: ['byt', 'dům', 'komerční', 'pozemek'],
+        },
+      },
+      required: ['location'],
     },
   },
 ]

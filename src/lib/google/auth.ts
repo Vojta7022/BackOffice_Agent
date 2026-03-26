@@ -10,8 +10,13 @@ export function hasGoogleOAuthConfig() {
   return Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET)
 }
 
+export function hasValidGoogleRefreshToken() {
+  const refreshToken = process.env.GOOGLE_REFRESH_TOKEN
+  return Boolean(refreshToken && refreshToken !== 'your-refresh-token')
+}
+
 export function hasGoogleRefreshToken() {
-  return Boolean(process.env.GOOGLE_REFRESH_TOKEN)
+  return hasValidGoogleRefreshToken()
 }
 
 export function getAuthUrl() {
@@ -32,7 +37,7 @@ export function getAuthUrl() {
 
 export function getOAuth2Client() {
   const refreshToken = process.env.GOOGLE_REFRESH_TOKEN
-  if (refreshToken) {
+  if (hasValidGoogleRefreshToken() && refreshToken) {
     oauth2Client.setCredentials({ refresh_token: refreshToken })
   }
   return oauth2Client

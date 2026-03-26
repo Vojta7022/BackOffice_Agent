@@ -10,8 +10,8 @@ interface SlotEntry {
 function getSimulatedSlots(dateFrom: string, dateTo: string, durationMinutes = 60) {
   const slots: SlotEntry[] = []
   const czechDays = ['neděle', 'pondělí', 'úterý', 'středa', 'čtvrtek', 'pátek', 'sobota']
-  const start = new Date(dateFrom || '2026-03-23')
-  const end = new Date(dateTo || '2026-03-27')
+  const start = new Date('2026-03-24')
+  const end = new Date(dateTo || '2026-03-28')
 
   for (let d = new Date(start); d <= end && slots.length < 10; d.setDate(d.getDate() + 1)) {
     if (d.getDay() === 0 || d.getDay() === 6) continue
@@ -38,8 +38,8 @@ function getSimulatedSlots(dateFrom: string, dateTo: string, durationMinutes = 6
 
 export async function getAvailableSlots(dateFrom: string, dateTo: string, durationMinutes = 60) {
   try {
-    const resolvedFrom = dateFrom || '2026-03-23'
-    const resolvedTo = dateTo || '2026-03-27'
+    const resolvedFrom = dateFrom || '2026-03-24'
+    const resolvedTo = dateTo || '2026-03-28'
 
     if (!hasGoogleRefreshToken()) {
       return getSimulatedSlots(resolvedFrom, resolvedTo, durationMinutes)

@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react'
 import ReactMarkdown from 'react-markdown'
-import { CheckCircle2, Bell, FileDown, FileText, Presentation, Wrench, Sparkles } from 'lucide-react'
+import { CheckCircle2, Bell, ExternalLink, FileDown, FileText, Presentation, Wrench, Sparkles } from 'lucide-react'
 import InlineChart from './InlineChart'
 import InlineTable from './InlineTable'
 import EmailDraftCard from './EmailDraftCard'
@@ -72,6 +72,15 @@ const TOOL_STEP_LABELS_CS: Record<string, string> = {
   analyze_portfolio: 'Analyza portfolia',
   client_activity_timeline: 'Historie klienta',
   market_overview: 'Prehled trhu',
+  web_search: 'Webove vyhledavani',
+  search_listings: 'Vyhledavani nabidek',
+}
+
+const MONITORING_SOURCE_STYLES: Record<string, string> = {
+  'Sreality.cz': 'border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300',
+  'Bezrealitky.cz': 'border-green-500/30 bg-green-500/10 text-green-700 dark:text-green-300',
+  'Reality.iDNES.cz': 'border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300',
+  'České reality.cz': 'border-orange-500/30 bg-orange-500/10 text-orange-700 dark:text-orange-300',
 }
 
 function formatTime(iso: string, language: 'cs' | 'en') {
@@ -254,6 +263,12 @@ function MonitoringCard({ rule }: { rule: Record<string, unknown> }) {
     language === 'en'
       ? String(rule.next_check_relative_en ?? rule.next_check ?? '')
       : String(rule.next_check_relative_cs ?? rule.next_check ?? '')
+  const initialResults = Array.isArray(rule.initialResults)
+    ? (rule.initialResults as Array<Record<string, unknown>>)
+    : []
+  const sources = Array.isArray(rule.sources)
+    ? (rule.sources as Array<Record<string, unknown>>)
+    : []
 
   return (
     <div className="mt-3 overflow-hidden rounded-2xl border border-green-500/20 bg-green-500/5 shadow-sm dark:shadow-none">
@@ -291,6 +306,70 @@ function MonitoringCard({ rule }: { rule: Record<string, unknown> }) {
               <p className="text-sm font-medium text-foreground">{nextCheck}</p>
             </div>
           </div>
+          {initialResults.length > 0 && (
+            <div className="mt-4">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                {t.chat.monitoringInitialResults}
+              </p>
+              {sources.length > 0 && (
+                <p className="mb-3 text-xs text-muted-foreground">
+                  {sources.map((source, index) => (
+                    <span key={`${String(source.name ?? 'source')}-${index}`}>
+                      {index > 0 ? ' | ' : ''}
+                      {String(source.name ?? '')}: {String(source.count ?? 0)} {source.status === 'live' ? '🟢' : '🔴'}
+                    </span>
+                  ))}
+                </p>
+              )}
+              <div className="space-y-2">
+                {initialResults.map((listing, index) => {
+                  const source = String(listing.source ?? '')
+                  const sourceStyle = MONITORING_SOURCE_STYLES[source] ?? 'border-border bg-muted/40 text-foreground'
+                  const snippet = typeof listing.snippet === 'string' ? listing.snippet : ''
+                  const url = typeof listing.url === 'string' ? listing.url : ''
+                  return (
+                    <div key={`${source}-${index}`} className="rounded-xl border border-border bg-background/80 p-3">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          {url ? (
+                            <a
+                              href={url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-sm font-semibold text-foreground transition-colors hover:text-primary"
+                            >
+                              {String(listing.name ?? '')}
+                            </a>
+                          ) : (
+                            <p className="text-sm font-semibold text-foreground">{String(listing.name ?? '')}</p>
+                          )}
+                          <p className="mt-1 text-sm text-foreground/80">{String(listing.price ?? t.chat.monitoringNoPriceLimit)}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">{String(listing.address ?? '')}</p>
+                          {snippet && (
+                            <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{snippet}</p>
+                          )}
+                        </div>
+                        <span className={`inline-flex shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-medium ${sourceStyle}`}>
+                          {source}
+                        </span>
+                      </div>
+                      {url && (
+                        <a
+                          href={url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary transition-colors hover:text-primary/80"
+                        >
+                          {t.chat.openOnPortal}
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -2,6 +2,7 @@ import { GoogleGenAI } from '@google/genai'
 import { agentTools, ToolName } from './tools'
 import { handleToolCall, ToolResult } from './tool-handlers'
 import { buildGroqToolResult, callGroq, parseGroqResponse } from './groq-provider'
+import { callOpenAI } from './openai-provider'
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
@@ -48,30 +49,57 @@ export interface AgentResponse {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const PROVIDERS = ['gemini', 'groq'] as const
+const PROVIDERS = ['openai', 'groq', 'gemini'] as const
+const GROQ_MODELS = ['llama-3.3-70b-versatile', 'llama-3.1-70b-versatile'] as const
 const GEMINI_MODELS = ['gemini-3.1-flash-lite-preview', 'gemini-2.5-flash-lite', 'gemini-2.5-flash'] as const
 const MAX_TOKENS = 2048
 const MAX_ITERATIONS = 5
 const RETRY_DELAYS_MS = [5000, 15000, 30000] as const
 
-const SYSTEM_PROMPT = `Jsi back-office asistent české realitní firmy RE:Agent.
+const SYSTEM_PROMPT = `Jsi RE:Agent — inteligentní back-office asistent české realitní firmy. Tvoje jméno je takové, jaké je nastavené v aplikaci, momentálně Pepa Novotný, takže když se podepisuješ v emailu, podepisuj se jako jméno agenta nastavené v aplikaci.
 
-JAZYK: Odpovídej VŽDY ve stejném jazyce jako uživatel.
+JAZYK
+Odpovídej VŽDY ve stejném jazyce, ve kterém uživatel napsal. Česky na český dotaz, anglicky na anglický, atd.
 
-GRAFY: Pokud uživatel žádá graf/vizualizaci/znázornění, MUSÍŠ: 1) zavolat datový nástroj, 2) IHNED zavolat generate_chart s reálnými čísly. Nikdy neříkej "mohu vytvořit graf" — prostě ho vytvoř. Pro dvě časové řady na jednom grafu nejdřív získej oba datasety a pak je spoj do jednoho generate_chart s položkami { label, value, secondary_value }.
-Když vytváříš DVA grafy (např. leady a prodeje), dej každému JINÝ název. Například: "Vývoj počtu leadů (říjen 2025 – březen 2026)" a "Vývoj prodaných nemovitostí (říjen 2025 – březen 2026)". NIKDY nedávej dvěma grafům stejný nadpis.
+KDY POUŽÍVAT NÁSTROJE
+Nástroje používej POUZE když uživatel žádá o data, akce nebo výstupy z firemního systému:
 
-VYHLEDÁVÁNÍ: Uživatel NIKDY nezná ID. Když zmíní nemovitost ("Loftový byt", "byt v Holešovicích", "Komunardů 32"), IHNED zavolej query_properties s search_query. Když zmíní klienta jménem, zavolej query_clients. NIKDY se NEPTEJ na ID — vždy hledej podle jména nebo adresy.
+- Dotazy na klienty, leady, nemovitosti, transakce → query_* nástroje
+- Grafy a vizualizace firemních dat → nejdřív query_* pro data, pak generate_chart
+- Psaní emailů → draft_email (a check_calendar pokud jde o prohlídku)
+- Reporty → generate_report
+- Prezentace → generate_presentation
+- Monitoring → setup_monitoring
+- Hledání chybějících dat → find_missing_data
+- Vytvoření úkolu → create_task
+- Metriky a KPI → get_dashboard_metrics nebo get_weekly_summary
 
-EMAIL PRO ZÁJEMCE: 1) Zavolej query_properties s názvem nebo adresou nemovitosti z uživatelova dotazu, 2) zavolej check_calendar, 3) zavolej draft_email s údaji o nemovitosti a termíny. Pokud uživatel zmínil email zájemce, použij ho. Pokud ne, použij "zajemce@email.cz".
+KDY NEPOUŽÍVAT NÁSTROJE
+Pro běžnou konverzaci nástroje NEPOUŽÍVEJ:
 
-REPORT + PREZENTACE: Pro report s prezentací: 1) zavolej generate_report, 2) zavolej generate_presentation.
+- Vtipy, small talk, pozdravy → odpověz přímo bez nástrojů
+- Obecné otázky (co je hypotéka, jak funguje katastr) → odpověz ze svých znalostí
+- Názory, rady, doporučení → odpověz přímo
+- Pokud si nejsi jistý, zeptej se uživatele, co přesně potřebuje
 
-MONITORING: Pro monitoring nemovitostí okamžitě zavolej setup_monitoring. Neptej se na upřesnění.
+PRAVIDLA PRO NÁSTROJE
 
-DALŠÍ NÁSTROJE: Pro porovnání nemovitostí použij compare_properties. Pro analýzu portfolia použij analyze_portfolio. Pro historii klienta použij client_activity_timeline.
+VYHLEDÁVÁNÍ: Uživatel NEZNÁ ID nemovitostí ani klientů. Když zmíní nemovitost podle názvu nebo adresy ("loftový byt", "byt v Holešovicích", "Komunardů 32"), zavolej query_properties s search_query. Když zmíní klienta jménem, zavolej query_clients. NIKDY se NEPTEJ na ID.
+GRAFY: Když uživatel chce graf nebo vizualizaci, zavolej NEJDŘÍV datový nástroj, PAK generate_chart s reálnými čísly. Pokud chce dva datasety v jednom grafu, použij secondary_value. Každý graf musí mít UNIKÁTNÍ název.
+EMAIL + KALENDÁŘ: Pro email s prohlídkou: 1) najdi nemovitost přes query_properties, 2) zavolej check_calendar, 3) zavolej draft_email s informacemi o nemovitosti a termíny.
+REPORT + PREZENTACE: Pro report s prezentací: 1) zavolej generate_report, 2) zavolej generate_presentation. Pokud uživatel chce přidat slide k existující prezentaci, zavolej generate_presentation znovu s vyšším počtem slidů a zahrň obsah z předchozí prezentace i nový obsah.
+MONITORING: Pro monitoring okamžitě zavolej setup_monitoring. Neptej se na upřesnění.
+WEB SEARCH: Máš přístup k internetu. Když uživatel potřebuje aktuální informace, použij web_search. Pro vyhledávání nemovitostí na portálech (Sreality, Bezrealitky, iDNES, České reality) použij search_listings.
+MONITORING NA PORTÁLECH: Když uživatel chce monitoring, zavolej setup_monitoring a zároveň search_listings pro okamžité výsledky z reálných portálů.
 
-OBECNĚ: Používej nástroje — nehádej. Částky v CZK. Datumy DD.MM.YYYY. Navrhni 1-2 další kroky.`
+FORMÁTOVÁNÍ
+
+- Částky v CZK (např. 8,5 mil. CZK)
+- Datumy ve formátu DD.MM.YYYY
+- Na konci odpovědí s daty navrhni 1-2 další kroky
+
+OSOBNOST
+Jsi profesionální, ale přátelský. Odpovídáš stručně a k věci. Nepoužívej zbytečné fráze. Pokud uživatel žádá něco mimo tvé schopnosti, zdvořile řekni, že to neumíš, a nabídni co umíš.`
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -81,12 +109,30 @@ function trimHistory(history: HistoryMessage[], maxMessages = 10): HistoryMessag
   return history.slice(-maxMessages)
 }
 
+function formatDateContext(date: Date): { iso: string; cs: string } {
+  const iso = date.toISOString().slice(0, 10)
+  const [year, month, day] = iso.split('-')
+  return {
+    iso,
+    cs: `${day}.${month}.${year}`,
+  }
+}
+
+function enrichUserMessage(userMessage: string): string {
+  const today = formatDateContext(new Date())
+  return `${userMessage}
+
+[Systémový kontext: dnešní datum je ${today.cs} (${today.iso}). Pokud uživatel píše "dnes", "zítra", "tento týden" nebo podobné relativní datumy, vztahuj je k tomuto datu.]`
+}
+
 function toTableData(data: unknown, title: string): TableData | null {
   const rowsSource =
     Array.isArray(data)
       ? data
       : typeof data === 'object' && data !== null && 'rows' in data && Array.isArray((data as { rows: unknown }).rows)
       ? (data as { rows: unknown[] }).rows
+      : typeof data === 'object' && data !== null && 'listings' in data && Array.isArray((data as { listings: unknown }).listings)
+      ? (data as { listings: unknown[] }).listings
       : null
 
   if (!rowsSource || rowsSource.length === 0) return null
@@ -426,13 +472,24 @@ async function callWithProvider(
       throw new Error('GROQ_API_KEY not set')
     }
 
-    const response = await callGroq(systemPrompt, messages as GroqConversationMessage[], tools)
-    const parsed = parseGroqResponse(response)
-    return {
-      text: parsed.text,
-      toolCalls: parsed.toolCalls,
-      raw: response,
+    let lastError: unknown = null
+
+    for (const model of GROQ_MODELS) {
+      try {
+        const response = await callGroq(model, systemPrompt, messages as GroqConversationMessage[], tools)
+        const parsed = parseGroqResponse(response)
+        return {
+          text: parsed.text,
+          toolCalls: parsed.toolCalls,
+          raw: response,
+        }
+      } catch (error) {
+        lastError = error
+        console.log(`Groq ${model} failed:`, getErrorMessage(error))
+      }
     }
+
+    throw lastError ?? new Error('All Groq models failed')
   }
 
   throw new Error(`Unknown provider: ${provider}`)
@@ -444,9 +501,10 @@ async function runGeminiConversation(
   allToolResults: ToolResult[],
   toolCallLog: ToolCallLogEntry[]
 ) {
+  const modelUserMessage = enrichUserMessage(userMessage)
   const contents: GeminiContent[] = [
     ...historyToGemini(trimHistory(conversationHistory)),
-    { role: 'user', parts: [{ text: userMessage }] },
+    { role: 'user', parts: [{ text: modelUserMessage }] },
   ]
 
   let iterations = 0
@@ -493,15 +551,39 @@ async function runGeminiConversation(
   return response.text || 'Hotovo.'
 }
 
+async function runOpenAIConversation(
+  userMessage: string,
+  conversationHistory: HistoryMessage[],
+  allToolResults: ToolResult[],
+  toolCallLog: ToolCallLogEntry[]
+) {
+  const response = await callOpenAI(
+    SYSTEM_PROMPT,
+    [
+      ...trimHistory(conversationHistory),
+      { role: 'user', content: enrichUserMessage(userMessage) },
+    ],
+    MAX_ITERATIONS,
+    userMessage
+  )
+
+  for (const toolResult of response.toolResults) {
+    rememberToolResult(toolResult.name, toolResult.result, allToolResults, toolCallLog)
+  }
+
+  return response.text || 'Hotovo.'
+}
+
 async function runGroqConversation(
   userMessage: string,
   conversationHistory: HistoryMessage[],
   allToolResults: ToolResult[],
   toolCallLog: ToolCallLogEntry[]
 ) {
+  const modelUserMessage = enrichUserMessage(userMessage)
   const messages: GroqConversationMessage[] = [
     ...historyToGroq(trimHistory(conversationHistory)),
-    { role: 'user', content: userMessage },
+    { role: 'user', content: modelUserMessage },
   ]
 
   let iterations = 0
@@ -555,9 +637,9 @@ export async function processMessage(
   userMessage: string,
   conversationHistory: HistoryMessage[]
 ): Promise<AgentResponse> {
-  if (!process.env.GEMINI_API_KEY && !process.env.GROQ_API_KEY) {
+  if (!process.env.OPENAI_API_KEY && !process.env.GROQ_API_KEY && !process.env.GEMINI_API_KEY) {
     return emptyResponse(
-      'API klíč není nakonfigurován. Nastavte prosím proměnné prostředí `GEMINI_API_KEY` nebo `GROQ_API_KEY`.'
+      'API klíč není nakonfigurován. Nastavte prosím proměnné prostředí `OPENAI_API_KEY`, `GROQ_API_KEY` nebo `GEMINI_API_KEY`.'
     )
   }
 
@@ -568,12 +650,15 @@ export async function processMessage(
   let message = ''
 
   for (const provider of PROVIDERS) {
+    if (provider === 'openai' && !process.env.OPENAI_API_KEY) continue
     if (provider === 'gemini' && !process.env.GEMINI_API_KEY) continue
     if (provider === 'groq' && !process.env.GROQ_API_KEY) continue
 
     try {
       message =
-        provider === 'gemini'
+        provider === 'openai'
+          ? await runOpenAIConversation(userMessage, conversationHistory, allToolResults, toolCallLog)
+          : provider === 'gemini'
           ? await runGeminiConversation(userMessage, conversationHistory, allToolResults, toolCallLog)
           : await runGroqConversation(userMessage, conversationHistory, allToolResults, toolCallLog)
 
