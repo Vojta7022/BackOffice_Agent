@@ -64,6 +64,11 @@ function storeAutopilotSnoozeUntilEndOfDay() {
   window.localStorage.setItem(AUTOPILOT_SNOOZE_KEY, String(endOfDay.getTime()))
 }
 
+function clearAutopilotSnooze() {
+  if (typeof window === 'undefined') return
+  window.localStorage.removeItem(AUTOPILOT_SNOOZE_KEY)
+}
+
 export default function ProactiveGreeting({ className }: ProactiveGreetingProps) {
   const hydrated = useHydrated()
   const { t } = useTranslation()
@@ -74,6 +79,7 @@ export default function ProactiveGreeting({ className }: ProactiveGreetingProps)
   const [isExiting, setIsExiting] = useState(false)
   const [isHidden, setIsHidden] = useState(true)
   const [isVisibilityReady, setIsVisibilityReady] = useState(false)
+  const [isForceVisible, setIsForceVisible] = useState(false)
   const isMountedRef = useRef(true)
   const dismissTimeoutRef = useRef<number | null>(null)
 
@@ -88,11 +94,26 @@ export default function ProactiveGreeting({ className }: ProactiveGreetingProps)
   }, [])
 
   useEffect(() => {
+    if (!hydrated || typeof window === 'undefined') return
+
+    const autopilotMode = new URLSearchParams(window.location.search).get('autopilot')
+    setIsForceVisible(autopilotMode === '1' || autopilotMode === 'show' || autopilotMode === 'preview')
+  }, [hydrated])
+
+  useEffect(() => {
     if (!hydrated) return
+
+    if (isForceVisible) {
+      clearAutopilotSnooze()
+      setIsExiting(false)
+      setIsHidden(false)
+      setIsVisibilityReady(true)
+      return
+    }
 
     setIsHidden(getAutopilotHiddenUntil() > 0)
     setIsVisibilityReady(true)
-  }, [hydrated])
+  }, [hydrated, isForceVisible])
 
   function dismissCard(options?: { persistForToday?: boolean }) {
     if (isExiting || isHidden) return
