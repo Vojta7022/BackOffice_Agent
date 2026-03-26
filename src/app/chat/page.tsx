@@ -1,12 +1,32 @@
 'use client'
 
-import { useEffect, useCallback, useRef, Suspense } from 'react'
+import { useEffect, useCallback, useRef, Suspense, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { selectActiveMessages, useChatStore } from '@/lib/chat-store'
 import type { AgentResponse } from '@/lib/agent/orchestrator'
 import { useTranslation } from '@/lib/useTranslation'
+import { ErrorState } from '@/components/ui/async-state'
 import ChatMessages from '@/components/chat/ChatMessages'
 import ChatInput from '@/components/chat/ChatInput'
+import { getErrorMessage, isNetworkError } from '@/lib/utils'
+
+function getChatErrorText(error: unknown, t: ReturnType<typeof useTranslation>['t']) {
+  if (isNetworkError(error)) {
+    return t.common.connectionError
+  }
+
+  const message = getErrorMessage(error) || t.common.unknownError
+  if (
+    /all .*failed/i.test(message) ||
+    /provider/i.test(message) ||
+    /api_key/i.test(message) ||
+    /temporarily unavailable/i.test(message)
+  ) {
+    return t.chat.providersUnavailable
+  }
+
+  return message
+}
 
 function ChatPageInner() {
   const { t } = useTranslation()
@@ -17,15 +37,21 @@ function ChatPageInner() {
   const addAssistantMessage = useChatStore((state) => state.addAssistantMessage)
   const setLoading = useChatStore((state) => state.setLoading)
   const createNewConversation = useChatStore((state) => state.createNewConversation)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const lastSubmittedMessageRef = useRef<string | null>(null)
   const prompt = searchParams.get('prompt')
   const processedPromptRef = useRef<string | null>(null)
   const initializedConversationRef = useRef(false)
 
-  const send = useCallback(async (text: string) => {
+  const send = useCallback(async (text: string, options?: { retry?: boolean }) => {
     const message = text.trim()
     if (!message || useChatStore.getState().isLoading) return
 
-    addUserMessage(message)
+    setErrorMessage(null)
+    lastSubmittedMessageRef.current = message
+    if (!options?.retry) {
+      addUserMessage(message)
+    }
     setLoading(true)
 
     const history = selectActiveMessages(useChatStore.getState())
@@ -47,20 +73,7 @@ function ChatPageInner() {
       const data: AgentResponse = await res.json()
       addAssistantMessage(data)
     } catch (err) {
-      const msg = err instanceof Error ? err.message : t.common.unknownError
-      addAssistantMessage({
-        message: `${t.chat.errorIntro} **${msg}**. ${t.chat.errorRetry}`,
-        charts: [],
-        tables: [],
-        emailDraft: null,
-        taskCreated: null,
-        monitoringSet: null,
-        presentationData: null,
-        reportData: null,
-        comparisonData: null,
-        timelineData: null,
-        toolCallLog: [],
-      })
+      setErrorMessage(getChatErrorText(err, t))
     } finally {
       setLoading(false)
     }
@@ -91,6 +104,19 @@ function ChatPageInner() {
   return (
     <div className="flex h-full flex-col">
       <ChatMessages onSend={send} />
+      {errorMessage ? (
+        <div className="px-4 pb-2">
+          <ErrorState
+            title={errorMessage}
+            retryLabel={t.common.retry}
+            onRetry={() => {
+              if (lastSubmittedMessageRef.current) {
+                void send(lastSubmittedMessageRef.current, { retry: true })
+              }
+            }}
+          />
+        </div>
+      ) : null}
       <ChatInput onSend={send} disabled={isLoading} showSuggestions={showSuggestions} />
     </div>
   )

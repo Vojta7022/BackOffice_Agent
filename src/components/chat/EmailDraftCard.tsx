@@ -35,7 +35,7 @@ export default function EmailDraftCard({ draft }: { draft: EmailDraft }) {
 
   const send = async () => {
     if (!draft.google_connected) {
-      setNotice({ type: 'error', message: 'Pro odesilani emailu propojte Google ucet.' })
+      setNotice({ type: 'error', message: t.chat.emailGoogleRequired })
       return
     }
 
@@ -56,10 +56,10 @@ export default function EmailDraftCard({ draft }: { draft: EmailDraft }) {
         throw new Error(result?.reason || 'Email send failed')
       }
 
-      setNotice({ type: 'success', message: 'Email byl odeslan.' })
+      setNotice({ type: 'success', message: t.chat.emailSent })
     } catch (error) {
       console.error('Email send failed:', error)
-      setNotice({ type: 'error', message: 'Odeslani emailu selhalo. Zkuste to znovu.' })
+      setNotice({ type: 'error', message: t.chat.emailSendFailed })
     } finally {
       setSending(false)
     }
@@ -98,9 +98,9 @@ export default function EmailDraftCard({ draft }: { draft: EmailDraft }) {
         </div>
         {!draft.google_connected ? (
           <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
-            <p>Pro odesilani emailu propojte Google ucet.</p>
+            <p>{t.chat.emailGoogleRequired}</p>
             <Link href="/api/auth/google" className="mt-1 inline-flex font-medium underline underline-offset-2">
-              Propojit Google ucet
+              {t.chat.emailConnectGoogle}
             </Link>
           </div>
         ) : null}
@@ -126,7 +126,7 @@ export default function EmailDraftCard({ draft }: { draft: EmailDraft }) {
           className="button-smooth flex items-center gap-1.5 rounded-xl bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
         >
           <Send className="h-3.5 w-3.5" />
-          {sending ? 'Odesilam...' : 'Odeslat email'}
+          {sending ? t.chat.sendingEmail : t.chat.sendEmail}
         </button>
       </div>
       {notice ? (

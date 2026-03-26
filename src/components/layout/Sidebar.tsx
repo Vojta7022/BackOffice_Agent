@@ -77,6 +77,9 @@ export default function Sidebar() {
 
   const handleNewChat = () => {
     createNewConversation()
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      setSidebarOpen(false)
+    }
     router.push('/chat')
   }
 
@@ -163,6 +166,9 @@ export default function Sidebar() {
                       type="button"
                       onClick={() => {
                         setActiveConversation(conversation.id)
+                        if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                          setSidebarOpen(false)
+                        }
                         router.push('/chat')
                       }}
                       className={cn(
@@ -215,6 +221,11 @@ export default function Sidebar() {
                 <li key={href}>
                   <Link
                     href={href}
+                    onClick={() => {
+                      if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                        setSidebarOpen(false)
+                      }
+                    }}
                     className={cn(
                       'group flex h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium',
                       'button-smooth',

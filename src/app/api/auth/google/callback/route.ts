@@ -8,8 +8,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const { tokens } = await oauth2Client.getToken(code)
-    console.log('GOOGLE_REFRESH_TOKEN:', tokens.refresh_token)
+    await oauth2Client.getToken(code)
     return NextResponse.redirect(new URL('/chat?google=connected', req.url))
   } catch (error) {
     console.error('Google callback error:', error)

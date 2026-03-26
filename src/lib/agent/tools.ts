@@ -4,6 +4,7 @@ export type ToolName =
   | 'query_clients'
   | 'query_leads'
   | 'query_properties'
+  | 'estimate_property_value'
   | 'find_missing_data'
   | 'query_transactions'
   | 'get_dashboard_metrics'
@@ -75,6 +76,21 @@ export const agentTools: FunctionDeclaration[] = [
         price_max: { type: 'number', description: 'CZK' },
         search_query: { type: 'string', description: 'Full-text search across name, address, description' },
       },
+    },
+  },
+  {
+    name: 'estimate_property_value',
+    description: 'Estimate market value of a property based on comparable sales in the database. Use when user asks about property valuation, pricing, or market comparison.',
+    parametersJsonSchema: {
+      type: 'object',
+      properties: {
+        city: { type: 'string', description: 'City' },
+        district: { type: 'string', description: 'District' },
+        type: { type: 'string', description: 'Property type: apartment, house, commercial' },
+        area_sqm: { type: 'number', description: 'Area in m²' },
+        rooms: { type: 'number', description: 'Number of rooms' },
+      },
+      required: ['district', 'area_sqm'],
     },
   },
   {

@@ -1,5 +1,6 @@
 'use client'
 
+import { memo } from 'react'
 import {
   ResponsiveContainer,
   AreaChart, Area,
@@ -52,7 +53,7 @@ const TOOLTIP_STYLE = {
 const TOOLTIP_LABEL_STYLE = { color: 'var(--muted-foreground)' }
 const PIE_COLORS = ['#3b82f6', '#8b5cf6', '#14b8a6', '#f59e0b', '#f43f5e']
 
-function LeadsChart({ data }: { data: MonthlyLeadCount[] }) {
+const LeadsChart = memo(function LeadsChart({ data }: { data: MonthlyLeadCount[] }) {
   const { t, language } = useTranslation()
   const chartData = data.map(d => ({ label: formatMonthLabel(d.month, language), count: d.count }))
   return (
@@ -84,9 +85,9 @@ function LeadsChart({ data }: { data: MonthlyLeadCount[] }) {
       </AreaChart>
     </ResponsiveContainer>
   )
-}
+})
 
-function TransactionsChart({ data }: { data: MonthlyTransactionSummary[] }) {
+const TransactionsChart = memo(function TransactionsChart({ data }: { data: MonthlyTransactionSummary[] }) {
   const { t, language } = useTranslation()
   const chartData = data.map(d => ({
     label: formatMonthLabel(d.month, language),
@@ -113,9 +114,9 @@ function TransactionsChart({ data }: { data: MonthlyTransactionSummary[] }) {
       </BarChart>
     </ResponsiveContainer>
   )
-}
+})
 
-function PortfolioChart({ data }: { data: { type: PropertyType; count: number }[] }) {
+const PortfolioChart = memo(function PortfolioChart({ data }: { data: { type: PropertyType; count: number }[] }) {
   const { t } = useTranslation()
   const chartData = data.map((item) => ({
     label: t.properties.typeLabels[item.type],
@@ -155,9 +156,9 @@ function PortfolioChart({ data }: { data: { type: PropertyType; count: number }[
       </PieChart>
     </ResponsiveContainer>
   )
-}
+})
 
-export default function ChartsRow({ leadsByMonth, transactionsByMonth, propertyTypeDistribution }: ChartsRowProps) {
+function ChartsRow({ leadsByMonth, transactionsByMonth, propertyTypeDistribution }: ChartsRowProps) {
   const { t } = useTranslation()
 
   return (
@@ -177,4 +178,7 @@ export default function ChartsRow({ leadsByMonth, transactionsByMonth, propertyT
   )
 }
 
-ChartsRow.Skeleton = ChartSkeleton
+const MemoizedChartsRow = memo(ChartsRow) as unknown as typeof ChartsRow & { Skeleton: typeof ChartSkeleton }
+MemoizedChartsRow.Skeleton = ChartSkeleton
+
+export default MemoizedChartsRow

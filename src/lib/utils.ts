@@ -24,8 +24,6 @@ const MONTHS: Record<AppLanguage, string[]> = {
   en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
 }
 
-const REFERENCE_NOW = new Date('2026-03-22T12:00:00')
-
 export function formatMonthLabel(ym: string, language: AppLanguage = 'cs'): string {
   const [, m] = ym.split('-').map(Number)
   return MONTHS[language][(m ?? 1) - 1] ?? ym
@@ -33,7 +31,7 @@ export function formatMonthLabel(ym: string, language: AppLanguage = 'cs'): stri
 
 export function relativeTime(dateStr: string, language: AppLanguage = 'cs'): string {
   const date = new Date(dateStr)
-  const diffMs = REFERENCE_NOW.getTime() - date.getTime()
+  const diffMs = Date.now() - date.getTime()
 
   if (dateStr.includes('T')) {
     const hours = Math.max(0, Math.floor(diffMs / 3_600_000))
@@ -66,6 +64,22 @@ export function relativeTime(dateStr: string, language: AppLanguage = 'cs'): str
   if (days < 14) return 'před týdnem'
   if (days < 30) return `před ${Math.round(days / 7)} týdny`
   return `před ${Math.round(days / 30)} měsíci`
+}
+
+export function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message
+  if (typeof error === 'string') return error
+  return ''
+}
+
+export function isNetworkError(error: unknown): boolean {
+  const message = getErrorMessage(error).toLowerCase()
+  return (
+    message.includes('failed to fetch') ||
+    message.includes('networkerror') ||
+    message.includes('load failed') ||
+    message.includes('network request failed')
+  )
 }
 
 export async function fetchJson<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T> {

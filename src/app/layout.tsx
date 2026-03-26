@@ -32,8 +32,17 @@ const geistMono = localFont({
 })
 
 export const metadata: Metadata = {
-  title: 'RE:Agent | Back Office Operations',
-  description: 'AI asistent pro správu nemovitostí',
+  title: 'RE:Agent | Back Office Operations Agent',
+  description: 'AI back office operations agent for property teams, reporting, monitoring, and client workflows.',
+  openGraph: {
+    title: 'RE:Agent | Back Office Operations Agent',
+    description: 'AI back office operations agent for property teams, reporting, monitoring, and client workflows.',
+  },
+  icons: {
+    icon: '/favicon.ico',
+    shortcut: '/favicon.ico',
+    apple: '/favicon.ico',
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

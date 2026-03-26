@@ -4,8 +4,9 @@ import { useEffect, useState, useCallback } from 'react'
 import { Search, Users, SlidersHorizontal, UserPlus, Pencil, Trash2 } from 'lucide-react'
 import { agents } from '@/data/agents'
 import FormModal from '@/components/ui/FormModal'
+import { ErrorState } from '@/components/ui/async-state'
 import { useConfirmDialog } from '@/components/ui/ConfirmDialog'
-import { cn, fetchJson, relativeTime } from '@/lib/utils'
+import { cn, fetchJson, getErrorMessage, isNetworkError, relativeTime } from '@/lib/utils'
 import { useTranslation } from '@/lib/useTranslation'
 import type { Client, ClientStatus, ClientType, ClientSource } from '@/types'
 
@@ -166,6 +167,7 @@ export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState<ClientStatus | ''>('')
   const [type, setType] = useState<ClientType | ''>('')
@@ -183,13 +185,16 @@ export default function ClientsPage() {
     if (type) params.set('type', type)
 
     try {
+      setLoadError(null)
       const data = await fetchJson<{ clients: Client[]; total: number }>(`/api/clients?${params.toString()}`)
       setClients(data.clients ?? [])
       setTotal(data.total ?? 0)
+    } catch (error) {
+      setLoadError(isNetworkError(error) ? t.common.connectionError : (getErrorMessage(error) || t.common.unknownError))
     } finally {
       setLoading(false)
     }
-  }, [search, status, type])
+  }, [search, status, t.common.connectionError, t.common.unknownError, type])
 
   useEffect(() => {
     const initialSearch = new URLSearchParams(window.location.search).get('search')
@@ -228,13 +233,17 @@ export default function ClientsPage() {
 
     if (!approved) return
 
-    await fetchJson<{ success: boolean }>('/api/clients', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: client.id }),
-    })
+    try {
+      await fetchJson<{ success: boolean }>('/api/clients', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: client.id }),
+      })
 
-    await fetchClients()
+      await fetchClients()
+    } catch (error) {
+      setLoadError(isNetworkError(error) ? t.common.connectionError : (getErrorMessage(error) || t.common.unknownError))
+    }
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -358,6 +367,15 @@ export default function ClientsPage() {
           <option value="tenant">{t.clients.typeLabels.tenant}</option>
         </select>
       </div>
+
+      {loadError ? (
+        <ErrorState
+          title={t.common.loadError}
+          message={loadError}
+          retryLabel={t.common.retry}
+          onRetry={() => void fetchClients()}
+        />
+      ) : null}
 
       <div className="surface-card overflow-hidden">
         <div className="overflow-x-auto">

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   CheckSquare,
   Clock,
@@ -14,8 +14,9 @@ import {
 } from 'lucide-react'
 import { agents } from '@/data/agents'
 import FormModal from '@/components/ui/FormModal'
+import { ErrorState } from '@/components/ui/async-state'
 import { useConfirmDialog } from '@/components/ui/ConfirmDialog'
-import { cn, fetchJson, relativeTime } from '@/lib/utils'
+import { cn, fetchJson, getErrorMessage, isNetworkError, relativeTime } from '@/lib/utils'
 import { useTranslation } from '@/lib/useTranslation'
 import type { Client, Property, Task, TaskPriority, TaskStatus } from '@/types'
 
@@ -79,13 +80,15 @@ function toTaskFormValues(task: Task): TaskFormValues {
 }
 
 function isDueSoon(dueDate: string): boolean {
-  const now = new Date('2026-03-22')
+  const now = new Date()
   const due = new Date(dueDate)
   return due >= now && due.getTime() - now.getTime() <= 3 * 86_400_000
 }
 
 function isOverdue(dueDate: string): boolean {
-  return dueDate < '2026-03-22'
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return new Date(dueDate).getTime() < today.getTime()
 }
 
 function getNextStatus(status: TaskStatus): TaskStatus | null {
@@ -282,6 +285,7 @@ export default function TasksPage() {
   const [clients, setClients] = useState<Client[]>([])
   const [properties, setProperties] = useState<Property[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [formValues, setFormValues] = useState<TaskFormValues>(createEmptyTaskForm())
@@ -293,12 +297,12 @@ export default function TasksPage() {
     []
   )
 
-  async function fetchTasks() {
+  const fetchTasks = useCallback(async () => {
     const data = await fetchJson<TasksData>('/api/tasks')
     setTasks(data)
-  }
+  }, [])
 
-  async function fetchOptions() {
+  const fetchOptions = useCallback(async () => {
     const [clientsData, propertiesData] = await Promise.all([
       fetchJson<{ clients: Client[] }>('/api/clients'),
       fetchJson<{ properties: Property[] }>('/api/properties'),
@@ -306,20 +310,23 @@ export default function TasksPage() {
 
     setClients(clientsData.clients ?? [])
     setProperties(propertiesData.properties ?? [])
-  }
+  }, [])
 
   useEffect(() => {
     async function loadPage() {
       setLoading(true)
       try {
+        setLoadError(null)
         await Promise.all([fetchTasks(), fetchOptions()])
+      } catch (error) {
+        setLoadError(isNetworkError(error) ? t.common.connectionError : (getErrorMessage(error) || t.common.unknownError))
       } finally {
         setLoading(false)
       }
     }
 
-    loadPage()
-  }, [])
+    void loadPage()
+  }, [fetchOptions, fetchTasks, t.common.connectionError, t.common.unknownError])
 
   const total = tasks.todo.length + tasks.in_progress.length + tasks.done.length
   const urgentCount = [...tasks.todo, ...tasks.in_progress].filter((task) => task.priority === 'urgent').length
@@ -359,13 +366,17 @@ export default function TasksPage() {
     const nextStatus = getNextStatus(task.status)
     if (!nextStatus) return
 
-    await fetchJson<{ task: Task }>('/api/tasks', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: task.id, status: nextStatus }),
-    })
+    try {
+      await fetchJson<{ task: Task }>('/api/tasks', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: task.id, status: nextStatus }),
+      })
 
-    await fetchTasks()
+      await fetchTasks()
+    } catch (error) {
+      setLoadError(isNetworkError(error) ? t.common.connectionError : (getErrorMessage(error) || t.common.unknownError))
+    }
   }
 
   async function handleDelete(task: Task) {
@@ -377,13 +388,17 @@ export default function TasksPage() {
 
     if (!approved) return
 
-    await fetchJson<{ success: boolean }>('/api/tasks', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: task.id }),
-    })
+    try {
+      await fetchJson<{ success: boolean }>('/api/tasks', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: task.id }),
+      })
 
-    await fetchTasks()
+      await fetchTasks()
+    } catch (error) {
+      setLoadError(isNetworkError(error) ? t.common.connectionError : (getErrorMessage(error) || t.common.unknownError))
+    }
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -475,6 +490,24 @@ export default function TasksPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        {loadError ? (
+          <div className="md:col-span-3">
+            <ErrorState
+              title={t.common.loadError}
+              message={loadError}
+              retryLabel={t.common.retry}
+              onRetry={() => {
+                setLoading(true)
+                setLoadError(null)
+                void Promise.all([fetchTasks(), fetchOptions()])
+                  .catch((error) => {
+                    setLoadError(isNetworkError(error) ? t.common.connectionError : (getErrorMessage(error) || t.common.unknownError))
+                  })
+                  .finally(() => setLoading(false))
+              }}
+            />
+          </div>
+        ) : null}
         {columnConfig.map((column) => (
           <KanbanColumn
             key={column.status}

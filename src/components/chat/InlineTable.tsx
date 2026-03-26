@@ -1,7 +1,6 @@
 'use client'
 
 import { Download } from 'lucide-react'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import type { TableData } from '@/lib/agent/orchestrator'
 import { useTranslation } from '@/lib/useTranslation'
 
@@ -39,8 +38,8 @@ export default function InlineTable({ table }: { table: TableData }) {
           {t.chat.downloadCsv}
         </button>
       </div>
-      <ScrollArea className="max-h-[360px]">
-        <table className="w-full text-sm">
+      <div className="max-h-[360px] overflow-auto">
+        <table className="min-w-max w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-card/50">
               {table.headers.map((h) => (
@@ -62,7 +61,7 @@ export default function InlineTable({ table }: { table: TableData }) {
             ))}
           </tbody>
         </table>
-      </ScrollArea>
+      </div>
       <div className="border-t border-border px-4 py-1.5">
         <p className="text-[11px] text-muted-foreground">{table.rows.length} {t.chat.records}</p>
       </div>

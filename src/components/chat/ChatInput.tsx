@@ -12,6 +12,7 @@ import {
   Mic,
   Presentation,
   SendHorizontal,
+  Sparkles,
   Users,
   type LucideIcon,
 } from 'lucide-react'
@@ -26,6 +27,7 @@ interface ChatInputProps {
 }
 
 interface QuickCommand {
+  id: string
   name: string
   description: string
   prompt: string
@@ -48,35 +50,25 @@ export default function ChatInput({ onSend, disabled, showSuggestions, initialVa
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const recognitionRef = useRef<SpeechRecognition | null>(null)
 
-  const quickCommands = useMemo<QuickCommand[]>(() => {
-    if (language === 'en') {
-      return [
-        { name: '/clients', description: 'Show client overview', prompt: 'Show client overview', icon: Users },
-        { name: '/leads', description: 'How many new leads do we have?', prompt: 'How many new leads do we have?', icon: BarChart3 },
-        { name: '/properties', description: 'Show available properties', prompt: 'Show available properties', icon: Building2 },
-        { name: '/missing', description: 'Find properties with missing data', prompt: 'Find properties with missing data', icon: AlertTriangle },
-        { name: '/report', description: 'Generate weekly report', prompt: 'Generate weekly report', icon: FileText },
-        { name: '/presentation', description: 'Create a 3-slide presentation', prompt: 'Create a 3-slide presentation', icon: Presentation },
-        { name: '/email', description: 'Write an email to a prospect', prompt: 'Write an email to a prospect', icon: Mail },
-        { name: '/monitoring', description: 'Set up monitoring for Holešovice', prompt: 'Set up monitoring for Holešovice', icon: BellRing },
-        { name: '/portfolio', description: 'Analyze property portfolio', prompt: 'Analyze property portfolio', icon: BarChart3 },
-        { name: '/dashboard', description: 'Show current metrics', prompt: 'Show current metrics', icon: LayoutDashboard },
-      ]
-    }
+  const commandIcons: Record<string, LucideIcon> = {
+    clients: Users,
+    leads: BarChart3,
+    properties: Building2,
+    missing: AlertTriangle,
+    report: FileText,
+    presentation: Presentation,
+    email: Mail,
+    monitoring: BellRing,
+    portfolio: BarChart3,
+    dashboard: LayoutDashboard,
+  }
 
-    return [
-      { name: '/klienti', description: 'Zobraz přehled klientů', prompt: 'Zobraz přehled klientů', icon: Users },
-      { name: '/leady', description: 'Kolik máme nových leadů?', prompt: 'Kolik máme nových leadů?', icon: BarChart3 },
-      { name: '/nemovitosti', description: 'Zobraz dostupné nemovitosti', prompt: 'Zobraz dostupné nemovitosti', icon: Building2 },
-      { name: '/chybejici', description: 'Najdi nemovitosti s chybějícími daty', prompt: 'Najdi nemovitosti s chybějícími daty', icon: AlertTriangle },
-      { name: '/report', description: 'Generuj týdenní report', prompt: 'Generuj týdenní report', icon: FileText },
-      { name: '/prezentace', description: 'Vytvoř prezentaci se 3 slidy', prompt: 'Vytvoř prezentaci se 3 slidy', icon: Presentation },
-      { name: '/email', description: 'Napiš email zájemci', prompt: 'Napiš email zájemci', icon: Mail },
-      { name: '/monitoring', description: 'Nastav monitoring pro Holešovice', prompt: 'Nastav monitoring pro Holešovice', icon: BellRing },
-      { name: '/portfolio', description: 'Analyzuj portfolio nemovitostí', prompt: 'Analyzuj portfolio nemovitostí', icon: BarChart3 },
-      { name: '/dashboard', description: 'Zobraz aktuální metriky', prompt: 'Zobraz aktuální metriky', icon: LayoutDashboard },
-    ]
-  }, [language])
+  const quickCommands = useMemo<QuickCommand[]>(() => {
+    return t.chat.quickCommands.map((command) => ({
+      ...command,
+      icon: commandIcons[command.id] ?? Sparkles,
+    }))
+  }, [t.chat.quickCommands])
 
   // Check Web Speech API support on mount
   useEffect(() => {
@@ -249,7 +241,7 @@ export default function ChatInput({ onSend, disabled, showSuggestions, initialVa
       {isCommandPaletteOpen && (
         <div className="absolute bottom-[calc(100%+8px)] left-4 right-4 z-20 overflow-hidden rounded-2xl border border-border bg-card shadow-xl dark:shadow-none">
           <div className="border-b border-border px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground/70">
-            {language === 'en' ? 'Quick commands' : 'Rychlé příkazy'}
+            {t.chat.quickCommandsTitle}
           </div>
           {filteredCommands.length > 0 ? (
             <div className="max-h-72 overflow-y-auto p-2">
@@ -281,7 +273,7 @@ export default function ChatInput({ onSend, disabled, showSuggestions, initialVa
             </div>
           ) : (
             <div className="px-4 py-4 text-sm text-muted-foreground">
-              {language === 'en' ? 'No command found.' : 'Žádný příkaz nenalezen.'}
+              {t.chat.noQuickCommandFound}
             </div>
           )}
         </div>
@@ -320,7 +312,7 @@ export default function ChatInput({ onSend, disabled, showSuggestions, initialVa
           placeholder={isListening ? t.chat.listening : t.chat.placeholder}
           rows={1}
           className={cn(
-            'control-focus flex-1 resize-none rounded-2xl border border-border bg-card px-4 py-2.5 shadow-sm dark:shadow-none',
+            'control-focus w-0 min-w-0 flex-1 resize-none rounded-2xl border border-border bg-card px-4 py-2.5 shadow-sm dark:shadow-none',
             'text-sm text-foreground placeholder:text-muted-foreground/50',
             'disabled:opacity-50',
             'min-h-[42px] max-h-[120px] leading-relaxed',

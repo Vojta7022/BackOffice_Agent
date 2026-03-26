@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
-import { CheckCircle2, Bell, FileDown, FileText, Presentation, Wrench, Sparkles } from 'lucide-react'
+import { CheckCircle2, Bell, ExternalLink, FileDown, FileText, Presentation, Wrench, Sparkles } from 'lucide-react'
 import InlineChart from './InlineChart'
 import InlineTable from './InlineTable'
 import EmailDraftCard from './EmailDraftCard'
@@ -14,45 +14,6 @@ import type { MonitoringRule } from '@/types'
 import { useMonitoringStore } from '@/lib/monitoring-store'
 import { useTranslation } from '@/lib/useTranslation'
 import { cn, formatCZK } from '@/lib/utils'
-
-const TOOL_SUGGESTIONS: Record<string, { cs: string[]; en: string[] }> = {
-  query_clients: {
-    cs: ['Zobraz jako graf', 'Export do CSV', 'Rozděl podle typu'],
-    en: ['Show as chart', 'Export to CSV', 'Break down by type'],
-  },
-  query_leads: {
-    cs: ['Graf za 6 měsíců', 'Konverzní poměr', 'Nezkontaktované leady'],
-    en: ['Chart for 6 months', 'Conversion rate', 'Uncontacted leads'],
-  },
-  query_properties: {
-    cs: ['Porovnej vybrané', 'Najdi chybějící data', 'Seřaď podle ceny za m²'],
-    en: ['Compare selected', 'Find missing data', 'Sort by price per m²'],
-  },
-  find_missing_data: {
-    cs: ['Export seznam', 'Přiřaď úkoly k doplnění'],
-    en: ['Export list', 'Assign tasks to fill in'],
-  },
-  generate_chart: {
-    cs: ['Jiný typ grafu', 'Přidej do reportu'],
-    en: ['Different chart type', 'Add to report'],
-  },
-  draft_email: {
-    cs: ['Uprav tón', 'Přidej termín prohlídky'],
-    en: ['Adjust tone', 'Add a viewing date'],
-  },
-  generate_report: {
-    cs: ['Vytvoř prezentaci', 'Pošli emailem'],
-    en: ['Create presentation', 'Send by email'],
-  },
-  generate_presentation: {
-    cs: ['Přidej další slide', 'Stáhnout PPTX'],
-    en: ['Add another slide', 'Download PPTX'],
-  },
-  setup_monitoring: {
-    cs: ['Nastav další lokality', 'Změň frekvenci'],
-    en: ['Set more locations', 'Change frequency'],
-  },
-}
 
 const MONITORING_SOURCE_STYLES: Record<string, string> = {
   'Sreality.cz': 'border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300',
@@ -156,7 +117,10 @@ function extractTextSuggestions(content: string) {
     .filter(Boolean)
 }
 
-function getContextualSuggestions(steps: ToolCallLogEntry[] | undefined, language: 'cs' | 'en') {
+function getContextualSuggestions(
+  steps: ToolCallLogEntry[] | undefined,
+  toolSuggestionsByName: Record<string, string[]>
+) {
   if (!steps?.length) return []
 
   const toolNames = [...steps]
@@ -167,7 +131,7 @@ function getContextualSuggestions(steps: ToolCallLogEntry[] | undefined, languag
   const suggestions: string[] = []
 
   for (const toolName of toolNames) {
-    const toolSuggestions = TOOL_SUGGESTIONS[toolName]?.[language] ?? []
+    const toolSuggestions = toolSuggestionsByName[toolName] ?? []
     for (const suggestion of toolSuggestions) {
       if (!suggestions.includes(suggestion)) {
         suggestions.push(suggestion)
@@ -256,8 +220,9 @@ function MonitoringCard({ rule }: { rule: Record<string, unknown> }) {
   const priceMax = typeof (rule.filters as { price_max?: unknown } | undefined)?.price_max === 'number'
     ? Number((rule.filters as { price_max?: number }).price_max)
     : null
+  const locale = language === 'cs' ? 'cs-CZ' : 'en-US'
   const priceRange = priceMin !== null || priceMax !== null
-    ? `${priceMin !== null ? new Intl.NumberFormat('cs-CZ').format(priceMin) : '0'} CZK - ${priceMax !== null ? new Intl.NumberFormat('cs-CZ').format(priceMax) : '∞'} CZK`
+    ? `${priceMin !== null ? new Intl.NumberFormat(locale).format(priceMin) : '0'} CZK - ${priceMax !== null ? new Intl.NumberFormat(locale).format(priceMax) : '∞'} CZK`
     : t.chat.monitoringNoPriceLimit
   const nextCheck =
     language === 'en'
@@ -317,14 +282,16 @@ function MonitoringCard({ rule }: { rule: Record<string, unknown> }) {
                 {t.chat.monitoringInitialResults}
               </p>
               {sources.length > 0 && (
-                <p className="mb-3 text-xs text-muted-foreground">
+                <div className="mb-3 flex flex-wrap gap-2">
                   {sources.map((source, index) => (
-                    <span key={`${String(source.name ?? 'source')}-${index}`}>
-                      {index > 0 ? ' | ' : ''}
+                    <span
+                      key={`${String(source.name ?? 'source')}-${index}`}
+                      className="rounded-full border border-border bg-background/70 px-2.5 py-1 text-[11px] text-muted-foreground"
+                    >
                       {String(source.name ?? '')}: {String(source.count ?? 0)} {source.status === 'live' ? '🟢' : source.status === 'unavailable' ? '🟡' : '🔴'}
                     </span>
                   ))}
-                </p>
+                </div>
               )}
               <div className="space-y-2">
                 {initialResults.map((listing, index) => {
@@ -336,7 +303,7 @@ function MonitoringCard({ rule }: { rule: Record<string, unknown> }) {
                   const priceRaw = typeof listing.price_raw === 'number'
                     ? listing.price_raw
                     : Number(listing.price_raw ?? 0)
-                  const isPortalPriceCta = priceText === 'Cena na portálu →' || priceRaw === 0
+                  const isPortalPriceCta = /port[aá]l/i.test(priceText) || priceRaw === 0
                   const cardContent = (
                     <>
                       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -363,6 +330,12 @@ function MonitoringCard({ rule }: { rule: Record<string, unknown> }) {
                           {source}
                         </span>
                       </div>
+                      {url ? (
+                        <div className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-primary">
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          {t.chat.openOnPortal}
+                        </div>
+                      ) : null}
                     </>
                   )
 
@@ -453,6 +426,7 @@ function ReportCard({ report }: { report: Record<string, unknown> }) {
 
 function PresentationCard({ data }: { data: Record<string, unknown> }) {
   const { t } = useTranslation()
+  const [notice, setNotice] = useState<string | null>(null)
   const slides = Array.isArray(data.slides)
     ? (data.slides as Array<Record<string, unknown>>).map((slide) => ({
         title: typeof slide.title === 'string' ? slide.title : '',
@@ -468,7 +442,7 @@ function PresentationCard({ data }: { data: Record<string, unknown> }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          topic: String(data.topic ?? 'RE:Agent Report'),
+          topic: String(data.topic ?? t.chat.presentationDefaultTopic),
           slides,
         }),
       })
@@ -481,14 +455,15 @@ function PresentationCard({ data }: { data: Record<string, unknown> }) {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = 're-agent-report.pptx'
+      a.download = `${t.chat.presentationFilename}.pptx`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
+      setNotice(null)
     } catch (error) {
       console.error('Download failed:', error)
-      alert('Stažení prezentace selhalo. Zkuste to znovu.')
+      setNotice(t.chat.presentationDownloadFailed)
     }
   }
 
@@ -524,6 +499,11 @@ function PresentationCard({ data }: { data: Record<string, unknown> }) {
           {t.chat.downloadPptx}
         </button>
       </div>
+      {notice ? (
+        <div className="border-t border-red-500/20 bg-red-500/10 px-4 py-2 text-xs text-red-600 dark:text-red-300">
+          {notice}
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -531,19 +511,17 @@ function PresentationCard({ data }: { data: Record<string, unknown> }) {
 function SuggestionChips({
   content,
   steps,
-  language,
   onSend,
 }: {
   content: string
   steps?: ToolCallLogEntry[]
-  language: 'cs' | 'en'
   onSend: (message: string) => void
 }) {
   const { t } = useTranslation()
   const suggestions = useMemo(() => {
-    const merged = [...extractTextSuggestions(content), ...getContextualSuggestions(steps, language)]
+    const merged = [...extractTextSuggestions(content), ...getContextualSuggestions(steps, t.chat.toolSuggestions)]
     return merged.filter((suggestion, index) => merged.findIndex((item) => item.toLowerCase() === suggestion.toLowerCase()) === index).slice(0, 6)
-  }, [content, language, steps])
+  }, [content, steps, t.chat.toolSuggestions])
 
   if (suggestions.length === 0) return null
 
@@ -591,7 +569,7 @@ export default function MessageBubble({
   if (isUser) {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[70%]">
+        <div className="max-w-[90%] sm:max-w-[70%]">
           <div className="rounded-2xl rounded-tr-sm bg-primary px-4 py-2.5 text-sm text-white shadow-sm dark:shadow-none">
             {message.content}
           </div>
@@ -605,13 +583,13 @@ export default function MessageBubble({
 
   return (
     <div className="flex justify-start">
-      <div className="max-w-[85%]">
+      <div className="max-w-[95%] sm:max-w-[85%]">
         <div className="rounded-2xl rounded-tl-sm border border-border bg-card px-4 py-3 shadow-sm dark:shadow-none">
           {message.toolCallLog && message.toolCallLog.length > 0 && (
             <ThinkingSteps steps={message.toolCallLog} />
           )}
 
-          <div className="prose prose-sm prose-invert max-w-none text-foreground/90
+          <div className="prose prose-sm max-w-none text-foreground/90 dark:prose-invert
             [&_p]:leading-relaxed [&_p]:mb-2 last:[&_p]:mb-0
             [&_strong]:text-foreground [&_strong]:font-semibold
             [&_a]:text-primary [&_a]:no-underline hover:[&_a]:underline
@@ -665,7 +643,6 @@ export default function MessageBubble({
           <SuggestionChips
             content={message.content}
             steps={message.toolCallLog}
-            language={language}
             onSend={onSend}
           />
         </div>

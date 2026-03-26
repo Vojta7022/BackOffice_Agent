@@ -3,13 +3,12 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Bell, Clock, ExternalLink, Loader2, MapPin, MessageSquare, Pause, Play, Plus, RefreshCw, Trash2, Zap } from 'lucide-react'
-import { cn, fetchJson } from '@/lib/utils'
+import { ErrorState, LoadingState } from '@/components/ui/async-state'
+import { cn, fetchJson, getErrorMessage, isNetworkError } from '@/lib/utils'
 import { useMonitoringStore } from '@/lib/monitoring-store'
 import { useTranslation } from '@/lib/useTranslation'
 import type { MonitoringRule } from '@/types'
 import type { ListingResult, ListingSourceStatus } from '@/lib/monitoring/fetcher'
-
-const NEW_RULE_PROMPT = 'Nastav nový monitoring nemovitostí'
 const MONITORING_SOURCE_STYLES: Record<string, string> = {
   'Sreality.cz': 'border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300',
   'Bezrealitky.cz': 'border-green-500/30 bg-green-500/10 text-green-700 dark:text-green-300',
@@ -21,6 +20,13 @@ type MonitoringResultsResponse = {
   listings: ListingResult[]
   sources: { name: string; count: number; status: ListingSourceStatus }[]
   fetchedAt: string
+}
+
+function interpolate(template: string, values: Record<string, string>) {
+  return Object.entries(values).reduce(
+    (result, [key, value]) => result.replaceAll(`{${key}}`, value),
+    template
+  )
 }
 
 const EXAMPLE_RULES: Pick<MonitoringRule, 'id' | 'location' | 'frequency' | 'active' | 'filters'>[] = [
@@ -59,17 +65,18 @@ function formatRuleDate(value: string, language: 'cs' | 'en') {
 function formatPriceRange(
   filters: MonitoringRule['filters'],
   language: 'cs' | 'en',
-  fallbackLabel: string
+  fallbackLabel: string,
+  labels: { from: string; to: string }
 ) {
   const formatter = new Intl.NumberFormat(language === 'en' ? 'en-US' : 'cs-CZ')
   const parts: string[] = []
 
   if (filters.price_min !== undefined) {
-    parts.push(`${language === 'en' ? 'from' : 'od'} ${formatter.format(filters.price_min)} CZK`)
+    parts.push(`${labels.from} ${formatter.format(filters.price_min)} CZK`)
   }
 
   if (filters.price_max !== undefined) {
-    parts.push(`${language === 'en' ? 'to' : 'do'} ${formatter.format(filters.price_max)} CZK`)
+    parts.push(`${labels.to} ${formatter.format(filters.price_max)} CZK`)
   }
 
   return parts.length > 0 ? parts.join(' · ') : fallbackLabel
@@ -81,13 +88,14 @@ function formatPropertyTypes(filters: MonitoringRule['filters'], ruleTypeFallbac
 }
 
 function FilterPills({ filters }: { filters: MonitoringRule['filters'] }) {
-  const { t } = useTranslation()
+  const { t, language } = useTranslation()
+  const millionUnit = language === 'en' ? 'M CZK' : 'mil. CZK'
   const pills: string[] = []
   if (filters.property_types?.length) {
     pills.push(filters.property_types.map((type) => t.monitoring.propertyTypeLabels[type] ?? type).join(', '))
   }
-  if (filters.price_min !== undefined) pills.push(`${t.monitoring.fromPrice} ${(filters.price_min / 1_000_000).toFixed(0)} mil. CZK`)
-  if (filters.price_max !== undefined) pills.push(`${t.monitoring.toPrice} ${(filters.price_max / 1_000_000).toFixed(0)} mil. CZK`)
+  if (filters.price_min !== undefined) pills.push(`${t.monitoring.fromPrice} ${(filters.price_min / 1_000_000).toFixed(0)} ${millionUnit}`)
+  if (filters.price_max !== undefined) pills.push(`${t.monitoring.toPrice} ${(filters.price_max / 1_000_000).toFixed(0)} ${millionUnit}`)
   if (filters.rooms_min !== undefined) pills.push(`${t.monitoring.minRooms} ${filters.rooms_min} ${t.properties.rooms}`)
   if (filters.rooms_max !== undefined) pills.push(`${t.monitoring.maxRooms} ${filters.rooms_max} ${t.properties.rooms}`)
 
@@ -147,7 +155,10 @@ function RealRuleCard({
 }) {
   const { t, language } = useTranslation()
   const propertyTypeLabel = formatPropertyTypes(rule.filters, t.chat.monitoringAllTypes, t.monitoring.propertyTypeLabels)
-  const priceRangeLabel = formatPriceRange(rule.filters, language, t.chat.monitoringNoPriceLimit)
+  const priceRangeLabel = formatPriceRange(rule.filters, language, t.chat.monitoringNoPriceLimit, {
+    from: t.monitoring.fromPrice,
+    to: t.monitoring.toPrice,
+  })
 
   return (
     <div
@@ -171,7 +182,7 @@ function RealRuleCard({
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-foreground">{rule.location}</p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {language === 'en' ? 'Created' : 'Vytvořeno'}: {formatRuleDate(rule.created_at, language)}
+                  {t.monitoring.createdAt}: {formatRuleDate(rule.created_at, language)}
                 </p>
               </div>
             </div>
@@ -190,7 +201,7 @@ function RealRuleCard({
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/70">
-              {language === 'en' ? 'Frequency' : 'Frekvence'}
+              {t.monitoring.frequencyLabel}
             </p>
             <div className="mt-1 flex items-center gap-1.5 text-sm text-foreground">
               <Clock className="h-3.5 w-3.5 text-muted-foreground" />
@@ -200,21 +211,21 @@ function RealRuleCard({
 
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/70">
-              {language === 'en' ? 'Property type' : 'Typ nemovitosti'}
+              {t.monitoring.propertyTypeLabel}
             </p>
             <p className="mt-1 text-sm text-foreground">{propertyTypeLabel}</p>
           </div>
 
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/70">
-              {language === 'en' ? 'Price range' : 'Cenové rozpětí'}
+              {t.monitoring.priceRangeLabel}
             </p>
             <p className="mt-1 text-sm text-foreground">{priceRangeLabel}</p>
           </div>
 
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/70">
-              {language === 'en' ? 'Status' : 'Status'}
+              {t.monitoring.statusLabel}
             </p>
             <p className="mt-1 text-sm text-foreground">{rule.active ? t.monitoring.active : t.monitoring.paused}</p>
           </div>
@@ -231,7 +242,7 @@ function RealRuleCard({
             ) : (
               <Play className="h-4 w-4" />
             )}
-            {rule.active ? (language === 'en' ? 'Pause' : 'Pozastavit') : (language === 'en' ? 'Activate' : 'Aktivovat')}
+            {rule.active ? t.monitoring.pause : t.monitoring.activate}
           </button>
 
           <button
@@ -240,7 +251,7 @@ function RealRuleCard({
             className="button-smooth inline-flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/5 px-3 py-2 text-sm text-red-600 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-60 dark:text-red-300"
           >
             <Trash2 className="h-4 w-4" />
-            {language === 'en' ? 'Delete' : 'Smazat'}
+            {t.common.delete}
           </button>
         </div>
       </div>
@@ -285,7 +296,7 @@ export default function MonitoringPage() {
       setResults(data.listings)
       setResultsMeta(data)
     } catch (error) {
-      const message = error instanceof Error ? error.message : t.common.unknownError
+      const message = isNetworkError(error) ? t.common.connectionError : (getErrorMessage(error) || t.common.unknownError)
       setResultsError(message)
       setResults([])
       setResultsMeta(null)
@@ -303,7 +314,7 @@ export default function MonitoringPage() {
           </p>
         </div>
         <Link
-          href={`/chat?prompt=${encodeURIComponent(NEW_RULE_PROMPT)}`}
+          href={`/chat?prompt=${encodeURIComponent(t.monitoring.newRulePrompt)}`}
           className={cn(
             'button-smooth inline-flex items-center gap-2 rounded-2xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90 dark:shadow-none',
           )}
@@ -317,32 +328,28 @@ export default function MonitoringPage() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-semibold text-foreground">
-              {language === 'en' ? 'Google Integration' : 'Google integrace'}
+              {t.monitoring.googleIntegrationTitle}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
               {googleStatus?.connected
-                ? language === 'en'
-                  ? 'Google Calendar is connected and Gmail drafts/sending are available.'
-                  : 'Google Calendar je připojen a Gmail drafty i odesílání jsou k dispozici.'
-                : language === 'en'
-                  ? 'Connect Google to use your real calendar and Gmail.'
-                  : 'Propojte Google pro práci s reálným kalendářem a Gmailem.'}
+                ? t.monitoring.googleConnectedDescription
+                : t.monitoring.googleDisconnectedDescription}
             </p>
           </div>
           {googleStatus?.connected ? (
             <div className="rounded-full bg-green-500/10 px-3 py-1 text-sm font-medium text-green-600 dark:text-green-400">
-              Google Calendar ✅ Gmail ✅
+              {t.monitoring.googleConnectedBadge}
             </div>
           ) : googleStatus?.hasOAuthConfig === false ? (
             <div className="rounded-full bg-amber-500/10 px-3 py-1 text-sm font-medium text-amber-600 dark:text-amber-300">
-              {language === 'en' ? 'Google OAuth is not configured' : 'Google OAuth není nakonfigurován'}
+              {t.monitoring.googleNotConfigured}
             </div>
           ) : (
             <Link
               href="/api/auth/google"
               className="button-smooth inline-flex items-center justify-center rounded-2xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
             >
-              {language === 'en' ? 'Connect Google account' : 'Propojit Google účet'}
+              {t.monitoring.connectGoogle}
             </Link>
           )}
         </div>
@@ -380,12 +387,10 @@ export default function MonitoringPage() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {language === 'en' ? 'Your monitoring rules' : 'Vaše pravidla monitoringu'}
+              {t.monitoring.yourRules}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              {language === 'en'
-                ? 'Rules created through the agent chat appear here.'
-                : 'Pravidla vytvořená přes chat s agentem se zobrazují tady.'}
+              {t.monitoring.yourRulesDescription}
             </p>
           </div>
 
@@ -397,28 +402,21 @@ export default function MonitoringPage() {
               className="button-smooth inline-flex items-center justify-center gap-2 rounded-2xl border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground hover:border-primary/20 hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
             >
               {resultsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-              {language === 'en' ? 'Check now' : 'Zkontrolovat nyní'}
+              {t.monitoring.checkNow}
             </button>
           ) : (
             <p className="text-sm text-muted-foreground">
               {!hasHydrated
                 ? t.common.loading
                 : rules.length === 0
-                ? (language === 'en'
-                    ? 'Create a monitoring rule in chat first.'
-                    : 'Nejprve si v chatu vytvořte pravidlo monitoringu.')
-                : (language === 'en'
-                    ? 'Activate a rule to run a live check.'
-                    : 'Pro spuštění kontroly aktivujte některé pravidlo.')}
+                ? t.monitoring.createRuleFirst
+                : t.monitoring.activateRuleFirst}
             </p>
           )}
         </div>
 
         {!hasHydrated ? (
-          <div className="flex items-center gap-2 rounded-2xl border border-border bg-card px-4 py-4 text-sm text-muted-foreground shadow-sm dark:shadow-none">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            {t.common.loading}
-          </div>
+          <LoadingState message={t.common.loading} />
         ) : rules.length > 0 ? (
           <div className="flex flex-col gap-3">
             {rules.map((rule) => (
@@ -432,9 +430,7 @@ export default function MonitoringPage() {
           </div>
         ) : (
           <div className="rounded-2xl border border-dashed border-border bg-card/60 px-4 py-5 text-sm text-muted-foreground">
-            {language === 'en'
-              ? 'No monitoring rules have been created yet. Start from chat and they will appear here.'
-              : 'Zatím nemáte vytvořená žádná pravidla monitoringu. Spusťte je přes chat a objeví se tady.'}
+            {t.monitoring.emptyRules}
           </div>
         )}
 
@@ -443,13 +439,13 @@ export default function MonitoringPage() {
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-sm font-semibold text-foreground">
-                  {language === 'en'
-                    ? `Current listings for ${lastCheckedLocation ?? activeRule?.location ?? ''}`
-                    : `Aktuální nabídky pro ${lastCheckedLocation ?? activeRule?.location ?? ''}`}
+                  {interpolate(t.monitoring.currentListingsFor, {
+                    location: lastCheckedLocation ?? activeRule?.location ?? '',
+                  })}
                 </p>
                 {resultsMeta?.fetchedAt ? (
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {language === 'en' ? 'Updated' : 'Aktualizováno'}: {formatRuleDate(resultsMeta.fetchedAt, language)}
+                    {t.monitoring.updatedAt}: {formatRuleDate(resultsMeta.fetchedAt, language)}
                   </p>
                 ) : null}
               </div>
@@ -470,9 +466,7 @@ export default function MonitoringPage() {
                     >
                       {source.name}:{' '}
                       {source.status === 'unavailable'
-                        ? language === 'en'
-                          ? 'requires extension'
-                          : 'vyžaduje rozšíření'
+                        ? t.monitoring.sourceExtensionRequired
                         : source.count}
                     </span>
                   ))}
@@ -481,16 +475,16 @@ export default function MonitoringPage() {
             </div>
 
             {resultsError ? (
-              <div className="rounded-2xl border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-600 dark:text-red-300">
-                {resultsError}
-              </div>
+              <ErrorState
+                title={t.common.loadError}
+                message={resultsError}
+                retryLabel={t.common.retry}
+                onRetry={() => void handleCheckNow()}
+              />
             ) : null}
 
             {resultsLoading ? (
-              <div className="flex items-center gap-2 rounded-2xl border border-border bg-background px-4 py-4 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                {language === 'en' ? 'Loading live listings...' : 'Načítám aktuální nabídky...'}
-              </div>
+              <LoadingState message={t.monitoring.liveLoading} className="bg-background" />
             ) : results.length > 0 ? (
               <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                 {results.map((listing) => (
@@ -524,16 +518,14 @@ export default function MonitoringPage() {
                       className="button-smooth mt-4 inline-flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground hover:border-primary/20 hover:text-primary"
                     >
                       <ExternalLink className="h-4 w-4" />
-                      {language === 'en' ? 'Open listing' : 'Otevřít inzerát'}
+                      {t.monitoring.openListing}
                     </a>
                   </div>
                 ))}
               </div>
             ) : (
               <div className="rounded-2xl border border-dashed border-border bg-background px-4 py-5 text-sm text-muted-foreground">
-                {language === 'en'
-                  ? 'No listings were found for this check.'
-                  : 'Pro tuto kontrolu nebyly nalezeny žádné nabídky.'}
+                {t.monitoring.emptyListings}
               </div>
             )}
           </div>

@@ -3,8 +3,9 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Search, Home, SlidersHorizontal, AlertTriangle, Pencil, Eye } from 'lucide-react'
 import FormModal from '@/components/ui/FormModal'
+import { ErrorState } from '@/components/ui/async-state'
 import PropertyDetail from '@/components/properties/PropertyDetail'
-import { cn, fetchJson, formatCZK } from '@/lib/utils'
+import { cn, fetchJson, formatCZK, getErrorMessage, isNetworkError } from '@/lib/utils'
 import { useTranslation } from '@/lib/useTranslation'
 import type { Client, Property, PropertyStatus, PropertyType, RenovationStatus } from '@/types'
 
@@ -171,6 +172,7 @@ export default function PropertiesPage() {
   const [clients, setClients] = useState<Client[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState<PropertyStatus | ''>('')
   const [type, setType] = useState<PropertyType | ''>('')
@@ -190,13 +192,16 @@ export default function PropertiesPage() {
     if (city) params.set('city', city)
 
     try {
+      setLoadError(null)
       const data = await fetchJson<{ properties: Property[]; total: number }>(`/api/properties?${params.toString()}`)
       setProperties(data.properties ?? [])
       setTotal(data.total ?? 0)
+    } catch (error) {
+      setLoadError(isNetworkError(error) ? t.common.connectionError : (getErrorMessage(error) || t.common.unknownError))
     } finally {
       setLoading(false)
     }
-  }, [search, status, type, city])
+  }, [city, search, status, t.common.connectionError, t.common.unknownError, type])
 
   useEffect(() => {
     const initialSearch = new URLSearchParams(window.location.search).get('search')
@@ -213,7 +218,10 @@ export default function PropertiesPage() {
   useEffect(() => {
     fetchJson<{ clients: Client[] }>('/api/clients')
       .then((data) => setClients(data.clients ?? []))
-      .catch(() => setClients([]))
+      .catch((error) => {
+        console.error('Client lookup failed:', error)
+        setClients([])
+      })
   }, [])
 
   useEffect(() => {
@@ -354,6 +362,15 @@ export default function PropertiesPage() {
           <option value="Ostrava">Ostrava</option>
         </select>
       </div>
+
+      {loadError ? (
+        <ErrorState
+          title={t.common.loadError}
+          message={loadError}
+          retryLabel={t.common.retry}
+          onRetry={() => void fetchProperties()}
+        />
+      ) : null}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {loading ? (

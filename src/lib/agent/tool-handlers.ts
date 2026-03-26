@@ -198,7 +198,6 @@ function resolveQuarter(
 
 function handleQueryClients(input: Record<string, unknown>, context?: ToolCallContext): ToolResult {
   const { date_from, date_to, source, type, status, quarter, group_by } = input as Record<string, string>
-  console.log('query_clients params:', JSON.stringify(input))
 
   // Quarter mode
   const resolvedQuarter = resolveQuarter(quarter, date_from, date_to, context?.userMessage)
@@ -343,6 +342,130 @@ function handleQueryProperties(input: Record<string, unknown>): ToolResult {
   return {
     data: props,
     summary: parts.join(', ') + '.',
+    display_hint: 'table',
+  }
+}
+
+function handleEstimatePropertyValue(input: Record<string, unknown>): ToolResult {
+  const city = typeof input.city === 'string' && input.city.trim() ? input.city.trim() : 'Praha'
+  const district = typeof input.district === 'string' ? input.district.trim() : ''
+  const type = (typeof input.type === 'string' && input.type.trim() ? input.type.trim() : 'apartment') as PropertyType
+  const area_sqm = Number(input.area_sqm)
+  const rooms = input.rooms === undefined || input.rooms === null ? undefined : Number(input.rooms)
+
+  if (!district || !Number.isFinite(area_sqm) || area_sqm <= 0) {
+    return {
+      data: [],
+      summary: 'Pro odhad potřebuji alespoň město, lokalitu a plochu nemovitosti v m².',
+      display_hint: 'text',
+    }
+  }
+
+  const normalizedCity = normalizeQuery(city)
+  const normalizedDistrict = normalizeQuery(district)
+  const propertyById = new Map(db.getAllProperties().map((property) => [property.id, property]))
+  const allProps = [...propertyById.values()]
+  const isComparableProperty = (property: Property) => {
+    const cityMatch = normalizeQuery(property.address.city) === normalizedCity
+    const distMatch = normalizeQuery(property.address.district).includes(normalizedDistrict)
+    const typeMatch = !type || property.type === type
+    const areaClose = Math.abs(property.area_sqm - area_sqm) < area_sqm * 0.3
+    const roomsClose = rooms === undefined || property.rooms === null || Math.abs(property.rooms - rooms) <= 1
+
+    return cityMatch && distMatch && typeMatch && areaClose && roomsClose && property.price > 200_000
+  }
+
+  const comparables = allProps.filter(isComparableProperty)
+  const transactions = db.getTransactions({ type: 'sale', status: 'completed' })
+  const relevantTx = transactions.filter((transaction) => {
+    const property = propertyById.get(transaction.property_id)
+    if (!property) return false
+    return isComparableProperty(property)
+  })
+
+  const prices = comparables.map((property) => property.price).filter((price) => price > 200_000)
+  const listingPricesPerSqm = comparables
+    .filter((property) => property.price > 200_000)
+    .map((property) => property.price / property.area_sqm)
+  const soldPricesPerSqm = relevantTx
+    .map((transaction) => {
+      const property = propertyById.get(transaction.property_id)
+      if (!property || property.area_sqm <= 0) return null
+      return transaction.amount / property.area_sqm
+    })
+    .filter((value): value is number => value !== null)
+
+  const valuationSamples = soldPricesPerSqm.length > 0 ? soldPricesPerSqm : listingPricesPerSqm
+  const avgPrice = prices.length > 0 ? Math.round(average(prices)) : 0
+  const avgPricePerSqm = valuationSamples.length > 0 ? Math.round(average(valuationSamples)) : 0
+  const minPrice = prices.length > 0 ? Math.min(...prices) : 0
+  const maxPrice = prices.length > 0 ? Math.max(...prices) : 0
+
+  const estimatedValue = avgPricePerSqm * area_sqm
+  const estimatedMin = Math.round(estimatedValue * 0.85)
+  const estimatedMax = Math.round(estimatedValue * 1.15)
+  const comparableRows = comparables.slice(0, 5).map((property) => ({
+    Název: property.name,
+    Adresa: `${property.address.street}, ${property.address.district}`,
+    Cena: czk(property.price),
+    'Plocha (m²)': String(property.area_sqm),
+    'Cena za m²': czk(Math.round(property.price / property.area_sqm)),
+  }))
+
+  if (!avgPricePerSqm) {
+    return {
+      data: {
+        estimated_value: 0,
+        estimated_range: { min: 0, max: 0 },
+        price_per_sqm: 0,
+        comparables_count: comparables.length,
+        comparables: comparables.slice(0, 5).map((property) => ({
+          name: property.name,
+          address: `${property.address.street}, ${property.address.district}`,
+          price: property.price,
+          area: property.area_sqm,
+          price_per_sqm: Math.round(property.price / property.area_sqm),
+        })),
+        transactions_in_area: relevantTx.length,
+        market_stats: {
+          avg_price: avgPrice,
+          min_price: minPrice,
+          max_price: maxPrice,
+          avg_price_per_sqm: 0,
+        },
+        rows: comparableRows,
+      },
+      summary: `Pro ${district} zatím nemám dost srovnatelných prodejů nebo nabídek pro spolehlivý odhad. Našel jsem ${comparables.length} podobných nemovitostí a ${relevantTx.length} dokončených prodejů v oblasti.`,
+      display_hint: 'table',
+    }
+  }
+
+  const valuationBasis = soldPricesPerSqm.length > 0 ? 'dokončených prodejů' : 'srovnatelných nabídek'
+  const valuationCount = soldPricesPerSqm.length > 0 ? soldPricesPerSqm.length : comparables.length
+
+  return {
+    data: {
+      estimated_value: estimatedValue,
+      estimated_range: { min: estimatedMin, max: estimatedMax },
+      price_per_sqm: avgPricePerSqm,
+      comparables_count: comparables.length,
+      comparables: comparables.slice(0, 5).map((property) => ({
+        name: property.name,
+        address: `${property.address.street}, ${property.address.district}`,
+        price: property.price,
+        area: property.area_sqm,
+        price_per_sqm: Math.round(property.price / property.area_sqm),
+      })),
+      transactions_in_area: relevantTx.length,
+      market_stats: {
+        avg_price: avgPrice,
+        min_price: minPrice,
+        max_price: maxPrice,
+        avg_price_per_sqm: avgPricePerSqm,
+      },
+      rows: comparableRows,
+    },
+    summary: `Odhadovaná tržní hodnota: ${estimatedValue.toLocaleString('cs-CZ')} CZK (rozmezí ${estimatedMin.toLocaleString('cs-CZ')} – ${estimatedMax.toLocaleString('cs-CZ')} CZK). Odhad na základě ${valuationCount} ${valuationBasis} v ${district}. Průměrná cena za m²: ${avgPricePerSqm.toLocaleString('cs-CZ')} CZK.`,
     display_hint: 'table',
   }
 }
@@ -1175,6 +1298,7 @@ export async function handleToolCall(
     case 'query_clients':          return handleQueryClients(toolInput, context)
     case 'query_leads':            return handleQueryLeads(toolInput)
     case 'query_properties':       return handleQueryProperties(toolInput)
+    case 'estimate_property_value': return handleEstimatePropertyValue(toolInput)
     case 'find_missing_data':      return handleFindMissingData(toolInput)
     case 'query_transactions':     return handleQueryTransactions(toolInput)
     case 'get_dashboard_metrics':  return handleGetDashboardMetrics()

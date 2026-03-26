@@ -1,6 +1,6 @@
 'use client'
 
-import { useId } from 'react'
+import { memo, useId, useMemo } from 'react'
 import {
   ResponsiveContainer,
   BarChart, Bar,
@@ -71,16 +71,21 @@ function ChartBody({ config }: { config: ChartConfig }) {
   const chartId = useId().replace(/:/g, '')
   const { t } = useTranslation()
   const { chart_type, data } = config
-  const validData = (data ?? []).filter((item) => item.label !== undefined && item.label !== null)
-  const chartData = validData.map((item) => ({
-    label: item.label,
-    value: item.value,
-    ...(item.secondary_value !== undefined && item.secondary_value !== null ? { secondary: item.secondary_value } : {}),
-  }))
+  const validData = useMemo(
+    () => (data ?? []).filter((item) => item.label !== undefined && item.label !== null),
+    [data]
+  )
+  const chartData = useMemo(
+    () =>
+      validData.map((item) => ({
+        label: item.label,
+        value: item.value,
+        ...(item.secondary_value !== undefined && item.secondary_value !== null ? { secondary: item.secondary_value } : {}),
+      })),
+    [validData]
+  )
   const dual = hasSecondary(validData)
   const pieTotal = chartData.reduce((sum, item) => sum + item.value, 0)
-
-  console.log('Rendering chart:', config.chart_type, 'title:', config.title, 'data length:', config.data?.length ?? 0)
 
   if (chartData.length === 0) {
     return (
@@ -254,7 +259,7 @@ function ChartBody({ config }: { config: ChartConfig }) {
   )
 }
 
-export default function InlineChart({ config }: { config: ChartConfig }) {
+function InlineChart({ config }: { config: ChartConfig }) {
   return (
     <div className="mt-3 w-full rounded-xl border border-border bg-card p-4">
       <h3 className="mb-3 text-sm font-semibold text-foreground">{config.title}</h3>
@@ -262,3 +267,5 @@ export default function InlineChart({ config }: { config: ChartConfig }) {
     </div>
   )
 }
+
+export default memo(InlineChart)

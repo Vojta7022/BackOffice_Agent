@@ -1,9 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { DashboardStatsResult, MonthlyLeadCount, MonthlyTransactionSummary, TasksByStatus } from '@/lib/database'
 import type { Client, LeadStatus, LeadType, Property, PropertyType, TransactionStatus, TransactionType } from '@/types'
 import { useTranslation } from '@/lib/useTranslation'
+import { ErrorState } from '@/components/ui/async-state'
+import { fetchJson, getErrorMessage, isNetworkError } from '@/lib/utils'
 import KPICards from './KPICards'
 import ChartsRow from './ChartsRow'
 import DashboardInsights from './DashboardInsights'
@@ -63,17 +65,29 @@ export default function DashboardContent() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  const loadDashboard = useCallback(async () => {
+    try {
+      setError(null)
+      const response = await fetchJson<DashboardData>('/api/dashboard')
+      setData(response)
+    } catch (loadError) {
+      setError(isNetworkError(loadError) ? t.common.connectionError : (getErrorMessage(loadError) || t.common.unknownError))
+    }
+  }, [t.common.connectionError, t.common.unknownError])
+
   useEffect(() => {
-    fetch('/api/dashboard')
-      .then(r => r.json())
-      .then(setData)
-      .catch(e => setError(e.message))
-  }, [])
+    void loadDashboard()
+  }, [loadDashboard])
 
   if (error) {
     return (
-      <div className="mx-4 mt-4 flex h-48 items-center justify-center rounded-2xl border border-red-500/30 bg-red-500/5 text-sm text-red-500 md:mx-6">
-        {t.dashboard.loadError} {error}
+      <div className="mx-4 mt-4 md:mx-6">
+        <ErrorState
+          title={t.common.loadError}
+          message={error}
+          retryLabel={t.common.retry}
+          onRetry={() => void loadDashboard()}
+        />
       </div>
     )
   }

@@ -24,61 +24,21 @@ interface ChatMessagesProps {
 }
 
 function WelcomeScreen({ onSend }: { onSend: (msg: string) => void }) {
-  const { t, language } = useTranslation()
+  const { t } = useTranslation()
   const hydrated = useHydrated()
   const currentT = hydrated ? t : translations.cs
-  const currentLanguage = hydrated ? language : 'cs'
-  const starterGroups = currentLanguage === 'cs'
-    ? [
-        {
-          title: '📊 Data a analýzy',
-          items: [
-            { icon: BarChart3, label: 'Novi klienti za Q1 2026 - graf podle zdroje' },
-            { icon: Sparkles, label: 'Vyvoj leadu a prodeju za 6 mesicu' },
-            { icon: Building2, label: 'Analyza portfolia nemovitosti' },
-          ],
-        },
-        {
-          title: '📧 Komunikace',
-          items: [
-            { icon: Mail, label: 'Napis email zajemci o nemovitost' },
-            { icon: FileText, label: 'Shrn vysledky tydne pro vedeni' },
-          ],
-        },
-        {
-          title: '🔍 Správa dat',
-          items: [
-            { icon: Search, label: 'Nemovitosti s chybejicimi udaji' },
-            { icon: BellRing, label: 'Monitoring nabidek v Holesovicich' },
-            { icon: Sparkles, label: 'Porovnej dve nejdrazsi nemovitosti' },
-          ],
-        },
-      ]
-    : [
-        {
-          title: '📊 Data & Analytics',
-          items: [
-            { icon: BarChart3, label: 'New clients in Q1 2026 - chart by source' },
-            { icon: Sparkles, label: 'Lead and sales trend for 6 months' },
-            { icon: Building2, label: 'Analyze the property portfolio' },
-          ],
-        },
-        {
-          title: '📧 Communication',
-          items: [
-            { icon: Mail, label: 'Write an email to a property lead' },
-            { icon: FileText, label: 'Summarize this week for leadership' },
-          ],
-        },
-        {
-          title: '🔍 Data Management',
-          items: [
-            { icon: Search, label: 'Properties with missing data' },
-            { icon: BellRing, label: 'Set up listing monitoring in Holesovice' },
-            { icon: Sparkles, label: 'Compare the two most expensive properties' },
-          ],
-        },
-      ]
+  const sectionIcons = [
+    [BarChart3, Sparkles, Building2],
+    [Mail, FileText],
+    [Search, BellRing, Sparkles],
+  ] as const
+  const starterGroups = currentT.chat.welcomeSections.map((group, groupIndex) => ({
+    title: group.title,
+    items: group.items.map((label, itemIndex) => ({
+      label,
+      icon: sectionIcons[groupIndex]?.[itemIndex] ?? Sparkles,
+    })),
+  }))
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-8 px-4 py-12">
@@ -149,7 +109,9 @@ export default function ChatMessages({ onSend }: ChatMessagesProps) {
   const currentT = hydrated ? t : translations.cs
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    requestAnimationFrame(() => {
+      bottomRef.current?.scrollIntoView({ behavior: messages.length > 1 ? 'smooth' : 'auto' })
+    })
   }, [messages.length, isLoading])
 
   if (messages.length === 0 && !isLoading) {

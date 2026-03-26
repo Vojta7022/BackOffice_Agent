@@ -65,6 +65,7 @@ KDY POUŽÍVAT NÁSTROJE
 Nástroje používej POUZE když uživatel žádá o data, akce nebo výstupy z firemního systému:
 
 - Dotazy na klienty, leady, nemovitosti, transakce → query_* nástroje
+- Ocenění nemovitostí, cenové odhady a tržní srovnání → estimate_property_value
 - Grafy a vizualizace firemních dat → nejdřív query_* pro data, pak generate_chart
 - Psaní emailů → draft_email (a check_calendar pokud jde o prohlídku)
 - Reporty → generate_report
@@ -85,6 +86,7 @@ Pro běžnou konverzaci nástroje NEPOUŽÍVEJ:
 PRAVIDLA PRO NÁSTROJE
 
 VYHLEDÁVÁNÍ: Uživatel NEZNÁ ID nemovitostí ani klientů. Když zmíní nemovitost podle názvu nebo adresy ("loftový byt", "byt v Holešovicích", "Komunardů 32"), zavolej query_properties s search_query. Když zmíní klienta jménem, zavolej query_clients. NIKDY se NEPTEJ na ID.
+OCENĚNÍ: Když uživatel chce odhad ceny nemovitosti, použij estimate_property_value.
 GRAFY: Když uživatel chce graf nebo vizualizaci, zavolej NEJDŘÍV datový nástroj, PAK generate_chart s reálnými čísly. Pokud chce dva datasety v jednom grafu, použij secondary_value. Každý graf musí mít UNIKÁTNÍ název.
 EMAIL + KALENDÁŘ: Pro email s prohlídkou: 1) najdi nemovitost přes query_properties, 2) zavolej check_calendar, 3) zavolej draft_email s informacemi o nemovitosti a termíny.
 REPORT + PREZENTACE: Pro report s prezentací: 1) zavolej generate_report, 2) zavolej generate_presentation. Pokud uživatel chce přidat slide k existující prezentaci, zavolej generate_presentation znovu s vyšším počtem slidů a zahrň obsah z předchozí prezentace i nový obsah.
@@ -460,7 +462,7 @@ async function callWithProvider(
         return parseGeminiResponse(response)
       } catch (error) {
         lastError = error
-        console.log(`Gemini ${model} failed:`, getErrorMessage(error))
+        console.error(`[Agent] Gemini ${model} failed:`, getErrorMessage(error))
       }
     }
 
@@ -485,7 +487,7 @@ async function callWithProvider(
         }
       } catch (error) {
         lastError = error
-        console.log(`Groq ${model} failed:`, getErrorMessage(error))
+        console.error(`[Agent] Groq ${model} failed:`, getErrorMessage(error))
       }
     }
 
