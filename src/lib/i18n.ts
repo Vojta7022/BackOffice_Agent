@@ -34,6 +34,13 @@ export interface Translations {
     monitoring: string
     newChat: string
     history: string
+    historySortLabel: string
+    historySortManual: string
+    historySortRecent: string
+    historySortOldest: string
+    historySortAlphabetical: string
+    historyMoveUp: string
+    historyMoveDown: string
     collapse: string
     appCaption: string
     userRole: string
@@ -405,6 +412,13 @@ const cs: Translations = {
     monitoring: 'Monitoring',
     newChat: 'Nový chat',
     history: 'Historie',
+    historySortLabel: 'Řazení historie',
+    historySortManual: 'Ruční pořadí',
+    historySortRecent: 'Nejnovější nahoře',
+    historySortOldest: 'Nejstarší nahoře',
+    historySortAlphabetical: 'Abecedně',
+    historyMoveUp: 'Posunout nahoru',
+    historyMoveDown: 'Posunout dolů',
     collapse: 'Sbalit',
     appCaption: 'Back Office',
     userRole: 'Back Office Manager',
@@ -924,6 +938,13 @@ const en: Translations = {
     monitoring: 'Monitoring',
     newChat: 'New chat',
     history: 'History',
+    historySortLabel: 'History sorting',
+    historySortManual: 'Manual order',
+    historySortRecent: 'Newest first',
+    historySortOldest: 'Oldest first',
+    historySortAlphabetical: 'Alphabetical',
+    historyMoveUp: 'Move up',
+    historyMoveDown: 'Move down',
     collapse: 'Collapse',
     appCaption: 'Back Office',
     userRole: 'Back Office Manager',

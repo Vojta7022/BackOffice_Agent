@@ -35,6 +35,8 @@ export interface ChatConversation {
   updatedAt: string
 }
 
+export type ConversationSort = 'manual' | 'recent' | 'oldest' | 'alphabetical'
+
 export interface ConversationListItem {
   id: string
   title: string
@@ -44,11 +46,15 @@ export interface ConversationListItem {
 
 export interface ChatState {
   conversations: Record<string, ChatConversation>
+  conversationOrder: string[]
+  conversationSort: ConversationSort
   activeConversationId: string | null
   isLoading: boolean
   thinkingSteps: string[]
   createNewConversation: () => string
   setActiveConversation: (id: string) => void
+  setConversationSort: (sort: ConversationSort) => void
+  moveConversation: (id: string, direction: 'up' | 'down') => void
   addUserMessage: (content: string) => void
   addAssistantMessage: (response: AgentResponse) => void
   deleteConversation: (id: string) => void
@@ -83,15 +89,77 @@ function makeConversationTitle(content: string) {
   return normalized.length > 40 ? `${normalized.slice(0, 40)}…` : normalized
 }
 
-function getSortedConversationList(conversations: Record<string, ChatConversation>): ConversationListItem[] {
+function buildConversationListItem(conversation: ChatConversation): ConversationListItem {
+  return {
+    id: conversation.id,
+    title: conversation.title,
+    updatedAt: conversation.updatedAt,
+    messageCount: conversation.messages.length,
+  }
+}
+
+function getRecentConversationIds(conversations: Record<string, ChatConversation>): string[] {
   return Object.values(conversations)
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-    .map((conversation) => ({
-      id: conversation.id,
-      title: conversation.title,
-      updatedAt: conversation.updatedAt,
-      messageCount: conversation.messages.length,
-    }))
+    .map((conversation) => conversation.id)
+}
+
+function ensureConversationOrder(
+  conversations: Record<string, ChatConversation>,
+  conversationOrder: string[]
+): string[] {
+  const existingIds = new Set(Object.keys(conversations))
+  const orderedIds = conversationOrder.filter((id) => existingIds.has(id))
+  const missingIds = getRecentConversationIds(conversations).filter((id) => !orderedIds.includes(id))
+  return [...orderedIds, ...missingIds]
+}
+
+function getSortedConversationList(
+  conversations: Record<string, ChatConversation>,
+  conversationSort: ConversationSort,
+  conversationOrder: string[]
+): ConversationListItem[] {
+  const items = Object.values(conversations).map(buildConversationListItem)
+
+  if (conversationSort === 'recent') {
+    return items.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+  }
+
+  if (conversationSort === 'oldest') {
+    return items.sort((a, b) => a.updatedAt.localeCompare(b.updatedAt))
+  }
+
+  if (conversationSort === 'alphabetical') {
+    return items.sort((a, b) => {
+      const aTitle = a.title.trim().toLocaleLowerCase()
+      const bTitle = b.title.trim().toLocaleLowerCase()
+      if (!aTitle && !bTitle) return b.updatedAt.localeCompare(a.updatedAt)
+      if (!aTitle) return 1
+      if (!bTitle) return -1
+      return aTitle.localeCompare(bTitle)
+    })
+  }
+
+  return ensureConversationOrder(conversations, conversationOrder)
+    .map((id) => conversations[id])
+    .filter((conversation): conversation is ChatConversation => Boolean(conversation))
+    .map(buildConversationListItem)
+}
+
+function moveConversationId(
+  orderedIds: string[],
+  id: string,
+  direction: 'up' | 'down'
+): string[] {
+  const currentIndex = orderedIds.indexOf(id)
+  if (currentIndex === -1) return orderedIds
+
+  const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
+  if (targetIndex < 0 || targetIndex >= orderedIds.length) return orderedIds
+
+  const nextIds = [...orderedIds]
+  ;[nextIds[currentIndex], nextIds[targetIndex]] = [nextIds[targetIndex], nextIds[currentIndex]]
+  return nextIds
 }
 
 function buildAssistantMessage(response: AgentResponse): ChatMessage {
@@ -117,6 +185,8 @@ const EMPTY_MESSAGES: ChatMessage[] = []
 const EMPTY_CONVERSATION_LIST: ConversationListItem[] = []
 
 let cachedConversations: Record<string, ChatConversation> | null = null
+let cachedConversationOrder: string[] | null = null
+let cachedConversationSort: ConversationSort | null = null
 let cachedConversationList = EMPTY_CONVERSATION_LIST
 
 export function selectActiveMessages(state: ChatState): ChatMessage[] {
@@ -125,12 +195,22 @@ export function selectActiveMessages(state: ChatState): ChatMessage[] {
 }
 
 export function selectConversationList(state: ChatState): ConversationListItem[] {
-  if (state.conversations === cachedConversations) {
+  if (
+    state.conversations === cachedConversations &&
+    state.conversationOrder === cachedConversationOrder &&
+    state.conversationSort === cachedConversationSort
+  ) {
     return cachedConversationList
   }
 
   cachedConversations = state.conversations
-  cachedConversationList = getSortedConversationList(state.conversations)
+  cachedConversationOrder = state.conversationOrder
+  cachedConversationSort = state.conversationSort
+  cachedConversationList = getSortedConversationList(
+    state.conversations,
+    state.conversationSort,
+    state.conversationOrder
+  )
   return cachedConversationList
 }
 
@@ -138,6 +218,8 @@ export const useChatStore = create<ChatState>()(
   persist(
     (set) => ({
       conversations: {},
+      conversationOrder: [],
+      conversationSort: 'recent',
       activeConversationId: null,
       isLoading: false,
       thinkingSteps: [],
@@ -149,6 +231,7 @@ export const useChatStore = create<ChatState>()(
             ...state.conversations,
             [conversation.id]: conversation,
           },
+          conversationOrder: [conversation.id, ...state.conversationOrder.filter((id) => id !== conversation.id)],
           activeConversationId: conversation.id,
           isLoading: false,
           thinkingSteps: [],
@@ -165,6 +248,28 @@ export const useChatStore = create<ChatState>()(
               }
             : state
         ),
+
+      setConversationSort: (conversationSort) =>
+        set((state) => ({
+          conversationSort,
+          conversationOrder:
+            conversationSort === 'manual'
+              ? ensureConversationOrder(state.conversations, state.conversationOrder)
+              : state.conversationOrder,
+        })),
+
+      moveConversation: (id, direction) =>
+        set((state) => {
+          const baseOrder =
+            state.conversationSort === 'manual'
+              ? ensureConversationOrder(state.conversations, state.conversationOrder)
+              : getSortedConversationList(state.conversations, state.conversationSort, state.conversationOrder).map((item) => item.id)
+
+          return {
+            conversationSort: 'manual',
+            conversationOrder: moveConversationId(baseOrder, id, direction),
+          }
+        }),
 
       addUserMessage: (content) =>
         set((state) => {
@@ -191,6 +296,9 @@ export const useChatStore = create<ChatState>()(
               ...state.conversations,
               [activeId]: updatedConversation,
             },
+            conversationOrder: state.conversationOrder.includes(activeId)
+              ? state.conversationOrder
+              : [activeId, ...state.conversationOrder],
             activeConversationId: activeId,
           }
         }),
@@ -214,6 +322,9 @@ export const useChatStore = create<ChatState>()(
               ...state.conversations,
               [activeId]: updatedConversation,
             },
+            conversationOrder: state.conversationOrder.includes(activeId)
+              ? state.conversationOrder
+              : [activeId, ...state.conversationOrder],
             activeConversationId: activeId,
             thinkingSteps: [],
           }
@@ -228,11 +339,12 @@ export const useChatStore = create<ChatState>()(
 
           const nextActiveConversationId =
             state.activeConversationId === id
-              ? getSortedConversationList(conversations)[0]?.id ?? null
+              ? getSortedConversationList(conversations, state.conversationSort, state.conversationOrder)[0]?.id ?? null
               : state.activeConversationId
 
           return {
             conversations,
+            conversationOrder: state.conversationOrder.filter((conversationId) => conversationId !== id),
             activeConversationId: nextActiveConversationId,
             isLoading: state.activeConversationId === id ? false : state.isLoading,
             thinkingSteps: state.activeConversationId === id ? [] : state.thinkingSteps,
@@ -244,6 +356,8 @@ export const useChatStore = create<ChatState>()(
       clearAll: () =>
         set({
           conversations: {},
+          conversationOrder: [],
+          conversationSort: 'recent',
           activeConversationId: null,
           isLoading: false,
           thinkingSteps: [],
@@ -258,6 +372,8 @@ export const useChatStore = create<ChatState>()(
       name: 'backoffice-chat',
       partialize: (state) => ({
         conversations: state.conversations,
+        conversationOrder: state.conversationOrder,
+        conversationSort: state.conversationSort,
         activeConversationId: state.activeConversationId,
       }),
     }
