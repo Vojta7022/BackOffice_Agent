@@ -4,12 +4,15 @@ import { useEffect, useRef, useState } from 'react'
 import { Bot, Check, Clock3, FileWarning, Loader2, Send, Sparkles } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
+import { useHydrated } from '@/hooks/useHydrated'
 import { cn } from '@/lib/utils'
 import { useTranslation } from '@/lib/useTranslation'
 
 interface ProactiveGreetingProps {
   className?: string
 }
+
+const AUTOPILOT_SNOOZE_KEY = 're-agent-proactive-greeting-hidden-until'
 
 async function postHiddenPrompt(message: string) {
   const response = await fetch('/api/chat', {
@@ -33,14 +36,44 @@ async function postHiddenPrompt(message: string) {
   return response
 }
 
+function getAutopilotHiddenUntil(): number {
+  if (typeof window === 'undefined') return 0
+
+  const rawValue = window.localStorage.getItem(AUTOPILOT_SNOOZE_KEY)
+  if (!rawValue) return 0
+
+  const parsedValue = Number(rawValue)
+  if (!Number.isFinite(parsedValue)) {
+    window.localStorage.removeItem(AUTOPILOT_SNOOZE_KEY)
+    return 0
+  }
+
+  if (parsedValue <= Date.now()) {
+    window.localStorage.removeItem(AUTOPILOT_SNOOZE_KEY)
+    return 0
+  }
+
+  return parsedValue
+}
+
+function storeAutopilotSnoozeUntilEndOfDay() {
+  if (typeof window === 'undefined') return
+
+  const endOfDay = new Date()
+  endOfDay.setHours(23, 59, 59, 999)
+  window.localStorage.setItem(AUTOPILOT_SNOOZE_KEY, String(endOfDay.getTime()))
+}
+
 export default function ProactiveGreeting({ className }: ProactiveGreetingProps) {
+  const hydrated = useHydrated()
   const { t } = useTranslation()
   const [isSending, setIsSending] = useState(false)
   const [isSent, setIsSent] = useState(false)
   const [isRequesting, setIsRequesting] = useState(false)
   const [isRequested, setIsRequested] = useState(false)
   const [isExiting, setIsExiting] = useState(false)
-  const [isHidden, setIsHidden] = useState(false)
+  const [isHidden, setIsHidden] = useState(true)
+  const [isVisibilityReady, setIsVisibilityReady] = useState(false)
   const isMountedRef = useRef(true)
   const dismissTimeoutRef = useRef<number | null>(null)
 
@@ -54,8 +87,19 @@ export default function ProactiveGreeting({ className }: ProactiveGreetingProps)
     }
   }, [])
 
-  function dismissCard() {
+  useEffect(() => {
+    if (!hydrated) return
+
+    setIsHidden(getAutopilotHiddenUntil() > 0)
+    setIsVisibilityReady(true)
+  }, [hydrated])
+
+  function dismissCard(options?: { persistForToday?: boolean }) {
     if (isExiting || isHidden) return
+
+    if (options?.persistForToday) {
+      storeAutopilotSnoozeUntilEndOfDay()
+    }
 
     setIsExiting(true)
     dismissTimeoutRef.current = window.setTimeout(() => {
@@ -108,7 +152,7 @@ export default function ProactiveGreeting({ className }: ProactiveGreetingProps)
     }
   }
 
-  if (isHidden) {
+  if (!hydrated || !isVisibilityReady || isHidden) {
     return null
   }
 
@@ -181,7 +225,7 @@ export default function ProactiveGreeting({ className }: ProactiveGreetingProps)
 
               <Button
                 type="button"
-                onClick={dismissCard}
+                onClick={() => dismissCard({ persistForToday: true })}
                 disabled={isSending || isRequesting}
                 variant="outline"
                 className="h-11 rounded-2xl border-white/12 bg-white/5 px-4 text-sm text-slate-100 backdrop-blur-sm hover:border-white/20 hover:bg-white/10 hover:text-white"
