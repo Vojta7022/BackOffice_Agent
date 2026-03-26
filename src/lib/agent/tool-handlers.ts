@@ -915,10 +915,15 @@ async function handleSearchListings(input: Record<string, unknown>): Promise<Too
   const listingData = location
     ? await fetchAllListings(location)
     : { listings: [], sources: [], fetchedAt: new Date().toISOString() }
+  const liveSourceCount = listingData.sources.filter((source) => source.status === 'live').length
+  const unavailableSources = listingData.sources.filter((source) => source.status === 'unavailable')
+  const unavailableNote = unavailableSources.length > 0
+    ? ` ${unavailableSources.map((source) => source.name).join(' a ')} aktuálně vyžadují rozšíření.`
+    : ''
 
   return {
     data: { ...listingData, location },
-    summary: `Nalezeno ${listingData.listings.length} nabídek v lokalitě ${location} ze 4 realitních portálů.`,
+    summary: `Nalezeno ${listingData.listings.length} nabídek v lokalitě ${location} z ${liveSourceCount} aktivních portálů.${unavailableNote}`,
     display_hint: 'table',
   }
 }
@@ -1143,6 +1148,12 @@ async function handleSetupMonitoring(input: Record<string, unknown>): Promise<To
   if (price_min) filterDesc.push(`od ${czk(Number(price_min))}`)
   if (price_max) filterDesc.push(`do ${czk(Number(price_max))}`)
   const listingData = await fetchAllListings(normalizedLocation)
+  const liveSources = listingData.sources.filter((source) => source.status === 'live').map((source) => source.name)
+  const unavailableSources = listingData.sources.filter((source) => source.status === 'unavailable').map((source) => source.name)
+  const activeSourceText = liveSources.length > 0 ? liveSources.join(' a ') : 'žádné aktivní portály'
+  const unavailableSourceText = unavailableSources.length > 0
+    ? ` ${unavailableSources.join(' a ')} aktuálně vyžadují rozšíření.`
+    : ''
 
   return {
     data: {
@@ -1154,9 +1165,9 @@ async function handleSetupMonitoring(input: Record<string, unknown>): Promise<To
       next_check: '27.03.2026 v 07:00',
       next_check_relative_cs: 'zítra v 7:00',
       next_check_relative_en: 'tomorrow at 7:00',
-      message: `Monitoring nastaven. Prohledal jsem Sreality.cz, Bezrealitky.cz, Reality.iDNES.cz a České reality.cz a nalezl ${listingData.listings.length} aktuálních nabídek v ${normalizedLocation}. Další automatická kontrola proběhne ${rule.frequency === 'daily' ? 'zítra v 7:00' : 'příští týden'}.`,
+      message: `Monitoring nastaven. Prohledal jsem ${activeSourceText} a nalezl ${listingData.listings.length} aktuálních nabídek v ${normalizedLocation}.${unavailableSourceText} Další automatická kontrola proběhne ${rule.frequency === 'daily' ? 'zítra v 7:00' : 'příští týden'}.`,
     },
-    summary: `Monitoring pro ${normalizedLocation} nastaven. Nalezeno ${listingData.listings.length} nabídek ze 4 portálů.`,
+    summary: `Monitoring pro ${normalizedLocation} nastaven. Nalezeno ${listingData.listings.length} nabídek z ${liveSources.length} aktivních portálů.${unavailableSourceText}`,
     display_hint: 'monitoring_set',
   }
 }

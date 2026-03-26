@@ -6,7 +6,7 @@ import { Bell, Clock, ExternalLink, Loader2, MapPin, MessageSquare, Pause, Play,
 import { cn, fetchJson } from '@/lib/utils'
 import { useTranslation } from '@/lib/useTranslation'
 import type { MonitoringRule } from '@/types'
-import type { ListingResult } from '@/lib/monitoring/fetcher'
+import type { ListingResult, ListingSourceStatus } from '@/lib/monitoring/fetcher'
 
 const NEW_RULE_PROMPT = 'Nastav nový monitoring nemovitostí'
 const CHECK_NOW_LOCATION = 'Holešovice'
@@ -19,7 +19,7 @@ const MONITORING_SOURCE_STYLES: Record<string, string> = {
 
 type MonitoringResultsResponse = {
   listings: ListingResult[]
-  sources: { name: string; count: number; status: 'live' | 'failed' }[]
+  sources: { name: string; count: number; status: ListingSourceStatus }[]
   fetchedAt: string
 }
 
@@ -513,10 +513,17 @@ export default function MonitoringPage() {
                         'rounded-full border px-2.5 py-1 text-[11px] font-medium',
                         source.status === 'live'
                           ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300'
+                          : source.status === 'unavailable'
+                          ? 'border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-300'
                           : 'border-muted bg-muted text-muted-foreground'
                       )}
                     >
-                      {source.name}: {source.count}
+                      {source.name}:{' '}
+                      {source.status === 'unavailable'
+                        ? language === 'en'
+                          ? 'requires extension'
+                          : 'vyžaduje rozšíření'
+                        : source.count}
                     </span>
                   ))}
                 </div>

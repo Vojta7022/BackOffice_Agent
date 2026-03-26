@@ -294,7 +294,7 @@ function MonitoringCard({ rule }: { rule: Record<string, unknown> }) {
                   {sources.map((source, index) => (
                     <span key={`${String(source.name ?? 'source')}-${index}`}>
                       {index > 0 ? ' | ' : ''}
-                      {String(source.name ?? '')}: {String(source.count ?? 0)} {source.status === 'live' ? '🟢' : '🔴'}
+                      {String(source.name ?? '')}: {String(source.count ?? 0)} {source.status === 'live' ? '🟢' : source.status === 'unavailable' ? '🟡' : '🔴'}
                     </span>
                   ))}
                 </p>
