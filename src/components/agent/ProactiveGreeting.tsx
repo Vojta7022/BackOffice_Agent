@@ -6,54 +6,106 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
-type ActionId = 'send-drafts' | 'request-label' | 'resolve-later'
-
 interface ProactiveGreetingProps {
   className?: string
 }
 
 const greetingText = 'Dobré ráno. Přes noc přišlo několik poptávek na ten loft v Holešovicích. Rovnou jsem zkontroloval tvůj kalendář a připravil do Gmailu koncepty s návrhem volných oken na úterý a středu. Mám je odeslat? A mimochodem, u včerejší nabrané nemovitosti chybí energetický štítek, mám vyžádat doplnění od majitele?'
 
-const actionItems: Array<{ id: ActionId; label: string; icon: typeof Send }> = [
-  { id: 'send-drafts', label: 'Odeslat koncepty', icon: Send },
-  { id: 'request-label', label: 'Vyžádat štítek', icon: FileWarning },
-  { id: 'resolve-later', label: 'Vyřešit později', icon: Clock3 },
-]
+async function postHiddenPrompt(message: string) {
+  const response = await fetch('/api/chat', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ message }),
+  })
 
-function wait(ms: number) {
-  return new Promise((resolve) => window.setTimeout(resolve, ms))
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null)
+    const errorMessage =
+      payload && typeof payload === 'object' && 'error' in payload && typeof payload.error === 'string'
+        ? payload.error
+        : `HTTP ${response.status}`
+
+    throw new Error(errorMessage)
+  }
+
+  return response
 }
 
 export default function ProactiveGreeting({ className }: ProactiveGreetingProps) {
-  const [pendingAction, setPendingAction] = useState<ActionId | null>(null)
-  const [completedAction, setCompletedAction] = useState<ActionId | null>(null)
+  const [isSending, setIsSending] = useState(false)
+  const [isSent, setIsSent] = useState(false)
+  const [isRequesting, setIsRequesting] = useState(false)
+  const [isRequested, setIsRequested] = useState(false)
   const [isExiting, setIsExiting] = useState(false)
   const [isHidden, setIsHidden] = useState(false)
   const isMountedRef = useRef(true)
+  const dismissTimeoutRef = useRef<number | null>(null)
 
   useEffect(() => {
     return () => {
       isMountedRef.current = false
+
+      if (dismissTimeoutRef.current) {
+        window.clearTimeout(dismissTimeoutRef.current)
+      }
     }
   }, [])
 
-  async function handleAction(actionId: ActionId) {
-    if (pendingAction || completedAction || isExiting) return
+  function dismissCard() {
+    if (isExiting || isHidden) return
 
-    setPendingAction(actionId)
-    await wait(900)
-
-    if (!isMountedRef.current) return
-    setPendingAction(null)
-    setCompletedAction(actionId)
-
-    await wait(850)
-    if (!isMountedRef.current) return
     setIsExiting(true)
+    dismissTimeoutRef.current = window.setTimeout(() => {
+      if (!isMountedRef.current) return
+      setIsHidden(true)
+    }, 300)
+  }
 
-    await wait(350)
-    if (!isMountedRef.current) return
-    setIsHidden(true)
+  async function handleSendDrafts() {
+    if (isSending || isSent) return
+
+    setIsSending(true)
+
+    try {
+      const response = await postHiddenPrompt('Create email drafts for the Holešovice loft leads proposing available times for Tuesday and Wednesday.')
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
+
+      if (!isMountedRef.current) return
+      setIsSent(true)
+    } catch (error) {
+      console.error('Failed to send draft request.', error)
+    } finally {
+      if (!isMountedRef.current) return
+      setIsSending(false)
+    }
+  }
+
+  async function handleRequestLabel() {
+    if (isRequesting || isRequested) return
+
+    setIsRequesting(true)
+
+    try {
+      const response = await postHiddenPrompt("Send a request to the owner of yesterday's new property to provide the energy label.")
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
+
+      if (!isMountedRef.current) return
+      setIsRequested(true)
+    } catch (error) {
+      console.error('Failed to request energy label.', error)
+    } finally {
+      if (!isMountedRef.current) return
+      setIsRequesting(false)
+    }
   }
 
   if (isHidden) {
@@ -97,33 +149,46 @@ export default function ProactiveGreeting({ className }: ProactiveGreetingProps)
             </div>
 
             <div className="flex flex-wrap gap-3">
-              {actionItems.map((actionItem) => {
-                const Icon = actionItem.icon
-                const isPending = pendingAction === actionItem.id
-                const isCompleted = completedAction === actionItem.id
-                const isDisabled = Boolean(pendingAction || completedAction)
+              <Button
+                type="button"
+                onClick={() => void handleSendDrafts()}
+                disabled={isSending || isSent}
+                variant="default"
+                className={cn(
+                  'h-11 rounded-2xl border-sky-300/30 bg-sky-400/90 px-4 text-sm text-slate-950 backdrop-blur-sm hover:bg-sky-300',
+                  isSent && 'border-emerald-300/30 bg-emerald-400 text-emerald-950',
+                  isSending && 'cursor-wait'
+                )}
+              >
+                {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : isSent ? <Check className="h-4 w-4" /> : <Send className="h-4 w-4" />}
+                <span>{isSent ? 'Hotovo' : 'Odeslat koncepty'}</span>
+              </Button>
 
-                return (
-                  <Button
-                    key={actionItem.id}
-                    type="button"
-                    onClick={() => void handleAction(actionItem.id)}
-                    disabled={isDisabled && !isPending && !isCompleted}
-                    variant={actionItem.id === 'resolve-later' ? 'outline' : 'default'}
-                    className={cn(
-                      'h-11 rounded-2xl px-4 text-sm backdrop-blur-sm',
-                      actionItem.id === 'resolve-later'
-                        ? 'border-white/12 bg-white/5 text-slate-100 hover:border-white/20 hover:bg-white/10 hover:text-white'
-                        : 'border-sky-300/30 bg-sky-400/90 text-slate-950 hover:bg-sky-300',
-                      isCompleted && 'border-emerald-300/30 bg-emerald-400 text-emerald-950',
-                      isPending && 'cursor-wait'
-                    )}
-                  >
-                    {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : isCompleted ? <Check className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
-                    <span>{isCompleted ? 'Hotovo' : actionItem.label}</span>
-                  </Button>
-                )
-              })}
+              <Button
+                type="button"
+                onClick={() => void handleRequestLabel()}
+                disabled={isRequesting || isRequested}
+                variant="default"
+                className={cn(
+                  'h-11 rounded-2xl border-sky-300/30 bg-sky-400/90 px-4 text-sm text-slate-950 backdrop-blur-sm hover:bg-sky-300',
+                  isRequested && 'border-emerald-300/30 bg-emerald-400 text-emerald-950',
+                  isRequesting && 'cursor-wait'
+                )}
+              >
+                {isRequesting ? <Loader2 className="h-4 w-4 animate-spin" /> : isRequested ? <Check className="h-4 w-4" /> : <FileWarning className="h-4 w-4" />}
+                <span>{isRequested ? 'Hotovo' : 'Vyžádat štítek'}</span>
+              </Button>
+
+              <Button
+                type="button"
+                onClick={dismissCard}
+                disabled={isSending || isRequesting}
+                variant="outline"
+                className="h-11 rounded-2xl border-white/12 bg-white/5 px-4 text-sm text-slate-100 backdrop-blur-sm hover:border-white/20 hover:bg-white/10 hover:text-white"
+              >
+                <Clock3 className="h-4 w-4" />
+                <span>Vyřešit později</span>
+              </Button>
             </div>
           </div>
         </div>
