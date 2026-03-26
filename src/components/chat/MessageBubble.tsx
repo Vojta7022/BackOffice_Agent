@@ -580,6 +580,13 @@ export default function MessageBubble({
 }) {
   const { language } = useTranslation()
   const isUser = message.role === 'user'
+  const uniqueCharts = useMemo(() => {
+    const charts = message.charts ?? []
+    return charts.filter((chart, index, array) => {
+      const title = String(chart.title ?? '')
+      return array.findIndex((currentChart) => String(currentChart.title ?? '') === title) === index
+    })
+  }, [message.charts])
 
   if (isUser) {
     return (
@@ -619,8 +626,8 @@ export default function MessageBubble({
             <ReactMarkdown>{message.content}</ReactMarkdown>
           </div>
 
-          {message.charts?.map((chart, i) => (
-            <InlineChart key={i} config={chart as ChartConfig} />
+          {uniqueCharts.map((chart, i) => (
+            <InlineChart key={`${String(chart.title ?? 'chart')}-${i}`} config={chart as ChartConfig} />
           ))}
 
           {message.tables && message.tables.length > 0

@@ -12,6 +12,18 @@ import type {
 
 export type AppLanguage = 'cs' | 'en'
 
+interface WelcomeSectionTranslation {
+  title: string
+  items: string[]
+}
+
+interface QuickCommandTranslation {
+  id: string
+  name: string
+  description: string
+  prompt: string
+}
+
 export interface Translations {
   nav: {
     dashboard: string
@@ -102,10 +114,16 @@ export interface Translations {
     welcomeTitle: string
     welcomeDescription: string
     welcomeSuggestions: string[]
+    welcomeSections: WelcomeSectionTranslation[]
     composerSuggestions: string[]
+    quickCommands: QuickCommandTranslation[]
+    quickCommandsTitle: string
+    noQuickCommandFound: string
     errorIntro: string
     errorRetry: string
+    providersUnavailable: string
     toolLabels: Record<string, string>
+    toolSuggestions: Record<string, string[]>
     taskCreated: string
     dueDate: string
     monitoringSet: string
@@ -132,10 +150,19 @@ export interface Translations {
     copied: string
     edit: string
     done: string
+    sendEmail: string
+    sendingEmail: string
+    emailSent: string
+    emailGoogleRequired: string
+    emailConnectGoogle: string
+    emailSendFailed: string
     nextSteps: string
     downloadCsv: string
     records: string
     exportFilename: string
+    presentationDefaultTopic: string
+    presentationFilename: string
+    presentationDownloadFailed: string
     chartLeadsSeries: string
     chartSalesSeries: string
     monitoringLocation: string
@@ -293,7 +320,33 @@ export interface Translations {
     active: string
     paused: string
     quickPrompts: string[]
+    newRulePrompt: string
     firstMonitoringPrompt: string
+    googleIntegrationTitle: string
+    googleConnectedDescription: string
+    googleDisconnectedDescription: string
+    googleConnectedBadge: string
+    googleNotConfigured: string
+    connectGoogle: string
+    yourRules: string
+    yourRulesDescription: string
+    createdAt: string
+    frequencyLabel: string
+    propertyTypeLabel: string
+    priceRangeLabel: string
+    statusLabel: string
+    pause: string
+    activate: string
+    checkNow: string
+    createRuleFirst: string
+    activateRuleFirst: string
+    emptyRules: string
+    currentListingsFor: string
+    updatedAt: string
+    sourceExtensionRequired: string
+    liveLoading: string
+    openListing: string
+    emptyListings: string
     frequencies: Record<MonitoringFrequency, string>
     propertyTypeLabels: Record<PropertyType, string>
     fromPrice: string
@@ -316,6 +369,9 @@ export interface Translations {
     create: string
     edit: string
     delete: string
+    retry: string
+    loadError: string
+    connectionError: string
     unknownError: string
   }
 }
@@ -417,9 +473,49 @@ const cs: Translations = {
       'Napiš email zájemci o nemovitost',
       'Monitoring nabídek v Holešovicích',
     ],
+    welcomeSections: [
+      {
+        title: 'Data a analýzy',
+        items: [
+          'Noví klienti za Q1 2026 - graf podle zdroje',
+          'Vývoj leadů a prodejů za 6 měsíců',
+          'Analyzuj portfolio nemovitostí',
+        ],
+      },
+      {
+        title: 'Komunikace',
+        items: [
+          'Napiš e-mail zájemci o nemovitost',
+          'Shrň výsledky týdne pro vedení',
+        ],
+      },
+      {
+        title: 'Správa dat',
+        items: [
+          'Najdi nemovitosti s chybějícími údaji',
+          'Monitoring nabídek v Holešovicích',
+          'Porovnej dvě nejdražší nemovitosti',
+        ],
+      },
+    ],
     composerSuggestions: ['Zobraz jako graf', 'Exportuj do CSV', 'Více detailů'],
+    quickCommands: [
+      { id: 'clients', name: '/klienti', description: 'Zobraz přehled klientů', prompt: 'Zobraz přehled klientů' },
+      { id: 'leads', name: '/leady', description: 'Kolik máme nových leadů?', prompt: 'Kolik máme nových leadů?' },
+      { id: 'properties', name: '/nemovitosti', description: 'Zobraz dostupné nemovitosti', prompt: 'Zobraz dostupné nemovitosti' },
+      { id: 'missing', name: '/chybějící', description: 'Najdi nemovitosti s chybějícími daty', prompt: 'Najdi nemovitosti s chybějícími daty' },
+      { id: 'report', name: '/report', description: 'Vygeneruj týdenní report', prompt: 'Vygeneruj týdenní report' },
+      { id: 'presentation', name: '/prezentace', description: 'Vytvoř prezentaci se 3 slidy', prompt: 'Vytvoř prezentaci se 3 slidy' },
+      { id: 'email', name: '/email', description: 'Napiš e-mail zájemci', prompt: 'Napiš e-mail zájemci' },
+      { id: 'monitoring', name: '/monitoring', description: 'Nastav monitoring pro Holešovice', prompt: 'Nastav monitoring pro Holešovice' },
+      { id: 'portfolio', name: '/portfolio', description: 'Analyzuj portfolio nemovitostí', prompt: 'Analyzuj portfolio nemovitostí' },
+      { id: 'dashboard', name: '/dashboard', description: 'Zobraz aktuální metriky', prompt: 'Zobraz aktuální metriky' },
+    ],
+    quickCommandsTitle: 'Rychlé příkazy',
+    noQuickCommandFound: 'Žádný příkaz nenalezen.',
     errorIntro: 'Omlouvám se, nastala chyba:',
     errorRetry: 'Zkuste to prosím znovu.',
+    providersUnavailable: 'AI poskytovatelé jsou momentálně nedostupní. Zkuste to prosím znovu za chvíli.',
     toolLabels: {
       query_clients: 'Vyhledávání klientů',
       query_leads: 'Analýza leadů',
@@ -443,6 +539,17 @@ const cs: Translations = {
       web_search: 'Webové vyhledávání',
       search_listings: 'Vyhledávání nabídek',
     },
+    toolSuggestions: {
+      query_clients: ['Zobraz jako graf', 'Exportuj do CSV', 'Rozděl podle typu'],
+      query_leads: ['Graf za 6 měsíců', 'Konverzní poměr', 'Nezkontaktované leady'],
+      query_properties: ['Porovnej vybrané', 'Najdi chybějící data', 'Seřaď podle ceny za m²'],
+      find_missing_data: ['Exportuj seznam', 'Přiřaď úkoly k doplnění'],
+      generate_chart: ['Jiný typ grafu', 'Přidej do reportu'],
+      draft_email: ['Uprav tón', 'Přidej termín prohlídky'],
+      generate_report: ['Vytvoř prezentaci', 'Pošli e-mailem'],
+      generate_presentation: ['Přidej další slide', 'Stáhnout PPTX'],
+      setup_monitoring: ['Nastav další lokality', 'Změň frekvenci'],
+    },
     taskCreated: 'Úkol vytvořen',
     dueDate: 'Termín',
     monitoringSet: 'Monitoring nastaven',
@@ -452,8 +559,8 @@ const cs: Translations = {
       weekly: 'týdně',
     },
     report: 'Report',
-    highlights: 'Highlights',
-    actionItems: 'Akční kroky',
+    highlights: 'Klíčové body',
+    actionItems: 'Akční položky',
     presentation: 'Prezentace',
     comparisonTitle: 'Porovnání nemovitostí',
     timelineTitle: 'Historie klienta',
@@ -465,17 +572,26 @@ const cs: Translations = {
     slide: 'Snímek',
     moreSlides: 'dalších',
     downloadPptx: 'Stáhnout PPTX',
-    emailDraft: 'Návrh emailu',
+    emailDraft: 'Návrh e-mailu',
     to: 'Komu',
     subject: 'Předmět',
     copy: 'Kopírovat',
     copied: 'Zkopírováno',
     edit: 'Upravit',
     done: 'Hotovo',
-    nextSteps: 'Pokračovat',
+    sendEmail: 'Odeslat e-mail',
+    sendingEmail: 'Odesílám...',
+    emailSent: 'E-mail byl odeslán.',
+    emailGoogleRequired: 'Pro odesílání e-mailu propojte Google účet.',
+    emailConnectGoogle: 'Propojit Google účet',
+    emailSendFailed: 'Odeslání e-mailu selhalo. Zkuste to znovu.',
+    nextSteps: 'Další kroky',
     downloadCsv: 'Stáhnout CSV',
     records: 'záznamů',
     exportFilename: 'export',
+    presentationDefaultTopic: 'RE:Agent report',
+    presentationFilename: 're-agent-report',
+    presentationDownloadFailed: 'Stažení prezentace selhalo. Zkuste to znovu.',
     chartLeadsSeries: 'Leady',
     chartSalesSeries: 'Prodeje',
     monitoringLocation: 'Lokalita',
@@ -487,7 +603,7 @@ const cs: Translations = {
     monitoringActive: 'aktivní',
     monitoringNoPriceLimit: 'Bez cenového omezení',
     monitoringConfirmation: 'Monitoring nastaven. Budete informováni o nových nabídkách.',
-    monitoringInitialResults: 'Aktuální nabídky z portálu',
+    monitoringInitialResults: 'Aktuální nabídky z portálů',
     openOnPortal: 'Otevřít na portálu',
     reportMetrics: {
       revenue: 'Tržby',
@@ -693,7 +809,33 @@ const cs: Translations = {
       'Upozorni na nové domy v Brně',
       'Monitoring komerčních prostor Praha 2',
     ],
+    newRulePrompt: 'Nastav nový monitoring nemovitostí',
     firstMonitoringPrompt: 'Nastav monitoring nových nabídek v Praze',
+    googleIntegrationTitle: 'Google integrace',
+    googleConnectedDescription: 'Google Calendar je připojen a Gmail drafty i odesílání jsou k dispozici.',
+    googleDisconnectedDescription: 'Propojte Google pro práci s reálným kalendářem a Gmailem.',
+    googleConnectedBadge: 'Google Calendar a Gmail jsou připojené',
+    googleNotConfigured: 'Google OAuth není nakonfigurován',
+    connectGoogle: 'Propojit Google účet',
+    yourRules: 'Vaše pravidla monitoringu',
+    yourRulesDescription: 'Pravidla vytvořená přes chat s agentem se zobrazují tady.',
+    createdAt: 'Vytvořeno',
+    frequencyLabel: 'Frekvence',
+    propertyTypeLabel: 'Typ nemovitosti',
+    priceRangeLabel: 'Cenové rozpětí',
+    statusLabel: 'Status',
+    pause: 'Pozastavit',
+    activate: 'Aktivovat',
+    checkNow: 'Zkontrolovat nyní',
+    createRuleFirst: 'Nejprve si v chatu vytvořte pravidlo monitoringu.',
+    activateRuleFirst: 'Pro spuštění kontroly aktivujte některé pravidlo.',
+    emptyRules: 'Zatím nemáte vytvořená žádná pravidla monitoringu. Spusťte je přes chat a objeví se tady.',
+    currentListingsFor: 'Aktuální nabídky pro {location}',
+    updatedAt: 'Aktualizováno',
+    sourceExtensionRequired: 'vyžaduje rozšíření',
+    liveLoading: 'Načítám aktuální nabídky...',
+    openListing: 'Otevřít inzerát',
+    emptyListings: 'Pro tuto kontrolu nebyly nalezeny žádné nabídky.',
     frequencies: {
       daily: 'Denně',
       weekly: 'Týdně',
@@ -725,6 +867,9 @@ const cs: Translations = {
     create: 'Vytvořit',
     edit: 'Upravit',
     delete: 'Smazat',
+    retry: 'Zkusit znovu',
+    loadError: 'Chyba při načítání dat.',
+    connectionError: 'Chyba připojení. Zkuste to znovu.',
     unknownError: 'Neznámá chyba',
   },
 }

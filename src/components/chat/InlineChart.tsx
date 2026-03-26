@@ -1,5 +1,6 @@
 'use client'
 
+import { useId } from 'react'
 import {
   ResponsiveContainer,
   BarChart, Bar,
@@ -7,6 +8,7 @@ import {
   AreaChart, Area,
   PieChart, Pie, Cell,
   LabelList,
+  CartesianGrid,
   XAxis, YAxis, Tooltip, Legend,
 } from 'recharts'
 import type { PieLabelRenderProps } from 'recharts'
@@ -27,9 +29,11 @@ const TOOLTIP_STYLE = {
   cursor: { fill: 'rgb(var(--muted-rgb) / 0.35)' },
 }
 const PIE_COLORS = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)', 'var(--chart-5)', '#06b6d4', '#14b8a6']
+const CHART_HEIGHT = 300
+const CHART_MARGIN = { top: 20, right: 30, left: 20, bottom: 5 }
 
 function hasSecondary(data: ChartConfig['data']) {
-  return data.some((item) => item.secondary_value !== undefined)
+  return data.some((item) => item.secondary_value !== undefined && item.secondary_value !== null)
 }
 
 function renderPieLabel({ cx, cy, midAngle, outerRadius, percent, name }: PieLabelRenderProps) {
@@ -64,19 +68,31 @@ function DualSeriesLegend() {
 }
 
 function ChartBody({ config }: { config: ChartConfig }) {
+  const chartId = useId().replace(/:/g, '')
   const { t } = useTranslation()
   const { chart_type, data } = config
-  const chartData = data.map((item) => ({
+  const validData = (data ?? []).filter((item) => item.label !== undefined && item.label !== null)
+  const chartData = validData.map((item) => ({
     label: item.label,
     value: item.value,
-    ...(item.secondary_value !== undefined ? { secondary: item.secondary_value } : {}),
+    ...(item.secondary_value !== undefined && item.secondary_value !== null ? { secondary: item.secondary_value } : {}),
   }))
-  const dual = hasSecondary(data)
+  const dual = hasSecondary(validData)
   const pieTotal = chartData.reduce((sum, item) => sum + item.value, 0)
 
-  if (chart_type === 'pie') {
+  console.log('Rendering chart:', config.chart_type, 'title:', config.title, 'data length:', config.data?.length ?? 0)
+
+  if (chartData.length === 0) {
     return (
-      <ResponsiveContainer width="100%" height={280}>
+      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+        {t.common.noData}
+      </div>
+    )
+  }
+
+  function renderChartByType() {
+    if (chart_type === 'pie') {
+      return (
         <PieChart>
           <Pie
             data={chartData}
@@ -107,14 +123,13 @@ function ChartBody({ config }: { config: ChartConfig }) {
           />
           <Legend formatter={(value) => <span style={{ color: 'var(--muted-foreground)', fontSize: 11 }}>{value}</span>} />
         </PieChart>
-      </ResponsiveContainer>
-    )
-  }
+      )
+    }
 
-  if (chart_type === 'line') {
-    return (
-      <ResponsiveContainer width="100%" height={280}>
-        <LineChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+    if (chart_type === 'line') {
+      return (
+        <LineChart data={chartData} margin={CHART_MARGIN}>
+          <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
           <XAxis dataKey="label" tick={TICK} axisLine={false} tickLine={false} />
           <YAxis tick={TICK} axisLine={false} tickLine={false} />
           <Tooltip {...TOOLTIP_STYLE} />
@@ -144,26 +159,25 @@ function ChartBody({ config }: { config: ChartConfig }) {
           ) : null}
           {dual ? <DualSeriesLegend /> : null}
         </LineChart>
-      </ResponsiveContainer>
-    )
-  }
+      )
+    }
 
-  if (chart_type === 'area') {
-    return (
-      <ResponsiveContainer width="100%" height={280}>
-        <AreaChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+    if (chart_type === 'area') {
+      return (
+        <AreaChart data={chartData} margin={CHART_MARGIN}>
           <defs>
-            <linearGradient id="areaFill1" x1="0" y1="0" x2="0" y2="1">
+            <linearGradient id={`areaFill1-${chartId}`} x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.3} />
               <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={0} />
             </linearGradient>
             {dual ? (
-              <linearGradient id="areaFill2" x1="0" y1="0" x2="0" y2="1">
+              <linearGradient id={`areaFill2-${chartId}`} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="var(--chart-2)" stopOpacity={0.25} />
                 <stop offset="100%" stopColor="var(--chart-2)" stopOpacity={0} />
               </linearGradient>
             ) : null}
           </defs>
+          <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
           <XAxis dataKey="label" tick={TICK} axisLine={false} tickLine={false} />
           <YAxis tick={TICK} axisLine={false} tickLine={false} />
           <Tooltip {...TOOLTIP_STYLE} />
@@ -173,7 +187,7 @@ function ChartBody({ config }: { config: ChartConfig }) {
             name={config.primary_label ?? t.chat.chartLeadsSeries}
             stroke="var(--chart-1)"
             strokeWidth={2}
-            fill="url(#areaFill1)"
+            fill={`url(#areaFill1-${chartId})`}
             dot={false}
             isAnimationActive
             animationDuration={800}
@@ -185,7 +199,7 @@ function ChartBody({ config }: { config: ChartConfig }) {
               name={config.secondary_label ?? t.chat.chartSalesSeries}
               stroke="var(--chart-2)"
               strokeWidth={2}
-              fill="url(#areaFill2)"
+              fill={`url(#areaFill2-${chartId})`}
               dot={false}
               isAnimationActive
               animationDuration={800}
@@ -193,13 +207,12 @@ function ChartBody({ config }: { config: ChartConfig }) {
           ) : null}
           {dual ? <DualSeriesLegend /> : null}
         </AreaChart>
-      </ResponsiveContainer>
-    )
-  }
+      )
+    }
 
-  return (
-    <ResponsiveContainer width="100%" height={280}>
-      <BarChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+    return (
+      <BarChart data={chartData} margin={CHART_MARGIN}>
+        <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
         <XAxis dataKey="label" tick={TICK} axisLine={false} tickLine={false} />
         <YAxis tick={TICK} axisLine={false} tickLine={false} />
         <Tooltip {...TOOLTIP_STYLE} />
@@ -229,14 +242,22 @@ function ChartBody({ config }: { config: ChartConfig }) {
         ) : null}
         {dual ? <DualSeriesLegend /> : null}
       </BarChart>
-    </ResponsiveContainer>
+    )
+  }
+
+  return (
+    <div style={{ width: '100%', height: CHART_HEIGHT }}>
+      <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
+        {renderChartByType()}
+      </ResponsiveContainer>
+    </div>
   )
 }
 
 export default function InlineChart({ config }: { config: ChartConfig }) {
   return (
-    <div className="surface-muted mt-3 p-4">
-      <p className="mb-3 text-sm font-semibold text-foreground">{config.title}</p>
+    <div className="mt-3 w-full rounded-xl border border-border bg-card p-4">
+      <h3 className="mb-3 text-sm font-semibold text-foreground">{config.title}</h3>
       <ChartBody config={config} />
     </div>
   )
