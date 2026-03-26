@@ -63,8 +63,7 @@ export async function callOpenAI(
       return { maxRetries: 0 }
     }
 
-    const remainingMs = deadlineMs - Date.now() - 1000
-    const timeoutMs = Math.min(12_000, remainingMs)
+    const timeoutMs = deadlineMs - Date.now() - 750
     if (timeoutMs < 2_000) {
       throw new Error('Agent request deadline exceeded')
     }

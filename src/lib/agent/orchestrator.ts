@@ -55,9 +55,9 @@ const GEMINI_MODELS = ['gemini-2.5-flash-lite'] as const
 const MAX_TOKENS = 1536
 const MAX_ITERATIONS = 3
 const RETRY_DELAYS_MS = [1000, 3000] as const
-const REQUEST_BUDGET_MS = 45_000
-const MIN_REMAINING_TIME_MS = 2_500
-const MIN_PROVIDER_WINDOW_MS = 8_000
+const REQUEST_BUDGET_MS = 58_000
+const MIN_REMAINING_TIME_MS = 1_000
+const MIN_PROVIDER_WINDOW_MS = 2_000
 
 const SYSTEM_PROMPT = `Jsi RE:Agent — inteligentní back-office asistent české realitní firmy. Tvoje jméno je takové, jaké je nastavené v aplikaci, momentálně Pepa Novotný, takže když se podepisuješ v emailu, podepisuj se jako jméno agenta nastavené v aplikaci.
 
