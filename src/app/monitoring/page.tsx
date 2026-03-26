@@ -1,15 +1,15 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Bell, Clock, ExternalLink, Loader2, MapPin, MessageSquare, Pause, Play, Plus, RefreshCw, Trash2, Zap } from 'lucide-react'
 import { cn, fetchJson } from '@/lib/utils'
+import { useMonitoringStore } from '@/lib/monitoring-store'
 import { useTranslation } from '@/lib/useTranslation'
 import type { MonitoringRule } from '@/types'
 import type { ListingResult, ListingSourceStatus } from '@/lib/monitoring/fetcher'
 
 const NEW_RULE_PROMPT = 'Nastav nový monitoring nemovitostí'
-const CHECK_NOW_LOCATION = 'Holešovice'
 const MONITORING_SOURCE_STYLES: Record<string, string> = {
   'Sreality.cz': 'border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300',
   'Bezrealitky.cz': 'border-green-500/30 bg-green-500/10 text-green-700 dark:text-green-300',
@@ -138,12 +138,10 @@ function ExampleRuleCard({ rule }: { rule: typeof EXAMPLE_RULES[0] }) {
 
 function RealRuleCard({
   rule,
-  isMutating,
   onDelete,
   onToggle,
 }: {
   rule: MonitoringRule
-  isMutating: boolean
   onDelete: (id: string) => void
   onToggle: (rule: MonitoringRule) => void
 }) {
@@ -226,12 +224,9 @@ function RealRuleCard({
           <button
             type="button"
             onClick={() => onToggle(rule)}
-            disabled={isMutating}
             className="button-smooth inline-flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground hover:border-primary/20 hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isMutating ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : rule.active ? (
+            {rule.active ? (
               <Pause className="h-4 w-4" />
             ) : (
               <Play className="h-4 w-4" />
@@ -242,10 +237,9 @@ function RealRuleCard({
           <button
             type="button"
             onClick={() => onDelete(rule.id)}
-            disabled={isMutating}
             className="button-smooth inline-flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/5 px-3 py-2 text-sm text-red-600 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-60 dark:text-red-300"
           >
-            {isMutating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            <Trash2 className="h-4 w-4" />
             {language === 'en' ? 'Delete' : 'Smazat'}
           </button>
         </div>
@@ -256,30 +250,17 @@ function RealRuleCard({
 
 export default function MonitoringPage() {
   const { t, language } = useTranslation()
+  const rules = useMonitoringStore((state) => state.rules)
+  const hasHydrated = useMonitoringStore((state) => state.hasHydrated)
+  const removeRule = useMonitoringStore((state) => state.removeRule)
+  const toggleRule = useMonitoringStore((state) => state.toggleRule)
   const [googleStatus, setGoogleStatus] = useState<{ connected: boolean; hasOAuthConfig: boolean } | null>(null)
-  const [realRules, setRealRules] = useState<MonitoringRule[]>([])
-  const [rulesLoading, setRulesLoading] = useState(true)
-  const [rulesError, setRulesError] = useState<string | null>(null)
-  const [mutatingRuleId, setMutatingRuleId] = useState<string | null>(null)
   const [resultsLoading, setResultsLoading] = useState(false)
   const [resultsError, setResultsError] = useState<string | null>(null)
   const [results, setResults] = useState<ListingResult[]>([])
   const [resultsMeta, setResultsMeta] = useState<MonitoringResultsResponse | null>(null)
-
-  const loadRules = useCallback(async () => {
-    setRulesLoading(true)
-    setRulesError(null)
-
-    try {
-      const data = await fetchJson<MonitoringRule[]>('/api/monitoring/rules')
-      setRealRules(data)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : t.common.unknownError
-      setRulesError(message)
-    } finally {
-      setRulesLoading(false)
-    }
-  }, [t.common.unknownError])
+  const [lastCheckedLocation, setLastCheckedLocation] = useState<string | null>(null)
+  const activeRule = rules.find((rule) => rule.active) ?? null
 
   useEffect(() => {
     fetchJson<{ connected: boolean; hasOAuthConfig: boolean }>('/api/google/status')
@@ -289,57 +270,17 @@ export default function MonitoringPage() {
       })
   }, [])
 
-  useEffect(() => {
-    void loadRules()
-  }, [loadRules])
+  async function handleCheckNow() {
+    if (!activeRule) return
 
-  const handleDeleteRule = useCallback(async (id: string) => {
-    setMutatingRuleId(id)
-
-    try {
-      await fetchJson<{ success: boolean }>('/api/monitoring/rules', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id }),
-      })
-
-      setRealRules((currentRules) => currentRules.filter((rule) => rule.id !== id))
-    } catch (error) {
-      const message = error instanceof Error ? error.message : t.common.unknownError
-      setRulesError(message)
-    } finally {
-      setMutatingRuleId(null)
-    }
-  }, [t.common.unknownError])
-
-  const handleToggleRule = useCallback(async (rule: MonitoringRule) => {
-    setMutatingRuleId(rule.id)
-
-    try {
-      const updatedRule = await fetchJson<MonitoringRule>('/api/monitoring/rules', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: rule.id, active: !rule.active }),
-      })
-
-      setRealRules((currentRules) =>
-        currentRules.map((currentRule) => (currentRule.id === updatedRule.id ? updatedRule : currentRule))
-      )
-    } catch (error) {
-      const message = error instanceof Error ? error.message : t.common.unknownError
-      setRulesError(message)
-    } finally {
-      setMutatingRuleId(null)
-    }
-  }, [t.common.unknownError])
-
-  const handleCheckNow = useCallback(async () => {
+    const location = activeRule.location
     setResultsLoading(true)
     setResultsError(null)
+    setLastCheckedLocation(location)
 
     try {
       const data = await fetchJson<MonitoringResultsResponse>(
-        `/api/monitoring/results?location=${encodeURIComponent(CHECK_NOW_LOCATION)}&fresh=true`
+        `/api/monitoring/results?location=${encodeURIComponent(location)}&fresh=true`
       )
       setResults(data.listings)
       setResultsMeta(data)
@@ -351,7 +292,7 @@ export default function MonitoringPage() {
     } finally {
       setResultsLoading(false)
     }
-  }, [t.common.unknownError])
+  }
 
   return (
     <div className="flex flex-col gap-8 p-4 md:p-6 max-w-4xl">
@@ -448,37 +389,44 @@ export default function MonitoringPage() {
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={handleCheckNow}
-            disabled={resultsLoading}
-            className="button-smooth inline-flex items-center justify-center gap-2 rounded-2xl border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground hover:border-primary/20 hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {resultsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            {language === 'en' ? 'Check now' : 'Zkontrolovat nyní'}
-          </button>
+          {hasHydrated && activeRule ? (
+            <button
+              type="button"
+              onClick={() => void handleCheckNow()}
+              disabled={resultsLoading}
+              className="button-smooth inline-flex items-center justify-center gap-2 rounded-2xl border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground hover:border-primary/20 hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {resultsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              {language === 'en' ? 'Check now' : 'Zkontrolovat nyní'}
+            </button>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {!hasHydrated
+                ? t.common.loading
+                : rules.length === 0
+                ? (language === 'en'
+                    ? 'Create a monitoring rule in chat first.'
+                    : 'Nejprve si v chatu vytvořte pravidlo monitoringu.')
+                : (language === 'en'
+                    ? 'Activate a rule to run a live check.'
+                    : 'Pro spuštění kontroly aktivujte některé pravidlo.')}
+            </p>
+          )}
         </div>
 
-        {rulesError ? (
-          <div className="rounded-2xl border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-600 dark:text-red-300">
-            {rulesError}
-          </div>
-        ) : null}
-
-        {rulesLoading ? (
+        {!hasHydrated ? (
           <div className="flex items-center gap-2 rounded-2xl border border-border bg-card px-4 py-4 text-sm text-muted-foreground shadow-sm dark:shadow-none">
             <Loader2 className="h-4 w-4 animate-spin" />
             {t.common.loading}
           </div>
-        ) : realRules.length > 0 ? (
+        ) : rules.length > 0 ? (
           <div className="flex flex-col gap-3">
-            {realRules.map((rule) => (
+            {rules.map((rule) => (
               <RealRuleCard
                 key={rule.id}
                 rule={rule}
-                isMutating={mutatingRuleId === rule.id}
-                onDelete={handleDeleteRule}
-                onToggle={handleToggleRule}
+                onDelete={removeRule}
+                onToggle={(currentRule) => toggleRule(currentRule.id)}
               />
             ))}
           </div>
@@ -495,7 +443,9 @@ export default function MonitoringPage() {
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-sm font-semibold text-foreground">
-                  {language === 'en' ? `Current listings for ${CHECK_NOW_LOCATION}` : `Aktuální nabídky pro ${CHECK_NOW_LOCATION}`}
+                  {language === 'en'
+                    ? `Current listings for ${lastCheckedLocation ?? activeRule?.location ?? ''}`
+                    : `Aktuální nabídky pro ${lastCheckedLocation ?? activeRule?.location ?? ''}`}
                 </p>
                 {resultsMeta?.fetchedAt ? (
                   <p className="mt-1 text-xs text-muted-foreground">

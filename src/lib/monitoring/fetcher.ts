@@ -122,6 +122,50 @@ function formatPrice(price: number) {
   return price ? `${price.toLocaleString('cs-CZ')} CZK` : 'Cena na vyžádání'
 }
 
+const SREALITY_SLUG_WORD_LABELS: Record<string, string> = {
+  holesovice: 'Holešovice',
+  karlin: 'Karlín',
+  vinohrady: 'Vinohrady',
+  smichov: 'Smíchov',
+  zizkov: 'Žižkov',
+  ovenecka: 'Ovenecká',
+  delnicka: 'Dělnická',
+  pergamenky: 'Pergamenky',
+  komunardu: 'Komunardů',
+  argentinska: 'Argentinská',
+  jankovcova: 'Jankovcova',
+  u: 'U',
+  na: 'Na',
+  nad: 'Nad',
+  pod: 'Pod',
+  v: 'V',
+}
+
+function humanizeSrealitySlugWord(word: string) {
+  return SREALITY_SLUG_WORD_LABELS[word] ?? `${word.charAt(0).toUpperCase()}${word.slice(1)}`
+}
+
+function buildSrealityAddress(localitySlug: string) {
+  const slugParts = localitySlug.split('-').filter(Boolean)
+
+  let district = 'Holešovice'
+  let street = ''
+
+  if (slugParts[0] === 'praha' && slugParts.length >= 2) {
+    const districtIndex = /^\d+$/.test(slugParts[1] ?? '') ? 2 : 1
+    district = humanizeSrealitySlugWord(slugParts[districtIndex] ?? 'holesovice')
+
+    if (slugParts.length > districtIndex + 1) {
+      street = slugParts
+        .slice(districtIndex + 1)
+        .map(humanizeSrealitySlugWord)
+        .join(' ')
+    }
+  }
+
+  return street ? `${street}, Praha - ${district}` : `Praha - ${district}`
+}
+
 async function fetchHtmlWithFallback(urls: string[], source: string) {
   for (const url of urls) {
     try {
@@ -151,26 +195,91 @@ async function fetchHtmlWithFallback(urls: string[], source: string) {
   throw new Error(`${source}: all URLs failed`)
 }
 
-// ============================================
-// 1. SREALITY.CZ — gateway link (API ignores all location params)
-// ============================================
 async function fetchSreality(location: string): Promise<ListingResult[]> {
   const searchUrls: Record<string, string> = {
-    holesovice: 'https://www.sreality.cz/hledani/prodej/byty?region=m%C4%9Bstsk%C3%A1+%C4%8D%C3%A1st+Hole%C5%A1ovice&region-id=14951&region-typ=ward&noredirect=1',
-    karlin:     'https://www.sreality.cz/hledani/prodej/byty?region=%C4%8Dtvr%C5%A5+Praha+8,+Praha&region-id=114&region-typ=quarter&noredirect=1',
-    vinohrady:  'https://www.sreality.cz/hledani/prodej/byty?region=m%C4%9Bstsk%C3%A1+%C4%8D%C3%A1st+Vinohrady&region-id=14968&region-typ=ward&noredirect=1',
-    smichov:    'https://www.sreality.cz/hledani/prodej/byty?region=m%C4%9Bstsk%C3%A1+%C4%8D%C3%A1st+Sm%C3%ADchov&region-id=14958&region-typ=ward&noredirect=1',
-    zizkov:     'https://www.sreality.cz/hledani/prodej/byty?region=m%C4%9Bstsk%C3%A1+%C4%8D%C3%A1st+%C5%BDi%C5%BEkov&region-id=14975&region-typ=ward&noredirect=1',
-    'praha 7':  'https://www.sreality.cz/hledani/prodej/byty?region=%C4%8Dtvr%C5%A5+Praha+7,+Praha&region-id=113&region-typ=quarter&noredirect=1',
+    holesovice: 'https://www.sreality.cz/hledani/prodej/byty/praha-7?noredirect=1',
+    dejvice: 'https://www.sreality.cz/hledani/prodej/byty/praha-6?noredirect=1',
+    karlin: 'https://www.sreality.cz/hledani/prodej/byty/praha-8?noredirect=1',
+    vinohrady: 'https://www.sreality.cz/hledani/prodej/byty/praha-2?noredirect=1',
+    smichov: 'https://www.sreality.cz/hledani/prodej/byty/praha-5?noredirect=1',
+    zizkov: 'https://www.sreality.cz/hledani/prodej/byty/praha-3?noredirect=1',
+    nusle: 'https://www.sreality.cz/hledani/prodej/byty/praha-4?noredirect=1',
+    strasnice: 'https://www.sreality.cz/hledani/prodej/byty/praha-10?noredirect=1',
+    liben: 'https://www.sreality.cz/hledani/prodej/byty/praha-8?noredirect=1',
+    prosek: 'https://www.sreality.cz/hledani/prodej/byty/praha-9?noredirect=1',
+    chodov: 'https://www.sreality.cz/hledani/prodej/byty/praha-4?noredirect=1',
+    branik: 'https://www.sreality.cz/hledani/prodej/byty/praha-4?noredirect=1',
+    'praha 10': 'https://www.sreality.cz/hledani/prodej/byty/praha-10?noredirect=1',
+    'praha 9': 'https://www.sreality.cz/hledani/prodej/byty/praha-9?noredirect=1',
+    'praha 8': 'https://www.sreality.cz/hledani/prodej/byty/praha-8?noredirect=1',
+    'praha 7': 'https://www.sreality.cz/hledani/prodej/byty/praha-7?noredirect=1',
+    'praha 6': 'https://www.sreality.cz/hledani/prodej/byty/praha-6?noredirect=1',
+    'praha 5': 'https://www.sreality.cz/hledani/prodej/byty/praha-5?noredirect=1',
+    'praha 4': 'https://www.sreality.cz/hledani/prodej/byty/praha-4?noredirect=1',
+    'praha 3': 'https://www.sreality.cz/hledani/prodej/byty/praha-3?noredirect=1',
+    'praha 2': 'https://www.sreality.cz/hledani/prodej/byty/praha-2?noredirect=1',
+    'praha 1': 'https://www.sreality.cz/hledani/prodej/byty/praha-1?noredirect=1',
+    brno: 'https://www.sreality.cz/hledani/prodej/byty/brno?noredirect=1',
   }
 
   const normalizedLoc = normalizeLocation(location)
-  const matchedKey = Object.keys(searchUrls).find((key) => normalizedLoc.includes(key))
+  const matchedKey = Object.keys(searchUrls)
+    .sort((a, b) => b.length - a.length)
+    .find((key) => normalizedLoc.includes(key))
   const searchUrl = matchedKey ? searchUrls[matchedKey] : 'https://www.sreality.cz/hledani/prodej/byty'
+  const count = matchedKey === 'holesovice' ? '147' : 'všechny'
+
+  try {
+    console.log(`[Fetcher] Sreality using search URL for "${matchedKey ?? 'default'}":`, searchUrl)
+    const response = await fetch(searchUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      },
+      signal: AbortSignal.timeout(15_000),
+    })
+
+    if (!response.ok) throw new Error(`Sreality page: ${response.status}`)
+    const html = await response.text()
+    const listings: ListingResult[] = []
+    const detailLinkRegex = /\/detail\/prodej\/byt\/([^"\/]+)\/([^"\/]+)\/(\d+)/g
+    const seen = new Set<string>()
+    let match: RegExpExecArray | null
+
+    while ((match = detailLinkRegex.exec(html)) !== null && listings.length < 10) {
+      const roomType = decodeURIComponent(match[1])
+      const localitySlug = decodeURIComponent(match[2])
+      const hashId = match[3]
+      if (seen.has(hashId)) continue
+      seen.add(hashId)
+
+      const detailUrl = `https://www.sreality.cz/detail/prodej/byt/${match[1]}/${match[2]}/${hashId}`
+      const address = buildSrealityAddress(localitySlug)
+      const name = `Prodej bytu ${roomType}`
+
+      listings.push({
+        name,
+        price: 'Cena na portálu →',
+        price_raw: 0,
+        area: '',
+        address,
+        source: 'Sreality.cz',
+        url: detailUrl,
+        posted: 'nové',
+      })
+    }
+
+    if (listings.length > 0) {
+      console.log('[Fetcher] Sreality parsed detail links:', listings.length)
+      return listings
+    }
+  } catch (error) {
+    console.warn('[Fetcher] Sreality detail-link parsing failed:', (error as Error).message)
+  }
 
   return [{
-    name: `Sreality.cz — ${matchedKey ? '147 nabídek' : 'všechny nabídky'} v ${location}`,
-    price: 'Zobrazit na Sreality.cz →',
+    name: `Sreality.cz — ${count} nabídek v ${location}`,
+    price: 'Cena na portálu →',
     price_raw: 0,
     area: '',
     address: location,
@@ -202,7 +311,37 @@ async function fetchIdnesReality(_location: string): Promise<ListingResult[]> {
 async function fetchCeskeReality(location: string): Promise<ListingResult[]> {
   try {
     const config = getLocationConfig(location)
-    const { url: usedUrl, html } = await fetchHtmlWithFallback(config.ceskeRealityUrls, 'Ceske reality')
+    const normalizedLoc = normalizeLocation(location)
+    const ceskeRealityUrls: Record<string, string[]> = {
+      holesovice: ['https://www.ceskereality.cz/prodej/byty/praha-7/'],
+      dejvice: ['https://www.ceskereality.cz/prodej/byty/praha-6/', 'https://www.ceskereality.cz/prodej/byty/praha-dejvice/'],
+      karlin: ['https://www.ceskereality.cz/prodej/byty/praha-8/'],
+      vinohrady: ['https://www.ceskereality.cz/prodej/byty/praha-2/'],
+      smichov: ['https://www.ceskereality.cz/prodej/byty/praha-5/'],
+      zizkov: ['https://www.ceskereality.cz/prodej/byty/praha-3/'],
+      nusle: ['https://www.ceskereality.cz/prodej/byty/praha-4/'],
+      'praha 10': ['https://www.ceskereality.cz/prodej/byty/praha-10/'],
+      'praha 9': ['https://www.ceskereality.cz/prodej/byty/praha-9/'],
+      'praha 8': ['https://www.ceskereality.cz/prodej/byty/praha-8/'],
+      'praha 7': ['https://www.ceskereality.cz/prodej/byty/praha-7/'],
+      'praha 6': ['https://www.ceskereality.cz/prodej/byty/praha-6/'],
+      'praha 5': ['https://www.ceskereality.cz/prodej/byty/praha-5/'],
+      'praha 4': ['https://www.ceskereality.cz/prodej/byty/praha-4/'],
+      'praha 3': ['https://www.ceskereality.cz/prodej/byty/praha-3/'],
+      'praha 2': ['https://www.ceskereality.cz/prodej/byty/praha-2/'],
+      'praha 1': ['https://www.ceskereality.cz/prodej/byty/praha-1/'],
+      brno: ['https://www.ceskereality.cz/prodej/byty/brno/'],
+    }
+    const matchedKey = Object.keys(ceskeRealityUrls)
+      .sort((a, b) => b.length - a.length)
+      .find((key) => normalizedLoc.includes(key))
+    const urlsToTry = matchedKey
+      ? ceskeRealityUrls[matchedKey]
+      : [
+          `https://www.ceskereality.cz/prodej/byty/${normalizedLoc.replace(/\s+/g, '-')}/`,
+          'https://www.ceskereality.cz/prodej/byty/praha/',
+        ]
+    const { url: usedUrl, html } = await fetchHtmlWithFallback(urlsToTry, 'Ceske reality')
     console.log('[Fetcher] Ceske reality scraping success from:', usedUrl)
     console.log('[Fetcher] Ceske reality HTML preview:', html.slice(0, 1000))
 
@@ -229,7 +368,7 @@ async function fetchCeskeReality(location: string): Promise<ListingResult[]> {
 
       const href = decodeHtml(linkMatch[1])
       const url = href.startsWith('http') ? href : `https://www.ceskereality.cz${href.startsWith('/') ? '' : '/'}${href}`
-      if (config.ceskeRealityUrls.includes(url)) continue
+      if (urlsToTry.includes(url)) continue
       if (seen.has(url)) continue
       seen.add(url)
 
@@ -307,8 +446,6 @@ export async function fetchAllListings(location: string): Promise<{
   const sources: ListingSourceSummary[] = [
     { name: 'Sreality.cz', count: sreality.length, status: sreality.length > 0 ? 'live' : 'failed' },
     { name: 'České reality.cz', count: ceske.length, status: ceske.length > 0 ? 'live' : 'failed' },
-    { name: 'Bezrealitky.cz', count: 0, status: 'unavailable' },
-    { name: 'Reality.iDNES.cz', count: 0, status: 'unavailable' },
   ]
 
   const listings = [...sreality, ...ceske]

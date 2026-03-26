@@ -1,8 +1,8 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import ReactMarkdown from 'react-markdown'
-import { CheckCircle2, Bell, ExternalLink, FileDown, FileText, Presentation, Wrench, Sparkles } from 'lucide-react'
+import { CheckCircle2, Bell, FileDown, FileText, Presentation, Wrench, Sparkles } from 'lucide-react'
 import InlineChart from './InlineChart'
 import InlineTable from './InlineTable'
 import EmailDraftCard from './EmailDraftCard'
@@ -10,8 +10,10 @@ import ComparisonCard from './ComparisonCard'
 import TimelineCard from './TimelineCard'
 import type { ChatMessage } from '@/lib/chat-store'
 import type { ChartConfig, ToolCallLogEntry } from '@/lib/agent/orchestrator'
+import type { MonitoringRule } from '@/types'
+import { useMonitoringStore } from '@/lib/monitoring-store'
 import { useTranslation } from '@/lib/useTranslation'
-import { formatCZK } from '@/lib/utils'
+import { cn, formatCZK } from '@/lib/utils'
 
 const TOOL_SUGGESTIONS: Record<string, { cs: string[]; en: string[] }> = {
   query_clients: {
@@ -177,6 +179,24 @@ function getContextualSuggestions(steps: ToolCallLogEntry[] | undefined, languag
   return suggestions
 }
 
+function normalizeMonitoringRule(rule: Record<string, unknown>): MonitoringRule | null {
+  const id = typeof rule.id === 'string' ? rule.id : ''
+  const location = typeof rule.location === 'string' ? rule.location : ''
+
+  if (!id || !location) return null
+
+  return {
+    id,
+    location,
+    filters: typeof rule.filters === 'object' && rule.filters !== null
+      ? (rule.filters as MonitoringRule['filters'])
+      : {},
+    frequency: rule.frequency === 'weekly' ? 'weekly' : 'daily',
+    active: rule.active !== false,
+    created_at: typeof rule.created_at === 'string' ? rule.created_at : new Date().toISOString(),
+  }
+}
+
 // ─── ThinkingSteps ────────────────────────────────────────────────────────
 
 function ThinkingSteps({ steps }: { steps: ToolCallLogEntry[] }) {
@@ -219,6 +239,8 @@ function TaskCreatedCard({ task }: { task: Record<string, unknown> }) {
 
 function MonitoringCard({ rule }: { rule: Record<string, unknown> }) {
   const { t, language } = useTranslation()
+  const addRule = useMonitoringStore((state) => state.addRule)
+  const persistedRule = useMemo(() => normalizeMonitoringRule(rule), [rule])
   const frequency = rule.frequency === 'daily' ? t.chat.frequencies.daily : t.chat.frequencies.weekly
   const propertyTypes = Array.isArray((rule.filters as { property_types?: unknown[] } | undefined)?.property_types)
     ? ((rule.filters as { property_types?: string[] }).property_types ?? [])
@@ -247,6 +269,11 @@ function MonitoringCard({ rule }: { rule: Record<string, unknown> }) {
   const sources = Array.isArray(rule.sources)
     ? (rule.sources as Array<Record<string, unknown>>)
     : []
+
+  useEffect(() => {
+    if (!persistedRule) return
+    addRule(persistedRule)
+  }, [addRule, persistedRule])
 
   return (
     <div className="mt-3 overflow-hidden rounded-2xl border border-green-500/20 bg-green-500/5 shadow-sm dark:shadow-none">
@@ -305,24 +332,29 @@ function MonitoringCard({ rule }: { rule: Record<string, unknown> }) {
                   const sourceStyle = MONITORING_SOURCE_STYLES[source] ?? 'border-border bg-muted/40 text-foreground'
                   const snippet = typeof listing.snippet === 'string' ? listing.snippet : ''
                   const url = typeof listing.url === 'string' ? listing.url : ''
-                  return (
-                    <div key={`${source}-${index}`} className="rounded-xl border border-border bg-background/80 p-3">
+                  const priceText = String(listing.price ?? t.chat.monitoringNoPriceLimit)
+                  const priceRaw = typeof listing.price_raw === 'number'
+                    ? listing.price_raw
+                    : Number(listing.price_raw ?? 0)
+                  const isPortalPriceCta = priceText === 'Cena na portálu →' || priceRaw === 0
+                  const cardContent = (
+                    <>
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
-                          {url ? (
-                            <a
-                              href={url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-sm font-semibold text-foreground transition-colors hover:text-primary"
-                            >
-                              {String(listing.name ?? '')}
-                            </a>
-                          ) : (
-                            <p className="text-sm font-semibold text-foreground">{String(listing.name ?? '')}</p>
-                          )}
-                          <p className="mt-1 text-sm text-foreground/80">{String(listing.price ?? t.chat.monitoringNoPriceLimit)}</p>
+                          <p className="text-sm font-semibold text-foreground transition-colors group-hover:text-primary">
+                            {String(listing.name ?? '')}
+                          </p>
                           <p className="mt-1 text-xs text-muted-foreground">{String(listing.address ?? '')}</p>
+                          <p
+                            className={cn(
+                              'mt-2 text-sm font-semibold',
+                              isPortalPriceCta
+                                ? 'text-sky-600 transition-colors group-hover:text-sky-500 dark:text-sky-300'
+                                : 'text-foreground/80'
+                            )}
+                          >
+                            {priceText}
+                          </p>
                           {snippet && (
                             <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{snippet}</p>
                           )}
@@ -331,17 +363,22 @@ function MonitoringCard({ rule }: { rule: Record<string, unknown> }) {
                           {source}
                         </span>
                       </div>
-                      {url && (
-                        <a
-                          href={url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary transition-colors hover:text-primary/80"
-                        >
-                          {t.chat.openOnPortal}
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
-                      )}
+                    </>
+                  )
+
+                  return url ? (
+                    <a
+                      key={`${source}-${index}`}
+                      href={url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="group block rounded-xl border border-border bg-background/80 p-3 transition-colors hover:border-primary/20 hover:bg-background"
+                    >
+                      {cardContent}
+                    </a>
+                  ) : (
+                    <div key={`${source}-${index}`} className="rounded-xl border border-border bg-background/80 p-3">
+                      {cardContent}
                     </div>
                   )
                 })}
