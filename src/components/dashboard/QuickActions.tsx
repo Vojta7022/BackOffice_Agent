@@ -16,7 +16,7 @@ export default function QuickActions() {
   const { t } = useTranslation()
   const actions: Action[] = [
     { label: t.dashboard.quickActionNewClient, icon: UserPlus, href: '/clients' },
-    { label: t.dashboard.quickActionNewProperty, icon: Plus, href: '/properties' },
+    { label: t.dashboard.quickActionNewProperty, icon: Plus, href: '/properties?new=true' },
     {
       label: t.dashboard.quickActionGenerateReport,
       icon: FileText,

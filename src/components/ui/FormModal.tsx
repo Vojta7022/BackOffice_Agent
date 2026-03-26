@@ -41,22 +41,24 @@ export default function FormModal({
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !isSubmitting && onOpenChange(nextOpen)}>
-      <DialogContent className={cn('sm:max-w-2xl', className)}>
-        <DialogHeader>
+      <DialogContent className={cn('flex max-h-[calc(100vh-2rem)] flex-col overflow-hidden p-0 sm:max-w-2xl', className)}>
+        <DialogHeader className="shrink-0 border-b border-border px-6 py-5 pr-12">
           <DialogTitle>{title}</DialogTitle>
           {description ? <DialogDescription>{description}</DialogDescription> : null}
         </DialogHeader>
 
-        <form className="space-y-4" onSubmit={onSubmit}>
-          {children}
+        <form className="flex min-h-0 flex-1 flex-col" onSubmit={onSubmit}>
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-5">
+            {children}
 
-          {error ? (
-            <p className="rounded-xl border border-red-500/30 bg-red-500/5 px-3 py-2 text-sm text-red-500">
-              {error}
-            </p>
-          ) : null}
+            {error ? (
+              <p className="rounded-xl border border-red-500/30 bg-red-500/5 px-3 py-2 text-sm text-red-500">
+                {error}
+              </p>
+            ) : null}
+          </div>
 
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="flex shrink-0 justify-end gap-2 border-t border-border bg-card/95 px-6 py-4 backdrop-blur">
             <Button
               type="button"
               variant="outline"

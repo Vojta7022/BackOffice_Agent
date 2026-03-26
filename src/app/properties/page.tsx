@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { Search, Home, SlidersHorizontal, AlertTriangle, Pencil, Eye } from 'lucide-react'
+import { Search, Home, SlidersHorizontal, AlertTriangle, Pencil, Eye, Plus } from 'lucide-react'
 import FormModal from '@/components/ui/FormModal'
 import { ErrorState } from '@/components/ui/async-state'
 import PropertyDetail from '@/components/properties/PropertyDetail'
@@ -38,6 +38,44 @@ function createPropertyFormValues(property: Property): PropertyFormValues {
   }
 }
 
+interface CreatePropertyFormValues {
+  name: string
+  type: PropertyType
+  status: PropertyStatus
+  price: string
+  area_sqm: string
+  rooms: string
+  floor: string
+  total_floors: string
+  street: string
+  city: string
+  district: string
+  zip: string
+  year_built: string
+  renovation_status: RenovationStatus | 'null'
+  description: string
+}
+
+function createEmptyCreatePropertyForm(): CreatePropertyFormValues {
+  return {
+    name: '',
+    type: 'apartment',
+    status: 'available',
+    price: '',
+    area_sqm: '',
+    rooms: '',
+    floor: '',
+    total_floors: '',
+    street: '',
+    city: 'Praha',
+    district: '',
+    zip: '',
+    year_built: '',
+    renovation_status: 'null',
+    description: '',
+  }
+}
+
 function StatusBadge({ status }: { status: PropertyStatus }) {
   const { t } = useTranslation()
 
@@ -59,7 +97,7 @@ function TypeBadge({ type }: { type: PropertyType }) {
 }
 
 function isRental(property: Property): boolean {
-  return property.status === 'rented' || property.price < 200_000
+  return property.status === 'rented'
 }
 
 function PropertyCard({
@@ -177,6 +215,10 @@ export default function PropertiesPage() {
   const [status, setStatus] = useState<PropertyStatus | ''>('')
   const [type, setType] = useState<PropertyType | ''>('')
   const [city, setCity] = useState('')
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [createFormValues, setCreateFormValues] = useState<CreatePropertyFormValues>(createEmptyCreatePropertyForm())
+  const [createFormError, setCreateFormError] = useState<string | null>(null)
+  const [isCreating, setIsCreating] = useState(false)
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null)
   const [editingProperty, setEditingProperty] = useState<Property | null>(null)
   const [formValues, setFormValues] = useState<PropertyFormValues | null>(null)
@@ -203,10 +245,33 @@ export default function PropertiesPage() {
     }
   }, [city, search, status, t.common.connectionError, t.common.unknownError, type])
 
+  function openCreateModal() {
+    setCreateFormValues(createEmptyCreatePropertyForm())
+    setCreateFormError(null)
+    setIsCreateModalOpen(true)
+  }
+
+  function closeCreateModal() {
+    setIsCreateModalOpen(false)
+    setCreateFormValues(createEmptyCreatePropertyForm())
+    setCreateFormError(null)
+  }
+
   useEffect(() => {
-    const initialSearch = new URLSearchParams(window.location.search).get('search')
+    const params = new URLSearchParams(window.location.search)
+    const initialSearch = params.get('search')
     if (initialSearch) {
       setSearch(initialSearch)
+    }
+
+    if (params.get('new') === 'true') {
+      setCreateFormValues(createEmptyCreatePropertyForm())
+      setCreateFormError(null)
+      setIsCreateModalOpen(true)
+      params.delete('new')
+      const nextQuery = params.toString()
+      const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}`
+      window.history.replaceState(window.history.state, '', nextUrl)
     }
   }, [])
 
@@ -251,6 +316,74 @@ export default function PropertiesPage() {
     setEditingProperty(property)
     setFormValues(createPropertyFormValues(property))
     setFormError(null)
+  }
+
+  async function handleCreateSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setCreateFormError(null)
+
+    if (!createFormValues.name.trim()) {
+      setCreateFormError(t.properties.validationNameRequired)
+      return
+    }
+
+    const price = Number(createFormValues.price)
+    if (!Number.isFinite(price) || price <= 0) {
+      setCreateFormError(t.properties.invalidPrice)
+      return
+    }
+
+    const areaSqm = Number(createFormValues.area_sqm)
+    if (!Number.isFinite(areaSqm) || areaSqm <= 0) {
+      setCreateFormError(t.properties.validationAreaRequired)
+      return
+    }
+
+    if (!createFormValues.street.trim() || !createFormValues.city.trim() || !createFormValues.district.trim()) {
+      setCreateFormError(t.properties.validationAddressRequired)
+      return
+    }
+
+    const parseOptionalNumber = (value: string) => {
+      if (!value.trim()) return null
+      const parsed = Number(value)
+      return Number.isFinite(parsed) ? parsed : null
+    }
+
+    setIsCreating(true)
+
+    try {
+      await fetchJson<{ property: Property }>('/api/properties', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: createFormValues.name.trim(),
+          type: createFormValues.type,
+          status: createFormValues.status,
+          price,
+          area_sqm: areaSqm,
+          rooms: parseOptionalNumber(createFormValues.rooms),
+          floor: parseOptionalNumber(createFormValues.floor),
+          total_floors: parseOptionalNumber(createFormValues.total_floors),
+          year_built: parseOptionalNumber(createFormValues.year_built),
+          renovation_status: createFormValues.renovation_status === 'null' ? null : createFormValues.renovation_status,
+          description: createFormValues.description.trim(),
+          address: {
+            street: createFormValues.street.trim(),
+            city: createFormValues.city.trim(),
+            district: createFormValues.district.trim(),
+            zip: createFormValues.zip.trim(),
+          },
+        }),
+      })
+
+      closeCreateModal()
+      await fetchProperties()
+    } catch (error) {
+      setCreateFormError(error instanceof Error ? error.message : t.common.unknownError)
+    } finally {
+      setIsCreating(false)
+    }
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -322,6 +455,15 @@ export default function PropertiesPage() {
           />
         </div>
 
+        <button
+          type="button"
+          onClick={openCreateModal}
+          className="button-smooth inline-flex items-center gap-2 rounded-2xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90 dark:shadow-none"
+        >
+          <Plus className="h-4 w-4" />
+          {t.properties.addNew}
+        </button>
+
         <div className="flex items-center gap-2 rounded-2xl border border-border bg-card px-3 py-2 shadow-sm dark:shadow-none">
           <SlidersHorizontal className="h-4 w-4 shrink-0 text-muted-foreground" />
           <select
@@ -392,6 +534,187 @@ export default function PropertiesPage() {
           </div>
         )}
       </div>
+
+      <FormModal
+        open={isCreateModalOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeCreateModal()
+            return
+          }
+          setIsCreateModalOpen(true)
+        }}
+        title={t.properties.newTitle}
+        submitLabel={t.properties.saveNew}
+        submitLoadingLabel={t.properties.savingNew}
+        isSubmitting={isCreating}
+        error={createFormError}
+        onSubmit={handleCreateSubmit}
+      >
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="space-y-2 md:col-span-2">
+            <span className="text-sm font-medium text-foreground">{t.properties.name}</span>
+            <input
+              value={createFormValues.name}
+              onChange={(event) => setCreateFormValues((current) => ({ ...current, name: event.target.value }))}
+              className={FIELD_CLASSNAME}
+            />
+          </label>
+
+          <label className="space-y-2">
+            <span className="text-sm font-medium text-foreground">{t.properties.type}</span>
+            <select
+              value={createFormValues.type}
+              onChange={(event) => setCreateFormValues((current) => ({ ...current, type: event.target.value as PropertyType }))}
+              className={FIELD_CLASSNAME}
+            >
+              {Object.entries(t.properties.typeLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="space-y-2">
+            <span className="text-sm font-medium text-foreground">{t.properties.status}</span>
+            <select
+              value={createFormValues.status}
+              onChange={(event) => setCreateFormValues((current) => ({ ...current, status: event.target.value as PropertyStatus }))}
+              className={FIELD_CLASSNAME}
+            >
+              {Object.entries(t.properties.statusLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="space-y-2">
+            <span className="text-sm font-medium text-foreground">{t.properties.price} (CZK)</span>
+            <input
+              type="number"
+              value={createFormValues.price}
+              onChange={(event) => setCreateFormValues((current) => ({ ...current, price: event.target.value }))}
+              className={FIELD_CLASSNAME}
+              placeholder={t.properties.pricePlaceholder}
+            />
+          </label>
+
+          <label className="space-y-2">
+            <span className="text-sm font-medium text-foreground">{t.properties.area} (m²)</span>
+            <input
+              type="number"
+              value={createFormValues.area_sqm}
+              onChange={(event) => setCreateFormValues((current) => ({ ...current, area_sqm: event.target.value }))}
+              className={FIELD_CLASSNAME}
+            />
+          </label>
+
+          <label className="space-y-2">
+            <span className="text-sm font-medium text-foreground">{t.properties.rooms}</span>
+            <input
+              type="number"
+              value={createFormValues.rooms}
+              onChange={(event) => setCreateFormValues((current) => ({ ...current, rooms: event.target.value }))}
+              className={FIELD_CLASSNAME}
+            />
+          </label>
+
+          <label className="space-y-2">
+            <span className="text-sm font-medium text-foreground">{t.properties.floor}</span>
+            <input
+              type="number"
+              value={createFormValues.floor}
+              onChange={(event) => setCreateFormValues((current) => ({ ...current, floor: event.target.value }))}
+              className={FIELD_CLASSNAME}
+            />
+          </label>
+
+          <label className="space-y-2">
+            <span className="text-sm font-medium text-foreground">{t.properties.totalFloors}</span>
+            <input
+              type="number"
+              value={createFormValues.total_floors}
+              onChange={(event) => setCreateFormValues((current) => ({ ...current, total_floors: event.target.value }))}
+              className={FIELD_CLASSNAME}
+            />
+          </label>
+
+          <label className="space-y-2 md:col-span-2">
+            <span className="text-sm font-medium text-foreground">{t.properties.street}</span>
+            <input
+              value={createFormValues.street}
+              onChange={(event) => setCreateFormValues((current) => ({ ...current, street: event.target.value }))}
+              className={FIELD_CLASSNAME}
+            />
+          </label>
+
+          <label className="space-y-2">
+            <span className="text-sm font-medium text-foreground">{t.properties.city}</span>
+            <input
+              value={createFormValues.city}
+              onChange={(event) => setCreateFormValues((current) => ({ ...current, city: event.target.value }))}
+              className={FIELD_CLASSNAME}
+            />
+          </label>
+
+          <label className="space-y-2">
+            <span className="text-sm font-medium text-foreground">{t.properties.district}</span>
+            <input
+              value={createFormValues.district}
+              onChange={(event) => setCreateFormValues((current) => ({ ...current, district: event.target.value }))}
+              className={FIELD_CLASSNAME}
+            />
+          </label>
+
+          <label className="space-y-2">
+            <span className="text-sm font-medium text-foreground">{t.properties.zip}</span>
+            <input
+              value={createFormValues.zip}
+              onChange={(event) => setCreateFormValues((current) => ({ ...current, zip: event.target.value }))}
+              className={FIELD_CLASSNAME}
+            />
+          </label>
+
+          <label className="space-y-2">
+            <span className="text-sm font-medium text-foreground">{t.properties.yearBuilt}</span>
+            <input
+              type="number"
+              value={createFormValues.year_built}
+              onChange={(event) => setCreateFormValues((current) => ({ ...current, year_built: event.target.value }))}
+              className={FIELD_CLASSNAME}
+            />
+          </label>
+
+          <label className="space-y-2">
+            <span className="text-sm font-medium text-foreground">{t.properties.renovationStatus}</span>
+            <select
+              value={createFormValues.renovation_status}
+              onChange={(event) => setCreateFormValues((current) => ({ ...current, renovation_status: event.target.value as RenovationStatus | 'null' }))}
+              className={FIELD_CLASSNAME}
+            >
+              <option value="null">{t.properties.unspecified}</option>
+              {Object.entries(t.properties.renovationLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="space-y-2 md:col-span-2">
+            <span className="text-sm font-medium text-foreground">{t.properties.description}</span>
+            <textarea
+              value={createFormValues.description}
+              onChange={(event) => setCreateFormValues((current) => ({ ...current, description: event.target.value }))}
+              className={cn(FIELD_CLASSNAME, 'min-h-[140px] resize-y')}
+              placeholder={t.properties.descriptionPlaceholder}
+            />
+          </label>
+        </div>
+      </FormModal>
 
       <FormModal
         open={!!editingProperty && !!formValues}

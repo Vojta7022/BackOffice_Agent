@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/database'
 import { Property, PropertyStatus, PropertyType, RenovationStatus } from '@/types'
 
+const PROPERTY_TYPES: PropertyType[] = ['apartment', 'house', 'land', 'commercial', 'office']
 const PROPERTY_STATUSES: PropertyStatus[] = ['available', 'reserved', 'sold', 'rented']
 const RENOVATION_STATUSES: RenovationStatus[] = ['original', 'partial', 'full']
 
@@ -71,6 +72,66 @@ function buildPropertyUpdates(body: Record<string, unknown>): { data?: Partial<P
   return { data: updates }
 }
 
+function buildPropertyCreateData(body: Record<string, unknown>): { data?: Omit<Property, 'id' | 'created_at' | 'updated_at'>; error?: string } {
+  if (!isString(body.name) || !body.name.trim()) return { error: 'Název nemovitosti je povinný.' }
+  if (!isEnumValue(body.type, PROPERTY_TYPES)) return { error: 'Typ nemovitosti není platný.' }
+  if (!isEnumValue(body.status, PROPERTY_STATUSES)) return { error: 'Stav nemovitosti není platný.' }
+  if (!isNumber(body.price) || body.price <= 0) return { error: 'Cena musí být kladné číslo.' }
+  if (!isNumber(body.area_sqm) || body.area_sqm <= 0) return { error: 'Plocha musí být kladné číslo.' }
+  if (!isRecord(body.address)) return { error: 'Adresa nemovitosti je povinná.' }
+
+  const address = body.address
+  if (!isString(address.street) || !address.street.trim()) return { error: 'Ulice je povinná.' }
+  if (!isString(address.city) || !address.city.trim()) return { error: 'Město je povinné.' }
+  if (!isString(address.district) || !address.district.trim()) return { error: 'Městská část je povinná.' }
+  if (address.zip !== undefined && !isString(address.zip)) return { error: 'PSČ musí být text.' }
+
+  if (body.rooms !== undefined && body.rooms !== null && !isNumber(body.rooms)) {
+    return { error: 'Počet pokojů musí být číslo nebo prázdná hodnota.' }
+  }
+  if (body.floor !== undefined && body.floor !== null && !isNumber(body.floor)) {
+    return { error: 'Patro musí být číslo nebo prázdná hodnota.' }
+  }
+  if (body.total_floors !== undefined && body.total_floors !== null && !isNumber(body.total_floors)) {
+    return { error: 'Celkem pater musí být číslo nebo prázdná hodnota.' }
+  }
+  if (body.year_built !== undefined && body.year_built !== null && !isNumber(body.year_built)) {
+    return { error: 'Rok výstavby musí být číslo nebo prázdná hodnota.' }
+  }
+  if (body.renovation_status !== undefined && body.renovation_status !== null && !isEnumValue(body.renovation_status, RENOVATION_STATUSES)) {
+    return { error: 'Stav rekonstrukce není platný.' }
+  }
+  if (body.description !== undefined && !isString(body.description)) {
+    return { error: 'Popis musí být text.' }
+  }
+
+  return {
+    data: {
+      name: body.name.trim(),
+      type: body.type,
+      status: body.status,
+      price: body.price,
+      area_sqm: body.area_sqm,
+      rooms: (body.rooms as number | null | undefined) ?? null,
+      floor: (body.floor as number | null | undefined) ?? null,
+      total_floors: (body.total_floors as number | null | undefined) ?? null,
+      year_built: (body.year_built as number | null | undefined) ?? null,
+      renovation_status: (body.renovation_status as RenovationStatus | null | undefined) ?? null,
+      renovation_year: null,
+      construction_notes: null,
+      description: isString(body.description) ? body.description.trim() : '',
+      address: {
+        street: address.street.trim(),
+        city: address.city.trim(),
+        district: address.district.trim(),
+        zip: isString(address.zip) ? address.zip.trim() : '',
+      },
+      images: [],
+      owner_id: '',
+    },
+  }
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = req.nextUrl
@@ -88,6 +149,22 @@ export async function GET(req: NextRequest) {
         })
 
     return NextResponse.json({ properties, total: properties.length })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    return NextResponse.json({ error: msg }, { status: 500 })
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json()
+    if (!isRecord(body)) return badRequest('Neplatná data nemovitosti.')
+
+    const result = buildPropertyCreateData(body)
+    if (result.error) return badRequest(result.error)
+
+    const property = db.addProperty(result.data as Omit<Property, 'id' | 'created_at' | 'updated_at'>)
+    return NextResponse.json({ property }, { status: 201 })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     return NextResponse.json({ error: msg }, { status: 500 })

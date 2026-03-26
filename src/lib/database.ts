@@ -199,6 +199,18 @@ class Database {
     return this.properties.find((property) => property.id === id)
   }
 
+  addProperty(data: Omit<Property, 'id' | 'created_at' | 'updated_at'>): Property {
+    const property: Property = {
+      ...data,
+      id: `prop-${Date.now()}`,
+      created_at: NOW,
+      updated_at: NOW,
+    }
+
+    this.properties.push(property)
+    return property
+  }
+
   updateProperty(id: string, updates: Partial<Property>): Property | null {
     const index = this.properties.findIndex((property) => property.id === id)
     if (index === -1) return null

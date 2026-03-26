@@ -93,7 +93,7 @@ function getMapUrl(property: Property) {
 }
 
 function isRental(property: Property) {
-  return property.status === 'rented' || property.price < 200_000
+  return property.status === 'rented'
 }
 
 function formatPrompt(template: string, name: string) {

@@ -181,6 +181,8 @@ export interface Translations {
   properties: {
     title: string
     total: string
+    addNew: string
+    newTitle: string
     search: string
     allStatuses: string
     allTypes: string
@@ -200,18 +202,30 @@ export interface Translations {
     editTitle: string
     noResults: string
     noResultsHint: string
+    name: string
+    type: string
     price: string
     area: string
     status: string
+    street: string
+    city: string
+    district: string
+    zip: string
     renovationStatus: string
     renovationYear: string
     yearBuilt: string
+    totalFloors: string
     pricePerSqm: string
     constructionNotes: string
     description: string
+    saveNew: string
     saveEdit: string
+    savingNew: string
     savingEdit: string
+    validationNameRequired: string
     invalidPrice: string
+    validationAreaRequired: string
+    validationAddressRequired: string
     unspecified: string
     rental: string
     missingData: string
@@ -624,6 +638,8 @@ const cs: Translations = {
   properties: {
     title: 'Nemovitosti',
     total: 'nemovitosti',
+    addNew: 'Přidat nemovitost',
+    newTitle: 'Nová nemovitost',
     search: 'Hledat nemovitosti...',
     allStatuses: 'Všechny stavy',
     allTypes: 'Všechny typy',
@@ -643,18 +659,30 @@ const cs: Translations = {
     editTitle: 'Upravit nemovitost',
     noResults: 'Žádné nemovitosti nenalezeny',
     noResultsHint: 'Zkuste upravit filtry nebo vyhledávací dotaz',
+    name: 'Název nemovitosti',
+    type: 'Typ',
     price: 'Cena',
     area: 'Plocha',
     status: 'Stav',
+    street: 'Ulice',
+    city: 'Město',
+    district: 'Městská část',
+    zip: 'PSČ',
     renovationStatus: 'Stav rekonstrukce',
     renovationYear: 'Rok rekonstrukce',
     yearBuilt: 'Rok výstavby',
+    totalFloors: 'Celkem pater',
     pricePerSqm: 'Cena za m²',
     constructionNotes: 'Stavební poznámky',
     description: 'Popis',
+    saveNew: 'Vytvořit nemovitost',
     saveEdit: 'Uložit změny',
+    savingNew: 'Vytvářím nemovitost...',
     savingEdit: 'Ukládám změny...',
+    validationNameRequired: 'Zadejte název nemovitosti.',
     invalidPrice: 'Cena musí být kladné číslo.',
+    validationAreaRequired: 'Plocha musí být kladné číslo.',
+    validationAddressRequired: 'Vyplňte ulici, město a městskou část.',
     unspecified: 'Neuvedeno',
     rental: 'Pronájem',
     missingData: 's chybějícími daty',
@@ -1124,6 +1152,8 @@ const en: Translations = {
   properties: {
     title: 'Properties',
     total: 'properties',
+    addNew: 'Add property',
+    newTitle: 'New property',
     search: 'Search properties...',
     allStatuses: 'All statuses',
     allTypes: 'All types',
@@ -1143,18 +1173,30 @@ const en: Translations = {
     editTitle: 'Edit property',
     noResults: 'No properties found',
     noResultsHint: 'Try adjusting filters or the search query',
+    name: 'Property name',
+    type: 'Type',
     price: 'Price',
     area: 'Area',
     status: 'Status',
+    street: 'Street',
+    city: 'City',
+    district: 'District',
+    zip: 'ZIP code',
     renovationStatus: 'Renovation status',
     renovationYear: 'Renovation year',
     yearBuilt: 'Year built',
+    totalFloors: 'Total floors',
     pricePerSqm: 'Price per m²',
     constructionNotes: 'Construction notes',
     description: 'Description',
+    saveNew: 'Create property',
     saveEdit: 'Save changes',
+    savingNew: 'Creating property...',
     savingEdit: 'Saving changes...',
+    validationNameRequired: 'Enter the property name.',
     invalidPrice: 'Price must be a positive number.',
+    validationAreaRequired: 'Area must be a positive number.',
+    validationAddressRequired: 'Fill in street, city, and district.',
     unspecified: 'Not specified',
     rental: 'Rental',
     missingData: 'with missing data',
