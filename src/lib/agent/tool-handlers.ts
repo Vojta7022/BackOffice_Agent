@@ -363,8 +363,8 @@ function handleEstimatePropertyValue(input: Record<string, unknown>): ToolResult
 
   const normalizedCity = normalizeQuery(city)
   const normalizedDistrict = normalizeQuery(district)
-  const propertyById = new Map(db.getAllProperties().map((property) => [property.id, property]))
-  const allProps = [...propertyById.values()]
+  const allProps = db.getAllProperties()
+  const propertyById = new Map(allProps.map((property) => [property.id, property]))
   const isComparableProperty = (property: Property) => {
     const cityMatch = normalizeQuery(property.address.city) === normalizedCity
     const distMatch = normalizeQuery(property.address.district).includes(normalizedDistrict)
