@@ -1,105 +1,64 @@
-# RE:Agent — Back Office Operations
+# Backoffice Agent
 
-AI asistent pro správu realitní kanceláře. Odpovídá na dotazy v přirozeném jazyce, generuje grafy, navrhuje emaily a vytváří reporty nad daty z vaší kanceláře.
+## Overview
 
----
+RE:Agent is an AI assistant for real-estate agency backoffice work. It turns agency data into natural-language answers, charts, drafted emails, and operational reports.
 
-## Screenshot
+## What it does
 
-> _Přidejte screenshot po prvním spuštění._
+- Answer natural-language questions over agency data.
+- Generate dashboard-style summaries and charts.
+- Draft client or internal emails from structured context.
+- Expose task, lead, transaction, and dashboard API routes for the app UI.
 
----
+## User workflows
 
-## Technologie
+- Run the web app, open the dashboard, and ask operational questions about agency data.
+- Use generated chart/report outputs for management review.
+- Review drafted emails before sending them outside the app.
 
-| Vrstva | Technologie |
-|--------|-------------|
-| Framework | Next.js 14 (App Router) |
-| AI model | Claude Haiku 4.5 (`claude-haiku-4-5-20251001`) |
-| Grafy | Recharts |
-| Stylování | Tailwind CSS v3 + shadcn/ui |
-| Stav | Zustand |
-| Jazyk | TypeScript (strict) |
+## Stack
 
----
+- Next.js app with TypeScript.
+- React UI and API routes under `src/app`.
+- Agent tool handlers under `src/lib/agent`.
+- Project data modules under `src/data`.
 
-## Spuštění lokálně
+## Project structure
 
-```bash
-# 1. Klonování repozitáře
-git clone https://github.com/your-username/backoffice-agent.git
-cd backoffice-agent
+- `src/app/` - pages and API routes.
+- `src/lib/agent/` - agent tools and handlers.
+- `src/data/` - seeded business data.
+- `package.json` - scripts and dependencies.
 
-# 2. Instalace závislostí
-npm install
+## Setup
 
-# 3. Nastavení prostředí
-cp .env.example .env.local
-# Otevřete .env.local a doplňte váš Anthropic API klíč:
-# ANTHROPIC_API_KEY=sk-ant-...
+- Install Node dependencies with `npm install`.
+- Create `.env.local` from the project example if present.
+- Start the app with `npm run dev`.
 
-# 4. Spuštění vývojového serveru
-npm run dev
-```
+## Common commands
 
-Aplikace bude dostupná na [http://localhost:3000](http://localhost:3000).
+- `npm run dev` - development server.
+- `npm run build` - production build.
+- `npm run start` - serve built app.
+- `npm run lint` - lint checks.
 
----
+## Configuration and secrets
 
-## Nasazení na Vercel
+- `OPENAI_API_KEY`, `GEMINI_API_KEY`, or `GROQ_API_KEY` may be used by AI features depending on the active provider.
+- Google OAuth variables are used for Google integrations. Keep all values in `.env.local`, never in docs.
 
-1. Pushněte repozitář na GitHub
-2. Importujte projekt na [vercel.com](https://vercel.com)
-3. V nastavení projektu přidejte proměnnou prostředí:
-   - **Name:** `ANTHROPIC_API_KEY`
-   - **Value:** váš klíč z [console.anthropic.com](https://console.anthropic.com)
-4. Klikněte na **Deploy**
+## Data, storage, and integrations
 
-Soubor `vercel.json` je předkonfigurován — chat API route má `maxDuration: 60` sekund pro delší AI odpovědi.
+- Local TypeScript data modules provide demo or seed entities.
+- Google integrations use OAuth credentials and refresh tokens when enabled.
 
----
+## Troubleshooting
 
-## Co agent umí
+- If AI answers fail, verify the selected provider key exists in `.env.local`.
+- If Google features fail, refresh OAuth credentials and redirect URI configuration.
 
-- **Dotazy na data** — klienti, leady, nemovitosti, transakce s filtrováním a agregacemi
-- **Grafy** — sloupcové, čárové, plošné a koláčové grafy přímo v chatu
-- **Reporty** — týdenní/měsíční přehledy pro vedení s klíčovými metrikami
-- **Emailové návrhy** — agent napíše email zájemci nebo klientovi, vy ho jen zkopírujete
-- **Správa úkolů** — vytvoření úkolu s termínem a prioritou přes přirozený jazyk
-- **Monitoring trhu** — nastavení upozornění na nové nabídky v zadané lokalitě a cenové relaci
+## Documentation maintenance
 
----
-
-## Architektura
-
-```
-src/
-├── app/
-│   ├── api/              # Next.js API Routes (chat, dashboard, properties, clients, tasks)
-│   ├── chat/             # Chat stránka s AI asistentem
-│   ├── clients/          # Přehled klientů
-│   ├── monitoring/       # Nastavení monitoringu trhu
-│   ├── properties/       # Přehled nemovitostí
-│   └── tasks/            # Kanban board úkolů
-├── components/
-│   ├── chat/             # ChatMessages, MessageBubble, InlineChart, InlineTable, …
-│   ├── dashboard/        # KPICards, ChartsRow, RecentActivity, QuickActions
-│   └── layout/           # Sidebar, Header, MainWrapper
-├── data/                 # In-memory seed data (agenti, klienti, nemovitosti, …)
-├── lib/
-│   ├── agent/            # Orchestrátor, nástroje (tools), handlery
-│   ├── database.ts       # Singleton s 20 dotazovacími metodami nad seed daty
-│   ├── chat-store.ts     # Zustand store pro chat zprávy
-│   └── store.ts          # Zustand store pro sidebar a téma
-└── types/                # Sdílené TypeScript typy
-```
-
-Agent (`src/lib/agent/orchestrator.ts`) přijme zprávu, v cyklu volá až 14 nástrojů (paralelně přes `Promise.all`), sestaví odpověď a vrátí ji jako `AgentResponse` s textem, grafy, tabulkami a dalšími strukturovanými daty.
-
----
-
-## Prostředí
-
-| Proměnná | Popis |
-|----------|-------|
-| `ANTHROPIC_API_KEY` | API klíč z [console.anthropic.com](https://console.anthropic.com) |
+Update this README whenever functionality, setup, commands, environment variables, storage, integrations, or user workflows change. Follow the CoS project documentation standard in `../../../docs/project-documentation-standard.md` or `../../docs/project-documentation-standard.md` depending on the project depth. Never include real secret values.
